@@ -73,8 +73,8 @@ class Const(Expr):
     def get_leaves(self):
         return []
 
-    def visit(self, system):
-        system.on_const(self.r)
+    def visit(self, solver):
+        solver.on_const(self.r)
 
     def evaluate(self, vs):
         return self.r
@@ -82,17 +82,17 @@ class Const(Expr):
 
 class Variable(Expr):
     def __init__(self, name):
-        self.name = name
+        self.name = name # any object
 
     def __str__(self):
-        return self.name
+        return str(self.name)
     __repr__ = __str__
 
     def get_leaves(self):
         yield self
 
-    def visit(self, system):
-        system.on_variable(self)
+    def visit(self, solver):
+        solver.on_variable(self)
 
     def __hash__(self):
         return id(self)
@@ -116,9 +116,9 @@ class Add(Expr):
             for leaf in item.get_leaves():
                 yield leaf
 
-    def visit(self, system):
+    def visit(self, solver):
         for item in self.items:
-            item.visit(system)
+            item.visit(solver)
 
     def evaluate(self, vs):
         r = 0.
@@ -142,10 +142,10 @@ class Scale(Expr):
         for leaf in item.get_leaves():
             yield leaf
 
-    def visit(self, system):
-        system.on_scale(self.r)
-        self.item.visit(system)
-        system.on_scale(1./self.r) # too whacky ??
+    def visit(self, solver):
+        solver.on_scale(self.r)
+        self.item.visit(solver)
+        solver.on_scale(1./self.r) # too whacky ??
         # push / pop scale instead ?
 
     def evaluate(self, vs):
@@ -173,12 +173,12 @@ class Relation(Term):
         for leaf in self.rhs.get_leaves():
             yield leaf
 
-    def visit(self, system):
-        system.on_relation(self)
-        self.lhs.visit(system)
-        system.on_scale(-1.0)
-        self.rhs.visit(system)
-        system.on_finish()
+    def visit(self, solver):
+        solver.on_relation(self)
+        self.lhs.visit(solver)
+        solver.on_scale(-1.0)
+        self.rhs.visit(solver)
+        solver.on_finish()
 
 EPSILON = 1e-6
 
@@ -201,16 +201,18 @@ class Eq(Relation):
 
 
 
-class System(object):
+class Solver(object):
     DEBUG = False
 
     def __init__(self, items=[]):
+        assert len(items)
         self.items = list(items)
         vs = []
         for item in items:
+            assert isinstance(item, Term)
             vs += list(item.get_leaves())
         vs = list(set(vs))
-        vs.sort(key = lambda v:v.name)
+        vs.sort(key = lambda v:str(v.name))
         lookup = dict((v, idx) for (idx,v) in enumerate(vs))
 
         self.vs = vs
@@ -226,7 +228,7 @@ class System(object):
         self.rhs = None
 
         for item in items:
-            self.debug("System:", item)
+            self.debug("Solver:", item)
             item.visit(self)
 
     def debug(self, *args, **kw):
@@ -238,21 +240,21 @@ class System(object):
 
     def on_variable(self, v):
         idx = self.lookup[v]
-        self.debug("System.on_variable", self.r, v)
+        self.debug("Solver.on_variable", self.r, v)
         self.lhs[idx] += self.r 
 
     def on_const(self, r):
-        self.debug("System.on_const", self.r, r)
+        self.debug("Solver.on_const", self.r, r)
         self.rhs -= self.r * r
 
     def on_relation(self, rel):
-        self.debug("System.on_relation", self.r, rel)
+        self.debug("Solver.on_relation", self.r, rel)
         self.lhs = [0.]*self.n
         self.rhs = 0.
         self.op = rel.op
             
     def on_finish(self):
-        self.debug("System.on_finish")
+        self.debug("Solver.on_finish")
         if self.op == '<=':
             self.leqs.append((self.lhs, self.rhs))
         elif self.op == '==':
@@ -269,12 +271,21 @@ class System(object):
         eqs = self.eqs
         n = self.n
         c = numpy.array([1.]*n) # XXX could use another Expr for this XXX
-        A_ub = numpy.array([lhs for lhs,rhs in self.leqs])
-        b_ub = numpy.array([rhs for lhs,rhs in self.leqs])
-        A_eq = numpy.array([lhs for lhs,rhs in self.eqs])
-        b_eq = numpy.array([rhs for lhs,rhs in self.eqs])
-        result = linprog(
-            c, A_ub, b_ub, A_eq, b_eq)
+        if len(leqs):
+            A_ub = numpy.array([lhs for lhs,rhs in leqs])
+            b_ub = numpy.array([rhs for lhs,rhs in leqs])
+        else:
+            A_ub = numpy.zeros((0, n))
+            b_ub = numpy.zeros((0,))
+        if len(eqs):
+            A_eq = numpy.array([lhs for lhs,rhs in eqs])
+            b_eq = numpy.array([rhs for lhs,rhs in eqs])
+        else:
+            A_eq = numpy.zeros((0, n))
+            b_eq = numpy.zeros((0,))
+        #print(c)
+        #print(A_ub)
+        result = linprog(c, A_ub, b_ub, A_eq, b_eq)
         self.debug(result)
         assert result.success, result
         vs = {}
@@ -291,6 +302,34 @@ class System(object):
         return vs
 
 
+class System(object):
+
+    def __init__(self):
+        self.stems = {}
+        self.items = []
+        self.lookup = None
+
+    def get_var(self, stem="v"):
+        idx = self.stems.get(stem, -1) + 1
+        v = Variable('%s.%d'%(stem, idx))
+        self.stems[stem] = idx
+        return v
+
+    def add(self, item):
+        assert isinstance(item, Term)
+        self.items.append(item)
+
+    def solve(self):
+        assert self.lookup is None, "already called solve!"
+        solver = Solver(self.items)
+        self.lookup = solver.solve()
+
+    def __getitem__(self, v):
+        assert isinstance(v, Variable)
+        assert self.lookup is not None, "call solve first!"
+        return self.lookup[v]
+
+
 def main():
     x = Variable('x')
     y = Variable('y')
@@ -302,10 +341,18 @@ def main():
         y >= 3.
     ]
 
-    system = System(items)
+    solver = Solver(items)
 
-    result = system.solve()
+    result = solver.solve()
     print(result)
+
+    system = System()
+    v = system.get_var()
+    u = system.get_var()
+    w = system.get_var()
+    system.add(v+u+w == 3.)
+    system.solve()
+    print(system[v] + system[u] + system[w])
 
 
 if __name__ == "__main__":
