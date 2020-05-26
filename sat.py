@@ -181,7 +181,7 @@ class Relation(Term):
         self.rhs.visit(solver)
         solver.on_finish()
 
-EPSILON = 1e-6
+EPSILON = 1e-4 # ???
 
 class Le(Relation):
     op = "<="
@@ -300,7 +300,8 @@ class Solver(object):
                 self.debug(item, "?", e)
                 if not e:
                     print("WARNING: constraint failed")
-                    print(item)
+                    print("%s: lhs=%s, rhs=%s" %(
+                        item, item.lhs.evaluate(vs), item.rhs.evaluate(vs)))
                     print("--------------------------")
 
         return vs
@@ -315,7 +316,7 @@ class System(object):
 
     def get_var(self, stem="v"):
         idx = self.stems.get(stem, -1) + 1
-        v = Variable('%s.%d'%(stem, idx))
+        v = Variable('%s_%d'%(stem, idx))
         self.stems[stem] = idx
         return v
 
@@ -329,6 +330,8 @@ class System(object):
         self.lookup = solver.solve()
 
     def __getitem__(self, v):
+        if isinstance(v, (int, float)):
+            return v
         assert isinstance(v, Variable)
         assert self.lookup is not None, "call solve first!"
         return self.lookup[v]

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from random import random
 from math import pi
 
 import cairo
@@ -32,16 +33,25 @@ text_path transform translate user_to_device user_to_device_distance
 from bruhat.render.sat import Variable, System
 from bruhat.argv import argv
 
+def rnd(a, b):
+    return (b-a)*random() + a
 
 class Box(object):
 
     DEBUG = True
+    fixed = False
 
     def on_layout(self, cxt, system):
+        assert not self.fixed, "already called on_layout"
+        if self.DEBUG:
+            print("%s.on_layout" % (self.__class__.__name__,))
         for attr in 'x y left right top bot'.split():
+            if attr in self.__dict__:
+                continue
             stem = self.__class__.__name__ + '.' + attr
             v = system.get_var(stem)
             setattr(self, attr, v)
+        self.fixed = True
 
     def on_render(self, cxt, system):
         if not self.DEBUG:
@@ -86,6 +96,19 @@ class Box(object):
         self.on_render(cxt, system)
 
 
+class EmptyBox(Box):
+    def __init__(self, top, bot, left, right):
+        self.top = top
+        self.bot = bot
+        self.left = left
+        self.right = right
+        self.DEBUG = True
+
+    def on_layout(self, cxt, system):
+        #assert "x" not in self.__dict__
+        Box.on_layout(self, cxt, system)
+
+
 class TextBox(Box):
     def __init__(self, text):
         self.text = text
@@ -113,6 +136,11 @@ class CompoundBox(Box):
         assert len(boxs)
         self.boxs = list(boxs)
 
+    def on_layout(self, cxt, system):
+        Box.on_layout(self, cxt, system)
+        for box in self.boxs:
+            box.on_layout(cxt, system)
+
     def on_render(self, cxt, system):
         Box.on_render(self, cxt, system)
         for box in self.boxs:
@@ -123,16 +151,14 @@ class HBox(CompoundBox):
     def on_layout(self, cxt, system):
         CompoundBox.on_layout(self, cxt, system)
         boxs = self.boxs
-        x = self.x
+        left = self.x
         for box in boxs:
-            box.on_layout(cxt, system)
-            system.add(self.y == box.y) # horizontal align
-            system.add(box.x == x)
-            x += box.width
-            #system.add(box.height <= self.height)
+            system.add(self.y == box.y) # align
+            system.add(box.x - box.left == left)
+            left += box.width
             system.add(box.top <= self.top)
             system.add(box.bot <= self.bot)
-        system.add(self.width == sum(box.width for box in boxs))
+        system.add(self.x + self.width == left)
         system.add(self.left == 0.)
 
 
@@ -140,17 +166,15 @@ class VBox(CompoundBox):
     def on_layout(self, cxt, system):
         CompoundBox.on_layout(self, cxt, system)
         boxs = self.boxs
-        y = self.y
-        for box in reversed(boxs):
-            box.on_layout(cxt, system)
-            system.add(self.x == box.x) # horizontal align
-            system.add(box.y+box.bot == y)
-            y -= box.height
-            #system.add(box.width <= self.width)
+        top = self.y
+        for box in boxs:
+            system.add(self.x == box.x) # align
+            system.add(box.y - box.top == top)
+            top += box.height
             system.add(box.left <= self.left)
             system.add(box.right <= self.right)
-        system.add(self.height == sum(box.height for box in boxs))
-        system.add(self.bot == 0.)
+        system.add(self.y + self.height == top)
+        system.add(self.top == 0.)
 
 
 def main():
@@ -160,13 +184,38 @@ def main():
     cxt = cairo.Context(surface)
     #print(' '.join(dir(cxt)))
     
-    box = HBox([
-        VBox([TextBox(text) for text in "xxx1 ggg2 xxx3 xx4".split()]),
-        VBox([TextBox(text) for text in "123 xfdl sdal".split()]),
-    ])
+#    box = HBox([
+#        VBox([TextBox(text) for text in "xxx1 ggg2 xxx3 xx4".split()]),
+#        VBox([TextBox(text) for text in "123 xfdl sdal".split()]),
+#    ])
+
+    
+    if 1:
+        a, b = 10, 20
+        rows = []
+        for row in range(2):
+            boxs = []
+            for col in range(2):
+                top = rnd(a, b)
+                bot = rnd(a, b)
+                left = rnd(a, b)
+                right = rnd(a, b)
+                box = EmptyBox(top, bot, left, right)
+                boxs.append(box)
+            boxs.append(TextBox("hi !"))
+            box = HBox(boxs)
+            rows.append(box)
+        box = VBox(rows)
+
+#    box = VBox([
+#        EmptyBox(20, 5, 5, 18),
+#        EmptyBox(10, 8, 9, 16),
+#    ])
 
     #box = TextBox('xyyxy !')
     box.render(cxt, W/2., H/2.)
+
+    surface.finish()
 
 
 def test():
@@ -234,7 +283,7 @@ if __name__ == "__main__":
     #test()
     main()
 
-    print("OK")
+    print("OK\n")
 
 
 
