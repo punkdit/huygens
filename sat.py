@@ -25,6 +25,7 @@ class Expr(object):
     def __add__(self, other):
         other = Expr.promote(other)
         return Add([self, other])
+    __radd__ = __add__
 
     def __neg__(self):
         return Scale(self, -1.0)
@@ -297,7 +298,10 @@ class Solver(object):
             for item in self.items:
                 e = item.evaluate(vs)
                 self.debug(item, "?", e)
-                assert e
+                if not e:
+                    print("WARNING: constraint failed")
+                    print(item)
+                    print("--------------------------")
 
         return vs
 
