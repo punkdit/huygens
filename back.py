@@ -192,11 +192,22 @@ RGB = RGBA
 #
 
 
-class Draw(StringAble):
+class Drawable(StringAble):
     pass
 
 
-class DecoPath(Draw):
+class Text(Drawable):
+    def __init__(self, x, y, text):
+        self.x = x
+        self.y = y
+        self.text = text
+
+    def process_cairo(self, cxt):
+        cxt.move_to(self.x, self.y)
+        cxt.show_text(self.text)
+
+
+class DecoPath(Drawable):
     "A Path and a list of Deco's"
     def __init__(self, path, decos=[]):
         assert isinstance(path, Path)
@@ -218,14 +229,14 @@ class DecoPath(Draw):
 
 
 class Canvas(StringAble):
-    "A list of Draw's"
+    "A list of Drawable's"
     def __init__(self, draws=[]):
         for draw in draws:
-            assert isinstance(draw, Draw)
+            assert isinstance(draw, Drawable)
         self.draws = list(draws)
 
     def append(self, draw):
-        assert isinstance(draw, Draw)
+        assert isinstance(draw, Drawable)
         self.draws.append(draw)
 
     def stroke(self, path, decos=[]):
@@ -240,13 +251,25 @@ class Canvas(StringAble):
         draw = DecoPath(path, decos)
         self.append(draw)
 
+    def text_extents(self, text):
+        import cairo
+        surface = cairo.PDFSurface("/dev/null", 0, 0)
+        cxt = cairo.Context(surface)
+        return cxt.text_extents(text)
+
+    def text(self, x, y, text):
+        #print("Canvas.text", x, y, text)
+        draw = Text(x, y, text)
+        self.append(draw)
+
     def writePDFfile(self, name):
-        print(self)
+        #print(self)
         import cairo
         W, H = 200, 200
         assert name.endswith(".pdf")
         surface = cairo.PDFSurface(name, W, H)
         cxt = cairo.Context(surface)
+        cxt.set_line_width(0.5)
         for draw in self.draws:
             draw.process_cairo(cxt)
         surface.finish()

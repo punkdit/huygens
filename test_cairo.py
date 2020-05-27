@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-from random import random
+from random import random, seed
+seed(0)
+
 from math import pi
 
 import cairo
@@ -117,6 +119,7 @@ class TextBox(Box):
         Box.on_layout(self, cxt, system)
         extents = cxt.text_extents(self.text)
         (dx, dy, width, height, _, _) = extents
+        #print("TextBox(%s): extents = %s" % (self.text, extents))
         system.add(self.left + self.right == width+dx)
         system.add(self.top + self.bot == height)
         system.add(self.left == 0)

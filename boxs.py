@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-from random import random
+from random import random, seed
+seed(0)
+
 from math import pi
 
 
 from bruhat.render.sat import Variable, System
-from bruhat.render import back
+from bruhat.render.back import RGBA, path, Canvas
 from bruhat.argv import argv
 
 
@@ -17,7 +19,7 @@ class Box(object):
     DEBUG = True
     fixed = False
 
-    def on_layout(self, cxt, system):
+    def on_layout(self, cvs, system):
         assert not self.fixed, "already called on_layout"
         if self.DEBUG:
             print("%s.on_layout" % (self.__class__.__name__,))
@@ -29,31 +31,21 @@ class Box(object):
             setattr(self, attr, v)
         self.fixed = True
 
-    def on_render(self, cxt, system):
+    def on_render(self, cvs, system):
         if not self.DEBUG:
             return
-        cxt.save()
-        cxt.set_source_rgba(1., 0., 0., 0.5)
         x = system[self.x]
         y = system[self.y]
         left = system[self.left]
         right = system[self.right]
         top = system[self.top]
         bot = system[self.bot]
-        cxt.set_line_width(0.5)
-        #cxt.move_to(x, y)
-        #cxt.arc(x, y, 1.0, 0, 2*pi)
-        #cxt.stroke()
+        #cvs.set_line_width(0.5)
+        cl = RGBA(1., 0., 0., 0.5)
         r = 1.4
-        cxt.move_to(x-r, y-r)
-        cxt.line_to(x+r, y+r)
-        cxt.stroke()
-        cxt.move_to(x+r, y-r)
-        cxt.line_to(x-r, y+r)
-        cxt.stroke()
-        cxt.rectangle(x-left, y-top, left+right, top+bot)
-        cxt.stroke()
-        cxt.restore()
+        cvs.stroke(path.line(x-r, y-r, x+r, y+r), [cl])
+        cvs.stroke(path.line(x+r, y-r, x-r, y+r), [cl])
+        cvs.stroke(path.rect(x-left, y-top, left+right, top+bot), [cl])
 
     @property
     def width(self):
@@ -63,13 +55,13 @@ class Box(object):
     def height(self):
         return self.top + self.bot
 
-    def render(self, cxt, x=0, y=0):
+    def render(self, cvs, x=0, y=0):
         system = System()
-        self.on_layout(cxt, system)
+        self.on_layout(cvs, system)
         system.add(self.x == x)
         system.add(self.y == y)
         system.solve()
-        self.on_render(cxt, system)
+        self.on_render(cvs, system)
 
 
 class EmptyBox(Box):
@@ -80,18 +72,18 @@ class EmptyBox(Box):
         self.right = right
         self.DEBUG = True
 
-    def on_layout(self, cxt, system):
+    def on_layout(self, cvs, system):
         #assert "x" not in self.__dict__
-        Box.on_layout(self, cxt, system)
+        Box.on_layout(self, cvs, system)
 
 
 class TextBox(Box):
     def __init__(self, text):
         self.text = text
 
-    def on_layout(self, cxt, system):
-        Box.on_layout(self, cxt, system)
-        extents = cxt.text_extents(self.text)
+    def on_layout(self, cvs, system):
+        Box.on_layout(self, cvs, system)
+        extents = cvs.text_extents(self.text)
         (dx, dy, width, height, _, _) = extents
         system.add(self.left + self.right == width+dx)
         system.add(self.top + self.bot == height)
@@ -99,12 +91,11 @@ class TextBox(Box):
         assert dy <= 0., dy
         system.add(self.top == -dy)
 
-    def on_render(self, cxt, system):
-        Box.on_render(self, cxt, system)
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
         x = system[self.x]
         y = system[self.y]
-        cxt.move_to(x, y)
-        cxt.show_text(self.text)
+        cvs.text(x, y, self.text)
 
 
 class CompoundBox(Box):
@@ -112,20 +103,20 @@ class CompoundBox(Box):
         assert len(boxs)
         self.boxs = list(boxs)
 
-    def on_layout(self, cxt, system):
-        Box.on_layout(self, cxt, system)
+    def on_layout(self, cvs, system):
+        Box.on_layout(self, cvs, system)
         for box in self.boxs:
-            box.on_layout(cxt, system)
+            box.on_layout(cvs, system)
 
-    def on_render(self, cxt, system):
-        Box.on_render(self, cxt, system)
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
         for box in self.boxs:
-            box.on_render(cxt, system)
+            box.on_render(cvs, system)
 
 
 class HBox(CompoundBox):
-    def on_layout(self, cxt, system):
-        CompoundBox.on_layout(self, cxt, system)
+    def on_layout(self, cvs, system):
+        CompoundBox.on_layout(self, cvs, system)
         boxs = self.boxs
         left = self.x
         for box in boxs:
@@ -139,8 +130,8 @@ class HBox(CompoundBox):
 
 
 class VBox(CompoundBox):
-    def on_layout(self, cxt, system):
-        CompoundBox.on_layout(self, cxt, system)
+    def on_layout(self, cvs, system):
+        CompoundBox.on_layout(self, cvs, system)
         boxs = self.boxs
         top = self.y
         for box in boxs:
@@ -154,11 +145,6 @@ class VBox(CompoundBox):
 
 
 def main():
-    W, H = 200, 200
-    #surface = cairo.SVGSurface("example.svg", W, H)
-    surface = cairo.PDFSurface("example.pdf", W, H)
-    cxt = cairo.Context(surface)
-    #print(' '.join(dir(cxt)))
     
 #    box = HBox([
 #        VBox([TextBox(text) for text in "xxx1 ggg2 xxx3 xx4".split()]),
@@ -189,9 +175,11 @@ def main():
 #    ])
 
     #box = TextBox('xyyxy !')
-    box.render(cxt, W/2., H/2.)
 
-    surface.finish()
+    W, H = 200, 200
+    cvs = Canvas()
+    box.render(cvs, W/2., H/2.)
+    cvs.writePDFfile("output.pdf")
 
 
 if __name__ == "__main__":
