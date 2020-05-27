@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Expose a _drawing api ...
+Expose a _drawing api with multiple (hopefully) backens.
 """
 
 #from math import pi
@@ -197,14 +197,24 @@ class Drawable(StringAble):
 
 
 class Text(Drawable):
-    def __init__(self, x, y, text):
+    def __init__(self, x, y, text, decos=[]):
+        for deco in decos:
+            assert isinstance(deco, Deco)
         self.x = x
         self.y = y
         self.text = text
+        self.decos = list(decos)
 
     def process_cairo(self, cxt):
+        decos = self.decos
+        cxt.save()
+        for deco in decos:
+            deco.pre_process_cairo(cxt)
         cxt.move_to(self.x, self.y)
         cxt.show_text(self.text)
+        for deco in decos:
+            deco.post_process_cairo(cxt)
+        cxt.restore()
 
 
 class DecoPath(Drawable):
@@ -257,9 +267,9 @@ class Canvas(StringAble):
         cxt = cairo.Context(surface)
         return cxt.text_extents(text)
 
-    def text(self, x, y, text):
+    def text(self, x, y, text, decos=[]):
         #print("Canvas.text", x, y, text)
-        draw = Text(x, y, text)
+        draw = Text(x, y, text, decos)
         self.append(draw)
 
     def writePDFfile(self, name):

@@ -164,7 +164,7 @@ def main():
                 right = rnd(a, b)
                 box = EmptyBox(top, bot, left, right)
                 boxs.append(box)
-            boxs.append(TextBox("hi !"))
+            boxs.append(TextBox("hig !"))
             box = HBox(boxs)
             rows.append(box)
         box = VBox(rows)
