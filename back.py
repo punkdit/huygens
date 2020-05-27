@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 
 """
-Expose a drawing api ...
+Expose a _drawing api ...
 """
 
 #from math import pi
+
+class StringAble(object):
+    def __str__(self):
+        return "%s(%s)"%(self.__class__.__name__, self.__dict__)
+    __repr__ = __str__
 
 
 # ----------------------------------------------------------------------------
 # Item's go in Path's
 #
 
-class Item(object):
-    def __str__(self):
-        return "%s(%s)"%(self.__class__.__name__, self.__dict__)
-    __repr__ = __str__
+class Item(StringAble):
 
     def process_cairo(self, cxt):
         pass
@@ -53,8 +55,7 @@ class Curveto(Item):
         self.y2 = y2
 
     def process_cairo(self, cxt):
-        cxt.curve_to(self.x0, self.y0, 
-            self.x1, self.y1, self.x2, self.y2)
+        cxt.curve_to(self.x0, self.y0, self.x1, self.y1, self.x2, self.y2)
 
 
 class RMoveto(Item):
@@ -111,11 +112,15 @@ class Arcn(Arc):
 # Path's : a list of Item's
 #
 
-class Path(object):
+class Path(StringAble):
     def __init__(self, items):
         for item in items:
             assert isinstance(item, Item)
         self.items = list(items)
+
+    def process_cairo(self, cxt):
+        for item in self.items:
+            item.process_cairo(cxt)
 
 
 class Line(Path):
@@ -149,5 +154,138 @@ class Circle(Path):
             Arc(x, y, r, 0, 360),
             ClosePath()])
         
+
+# ----------------------------------------------------------------------------
+# Deco
+#
+
+
+class Deco(StringAble):
+    def pre_process_cairo(self, cxt):
+        pass
+
+    def post_process_cairo(self, cxt):
+        pass
+
+
+class Stroke(Deco):
+    def post_process_cairo(self, cxt):
+        cxt.stroke()
+
+class Fill(Deco):
+    def post_process_cairo(self, cxt):
+        cxt.fill()
+
+class RGBA(Deco):
+    def __init__(self, r, g, b, a=1.0):
+        self.cl = (r, g, b, a)
+
+    def pre_process_cairo(self, cxt):
+        cxt.set_source_rgba(*self.cl)
+
+RGB = RGBA
+    
+
+
+# ----------------------------------------------------------------------------
+# Canvas
+#
+
+
+class Draw(StringAble):
+    pass
+
+
+class DecoPath(Draw):
+    "A Path and a list of Deco's"
+    def __init__(self, path, decos=[]):
+        assert isinstance(path, Path)
+        for deco in decos:
+            assert isinstance(deco, Deco)
+        self.path = path
+        self.decos = list(decos)
+
+    def process_cairo(self, cxt):
+        decos = self.decos
+        path = self.path
+        cxt.save()
+        for deco in decos:
+            deco.pre_process_cairo(cxt)
+        self.path.process_cairo(cxt)
+        for deco in decos:
+            deco.post_process_cairo(cxt)
+        cxt.restore()
+
+
+class Canvas(StringAble):
+    "A list of Draw's"
+    def __init__(self, draws=[]):
+        for draw in draws:
+            assert isinstance(draw, Draw)
+        self.draws = list(draws)
+
+    def append(self, draw):
+        assert isinstance(draw, Draw)
+        self.draws.append(draw)
+
+    def stroke(self, path, decos=[]):
+        decos = list(decos)
+        decos.append(Stroke())
+        draw = DecoPath(path, decos)
+        self.append(draw)
+
+    def fill(self, path, decos=[]):
+        decos = list(decos)
+        decos.append(Fill())
+        draw = DecoPath(path, decos)
+        self.append(draw)
+
+    def writePDFfile(self, name):
+        print(self)
+        import cairo
+        W, H = 200, 200
+        assert name.endswith(".pdf")
+        surface = cairo.PDFSurface(name, W, H)
+        cxt = cairo.Context(surface)
+        for draw in self.draws:
+            draw.process_cairo(cxt)
+        surface.finish()
+
+    def writeSVGfile(self, name):
+        assert name.endswith(".svg")
+        surface = cairo.SVGSurface(name, W, H)
+
+
+
+# ----------------------------------------------------------------------------
+# namespaces
+#
+
+class NS(object):
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+path = NS(line = Line, curve = Curve, rect = Rect, circle = Circle)
+
+
+# ----------------------------------------------------------------------------
+# test
+#
+
+def test():
+
+    cvs = Canvas()
+
+    cvs.stroke(path.line(10, 10, 50, 50))
+
+    cvs.writePDFfile("output.pdf")
+
+
+
+if __name__ == "__main__":
+    test()
+
+
+
 
 
