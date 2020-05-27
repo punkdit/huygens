@@ -27,7 +27,10 @@ class Box(object):
             if attr in self.__dict__:
                 continue
             stem = self.__class__.__name__ + '.' + attr
-            v = system.get_var(stem)
+
+            # We don't try to minimize the absolute coordinate values.
+            weight = 1.0 if attr not in 'xy' else 0.0
+            v = system.get_var(stem, weight)
             setattr(self, attr, v)
         self.fixed = True
 
@@ -45,7 +48,7 @@ class Box(object):
         r = 1.4
         cvs.stroke(path.line(x-r, y-r, x+r, y+r), [cl])
         cvs.stroke(path.line(x+r, y-r, x-r, y+r), [cl])
-        cvs.stroke(path.rect(x-left, y-top, left+right, top+bot), [cl])
+        cvs.stroke(path.rect(x-left, y-bot, left+right, top+bot), [cl])
 
     @property
     def width(self):
@@ -118,6 +121,7 @@ class HBox(CompoundBox):
     def on_layout(self, cvs, system):
         CompoundBox.on_layout(self, cvs, system)
         boxs = self.boxs
+        system.add(self.left == 0.)
         left = self.x
         for box in boxs:
             system.add(self.y == box.y) # align
@@ -126,22 +130,23 @@ class HBox(CompoundBox):
             system.add(box.top <= self.top)
             system.add(box.bot <= self.bot)
         system.add(self.x + self.width == left)
-        system.add(self.left == 0.)
 
 
 class VBox(CompoundBox):
     def on_layout(self, cvs, system):
         CompoundBox.on_layout(self, cvs, system)
         boxs = self.boxs
-        top = self.y
+        system.add(self.top == 0.)
+        y = self.y
         for box in boxs:
             system.add(self.x == box.x) # align
-            system.add(box.y - box.top == top)
-            top += box.height
+            system.add(box.y + box.top == y)
+            y -= box.height
             system.add(box.left <= self.left)
             system.add(box.right <= self.right)
-        system.add(self.y + self.height == top)
-        system.add(self.top == 0.)
+        system.add(self.y - self.bot == y)
+        #system.add(self.bot == 20)
+        #system.add(self.bot == sum(box.height for box in boxs))
 
 
 def main():
@@ -151,8 +156,21 @@ def main():
 #        VBox([TextBox(text) for text in "123 xfdl sdal".split()]),
 #    ])
 
+    if 0:
+        box = VBox([
+            EmptyBox(40., 10., 0., 20.),
+            EmptyBox(30., 0., 5., 25.),
+            EmptyBox(10., 5., 5., 5.),
+        ])
+
+        #box = VBox([HBox([EmptyBox(10., 10., 10., 10.)])])
     
-    if 1:
+        cvs = Canvas()
+        box.render(cvs, 100., 100.)
+        cvs.writePDFfile("outbox.pdf")
+        #return
+    
+    else:
         a, b = 10, 20
         rows = []
         for row in range(2):
@@ -169,17 +187,17 @@ def main():
             rows.append(box)
         box = VBox(rows)
 
-#    box = VBox([
-#        EmptyBox(20, 5, 5, 18),
-#        EmptyBox(10, 8, 9, 16),
-#    ])
-
-    #box = TextBox('xyyxy !')
-
-    W, H = 200, 200
-    cvs = Canvas()
-    box.render(cvs, W/2., H/2.)
-    cvs.writePDFfile("output.pdf")
+    #    box = VBox([
+    #        EmptyBox(20, 5, 5, 18),
+    #        EmptyBox(10, 8, 9, 16),
+    #    ])
+    
+        #box = TextBox('xyyxy !')
+    
+        W, H = 200, 200
+        cvs = Canvas()
+        box.render(cvs, W/2., H/2.)
+        cvs.writePDFfile("output.pdf")
 
 
 if __name__ == "__main__":

@@ -82,8 +82,9 @@ class Const(Expr):
 
 
 class Variable(Expr):
-    def __init__(self, name):
+    def __init__(self, name, weight=1.0):
         self.name = name # any object
+        self.weight = weight # relative importance w.r.t. minimize
 
     def __str__(self):
         return str(self.name)
@@ -271,7 +272,8 @@ class Solver(object):
         leqs = self.leqs
         eqs = self.eqs
         n = self.n
-        c = numpy.array([1.]*n) # XXX could use another Expr for this XXX
+        weights = [self.vs[i].weight for i in range(n)]
+        c = numpy.array(weights)
         if len(leqs):
             A_ub = numpy.array([lhs for lhs,rhs in leqs])
             b_ub = numpy.array([rhs for lhs,rhs in leqs])
@@ -314,9 +316,9 @@ class System(object):
         self.items = []
         self.lookup = None
 
-    def get_var(self, stem="v"):
+    def get_var(self, stem="v", weight=1.0):
         idx = self.stems.get(stem, -1) + 1
-        v = Variable('%s_%d'%(stem, idx))
+        v = Variable('%s_%d'%(stem, idx), weight)
         self.stems[stem] = idx
         return v
 
