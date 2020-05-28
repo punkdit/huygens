@@ -19,6 +19,10 @@ The api uses the first quadrant coordinate system:
 
 #from math import pi
 
+
+CAIRO_SCALE = 72.0/2.54 # convert cm's to points at 72 dpi.
+
+
 class Base(object):
     def __str__(self):
         return "%s(%s)"%(self.__class__.__name__, self.__dict__)
@@ -94,8 +98,8 @@ class ClosePath(Item):
 
 class Moveto(Item):
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
+        self.x = CAIRO_SCALE*x
+        self.y = CAIRO_SCALE*y
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -106,8 +110,8 @@ class Moveto(Item):
 
 class Lineto(Item):
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
+        self.x = CAIRO_SCALE*x
+        self.y = CAIRO_SCALE*y
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -118,12 +122,12 @@ class Lineto(Item):
 
 class Curveto(Item):
     def __init__(self, x0, y0, x1, y1, x2, y2):
-        self.x0 = x0
-        self.y0 = y0
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
+        self.x0 = CAIRO_SCALE*x0
+        self.y0 = CAIRO_SCALE*y0
+        self.x1 = CAIRO_SCALE*x1
+        self.y1 = CAIRO_SCALE*y1
+        self.x2 = CAIRO_SCALE*x2
+        self.y2 = CAIRO_SCALE*y2
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -134,8 +138,8 @@ class Curveto(Item):
 
 class RMoveto(Item):
     def __init__(self, dx, dy):
-        self.dx = dx
-        self.dy = dy
+        self.dx = CAIRO_SCALE*dx
+        self.dy = CAIRO_SCALE*dy
 
     def get_bound(self):
         assert 0, "???"
@@ -146,8 +150,8 @@ class RMoveto(Item):
 
 class RLineto(Item):
     def __init__(self, dx, dy):
-        self.dx = dx
-        self.dy = dy
+        self.dx = CAIRO_SCALE*dx
+        self.dy = CAIRO_SCALE*dy
 
     def get_bound(self):
         assert 0, "???"
@@ -158,12 +162,12 @@ class RLineto(Item):
 
 class RCurveto(Item):
     def __init__(self, dx0, dy0, dx1, dy1, dx2, dy2):
-        self.dx0 = dx0
-        self.dy0 = dy0
-        self.dx1 = dx1
-        self.dy1 = dy1
-        self.dx2 = dx2
-        self.dy2 = dy2
+        self.dx0 = CAIRO_SCALE*dx0
+        self.dy0 = CAIRO_SCALE*dy0
+        self.dx1 = CAIRO_SCALE*dx1
+        self.dy1 = CAIRO_SCALE*dy1
+        self.dx2 = CAIRO_SCALE*dx2
+        self.dy2 = CAIRO_SCALE*dy2
 
     def get_bound(self):
         assert 0, "???"
@@ -176,9 +180,9 @@ class RCurveto(Item):
 class Arc(Item):
     def __init__(self, x, y, r, angle1, angle2):
         "angle in degrees"
-        self.x = x
-        self.y = y
-        self.r = r
+        self.x = CAIRO_SCALE*x
+        self.y = CAIRO_SCALE*y
+        self.r = CAIRO_SCALE*r
         self.angle1 = angle1
         self.angle2 = angle2
 
@@ -302,8 +306,8 @@ class Text(Drawable):
     def __init__(self, x, y, text, decos=[]):
         for deco in decos:
             assert isinstance(deco, Deco)
-        self.x = x
-        self.y = y
+        self.x = CAIRO_SCALE*x
+        self.y = CAIRO_SCALE*y
         self.text = text
         self.decos = list(decos)
 
@@ -379,7 +383,8 @@ class Canvas(Base):
         self.append(draw)
 
     def text_extents(self, text):
-        return text_extents_cairo(text)
+        dx, dy, width, height, _, _ = text_extents_cairo(text)
+        return (dx/CAIRO_SCALE, dy/CAIRO_SCALE, width/CAIRO_SCALE, height/CAIRO_SCALE)
 
     def text(self, x, y, text, decos=[]):
         #print("Canvas.text", x, y, text)
@@ -388,23 +393,34 @@ class Canvas(Base):
 
     def writePDFfile(self, name):
         #print(self)
+        assert name.endswith(".pdf")
 
         bound = self.get_bound()
         print(bound)
 
+        SCALE = 1.0
+
         import cairo
-        #W, H = 200., 200. # point == 1/72 inch
-        W = bound.width
-        H = bound.height
-        assert name.endswith(".pdf")
-        surface = cairo.PDFSurface(name, W, H)
-        #print(dir(surface))
-        #surface.set_device_offset(x_off, y_off) # translate everything
-        dx = 0. - bound.llx
-        dy = H + bound.lly
-        surface.set_device_offset(dx, dy)
+
+        if 0:
+            W, H = 200., 200. # point == 1/72 inch
+            surface = cairo.PDFSurface(name, W, H)
+
+            dx = 0
+            dy = H
+            surface.set_device_offset(dx, dy)
+
+        else:
+            W = bound.width
+            H = bound.height
+            surface = cairo.PDFSurface(name, W, H)
+
+            dx = 0 - bound.llx
+            dy = H + bound.lly
+            surface.set_device_offset(dx, dy)
 
         cxt = cairo.Context(surface)
+        cxt.scale(SCALE, SCALE)
         cxt.set_line_width(0.5)
         for draw in self.draws:
             draw.process_cairo(cxt)

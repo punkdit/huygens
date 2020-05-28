@@ -82,9 +82,11 @@ class Const(Expr):
 
 
 class Variable(Expr):
-    def __init__(self, name, weight=1.0):
+    def __init__(self, name, weight=1.0, vmin=None, vmax=None):
         self.name = name # any object
         self.weight = weight # relative importance w.r.t. minimize
+        self.vmin = vmin
+        self.vmax = vmax
 
     def __str__(self):
         return str(self.name)
@@ -273,6 +275,7 @@ class Solver(object):
         eqs = self.eqs
         n = self.n
         weights = [self.vs[i].weight for i in range(n)]
+        bounds = [(self.vs[i].vmin, self.vs[i].vmax) for i in range(n)]
         c = numpy.array(weights)
         if len(leqs):
             A_ub = numpy.array([lhs for lhs,rhs in leqs])
@@ -288,7 +291,7 @@ class Solver(object):
             b_eq = numpy.zeros((0,))
         #print(c)
         #print(A_ub)
-        result = linprog(c, A_ub, b_ub, A_eq, b_eq)
+        result = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds)
         self.debug(result)
         assert result.success, result
         vs = {}
@@ -316,9 +319,9 @@ class System(object):
         self.items = []
         self.lookup = None
 
-    def get_var(self, stem="v", weight=1.0):
+    def get_var(self, stem="v", weight=1.0, vmin=None, vmax=None):
         idx = self.stems.get(stem, -1) + 1
-        v = Variable('%s_%d'%(stem, idx), weight)
+        v = Variable('%s_%d'%(stem, idx), weight, vmin=vmin, vmax=vmax)
         self.stems[stem] = idx
         return v
 

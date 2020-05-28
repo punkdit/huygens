@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from random import random, seed
-seed(0)
 
 from math import pi
 
@@ -45,7 +44,7 @@ class Box(object):
         bot = system[self.bot]
         #cvs.set_line_width(0.5)
         cl = RGBA(1., 0., 0., 0.5)
-        r = 1.4
+        r = 0.1
         cvs.stroke(path.line(x-r, y-r, x+r, y+r), [cl])
         cvs.stroke(path.line(x+r, y-r, x-r, y+r), [cl])
         cvs.stroke(path.rect(x-left, y-bot, left+right, top+bot), [cl])
@@ -87,7 +86,7 @@ class TextBox(Box):
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
         extents = cvs.text_extents(self.text)
-        (dx, dy, width, height, _, _) = extents
+        dx, dy, width, height = extents
         system.add(self.left + self.right == width+dx)
         system.add(self.top + self.bot == height)
         system.add(self.left == 0)
@@ -157,6 +156,12 @@ def main():
 #    ])
 
     if 0:
+        box = EmptyBox(10., 10., 10., 10.)
+        cvs = Canvas()
+        box.render(cvs, 0., 0.)
+        cvs.writePDFfile("outbox.pdf")
+
+    elif 0:
         box = VBox([
             EmptyBox(40., 10., 0., 20.),
             EmptyBox(30., 0., 5., 25.),
@@ -166,12 +171,13 @@ def main():
         #box = VBox([HBox([EmptyBox(10., 10., 10., 10.)])])
     
         cvs = Canvas()
-        box.render(cvs, 100., 100.)
+        box.render(cvs, 0., 0.)
         cvs.writePDFfile("outbox.pdf")
         #return
     
     else:
-        a, b = 10, 20
+
+        a, b = 0.2, 2.0
         rows = []
         for row in range(2):
             boxs = []
@@ -194,14 +200,14 @@ def main():
     
         #box = TextBox('xyyxy !')
     
-        W, H = 200, 200
         cvs = Canvas()
-        box.render(cvs, W/2., H/2.)
+        box.render(cvs, 0., 0.)
         cvs.writePDFfile("output.pdf")
 
 
 if __name__ == "__main__":
 
+    seed(0)
     main()
 
     print("OK\n")
