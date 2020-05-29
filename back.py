@@ -73,6 +73,14 @@ class Bound(Base):
         self.urx = n_max(self.urx, other.urx)
         self.ury = n_max(self.ury, other.ury)
 
+    def nonempty(self):
+        return (self.llx is not None or self.lly is not None or 
+            self.urx is not None or self.ury is not None)
+
+    def is_empty(self):
+        return (self.llx is None and self.lly is None and 
+            self.urx is None and self.ury is None)
+
     @property
     def width(self):
         return self.urx - self.llx
@@ -85,16 +93,22 @@ class Bound(Base):
 
 
 # ----------------------------------------------------------------------------
-# Item's go in Path's
+# 
 #
 
 class Item(Base):
+
+    DEBUG = False
 
     def get_bound(self):
         return Bound()
 
     def process_cairo(self, cxt):
         pass
+
+    def visit(self, visitor):
+        visitor.on_item(self)
+
 
 
 class ClosePath(Item):
@@ -111,6 +125,8 @@ class MoveTo_Pt(Item):
         return Bound(self.x, self.y, self.x, self.y)
 
     def process_cairo(self, cxt):
+        if self.DEBUG:
+            print("ctx.move_to", self.x, self.y)
         cxt.move_to(self.x, -self.y)
 
 
@@ -129,6 +145,8 @@ class LineTo_Pt(Item):
         return Bound(self.x, self.y, self.x, self.y)
 
     def process_cairo(self, cxt):
+        if self.DEBUG:
+            print("ctx.line_to", self.x, self.y)
         cxt.line_to(self.x, -self.y)
 
 
@@ -148,9 +166,15 @@ class CurveTo_Pt(Item):
         self.y2 = y2
 
     def get_bound(self):
-        return Bound(self.x, self.y, self.x, self.y)
+        x0 = min([self.x0, self.x1, self.x2])
+        x1 = max([self.x0, self.x1, self.x2])
+        y0 = min([self.y0, self.y1, self.y2])
+        y1 = max([self.y0, self.y1, self.y2])
+        return Bound(x0, y0, x1, y1)
 
     def process_cairo(self, cxt):
+        if self.DEBUG:
+            print("ctx.curve_to", self.x0, self.y0, self.x1, self.y1, self.x2, self.y2)
         cxt.curve_to(self.x0, -self.y0, self.x1, -self.y1, self.x2, -self.y2)
 
 
@@ -227,24 +251,60 @@ class Arcn(Arc):
 
 
 # ----------------------------------------------------------------------------
-# Path's : a list of Item's
+#
 #
 
-class Path(Base):
-    def __init__(self, items):
-        for item in items:
-            assert isinstance(item, Item)
-        self.items = list(items)
+class Compound(Item):
+    def __init__(self, *args):
+        items = []
+        for arg in args:
+            if type(arg) is list:
+                items += arg
+            else:
+                items.append(arg)
+        self.items = items
+
+    def append(self, item):
+        items = self.items
+        items.append(item)
+
+    def visit(self, visitor):
+        for item in self.items:
+            item.visit(visitor)
 
     def get_bound(self):
-        b = Bound()
-        for item in self.items:
-            b.update(item.get_bound())
-        return b
+        assert 0, "use Canvas.get_bound ?"
+        #b = Bound()
+        #for item in self.items:
+        #    b += item.get_bound()
+        #return b
 
     def process_cairo(self, cxt):
+        cxt.save()
         for item in self.items:
             item.process_cairo(cxt)
+        cxt.restore()
+
+
+#class Path(Item): # XXX same as Compound below ...
+#    def __init__(self, items):
+#        for item in items:
+#            assert isinstance(item, Item)
+#        self.items = list(items)
+#
+#    def get_bound(self):
+#        b = Bound()
+#        for item in self.items:
+#            b.update(item.get_bound())
+#        return b
+#
+#    def process_cairo(self, cxt):
+#        for item in self.items:
+#            item.process_cairo(cxt)
+
+
+class Path(Compound):
+    pass
 
 
 class Line(Path):
@@ -287,26 +347,22 @@ path = NS(line = Line, curve = Curve, rect = Rect, circle = Circle)
 #
 
 
-class Deco(Base):
-    def pre_process_cairo(self, cxt):
-        pass
-
-    def post_process_cairo(self, cxt):
-        pass
+class Deco(Item):
+    pass
 
 
 class Stroke(Deco):
-    def post_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         cxt.stroke()
 
 
 class Fill(Deco):
-    def post_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         cxt.fill()
 
 
 class FillPreserve(Deco):
-    def post_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         cxt.fill_preserve()
 
 
@@ -314,7 +370,7 @@ class RGBA(Deco):
     def __init__(self, r, g, b, a=1.0):
         self.cl = (r, g, b, a)
 
-    def pre_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
 
 RGB = RGBA
@@ -324,7 +380,7 @@ class LineWidth_Pt(Deco):
     def __init__(self, w):
         self.w = w
 
-    def pre_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         cxt.set_line_width(self.w)
 
 
@@ -348,7 +404,7 @@ class LineCap(Deco):
         assert desc.lower() in "butt round square".split()
         self.desc = desc.upper()
 
-    def pre_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         import cairo
         cap = getattr(cairo, "LINE_CAP_%s"%(self.desc,))
         cxt.set_line_cap(cap)
@@ -360,7 +416,7 @@ class LineJoin(Deco):
         assert desc.lower() in "bevel miter round".split()
         self.desc = desc.upper()
 
-    def pre_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         import cairo
         cap = getattr(cairo, "LINE_JOIN_%s"%(self.desc,))
         cxt.set_line_join(cap)
@@ -398,7 +454,7 @@ class TextSize(Deco):
         #self.size = float(size) * SCALE_CM_TO_POINT
         self.size = size # ???
 
-    def pre_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         pass
         #cxt.set_font_size(self.size)
 
@@ -449,7 +505,7 @@ class Translate(Deco):
         self.dx = dx*SCALE_CM_TO_POINT
         self.dy = dy*SCALE_CM_TO_POINT
 
-    def pre_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         cxt.translate(self.dx, self.dy)
 
 
@@ -458,7 +514,7 @@ class Scale(Deco):
         self.sx = float(sx)
         self.sy = float(sy)
 
-    def pre_process_cairo(self, cxt):
+    def process_cairo(self, cxt):
         cxt.scale(self.sx, self.sy)
 
 
@@ -483,18 +539,13 @@ def text_extents_cairo(text):
     return ex
 
 
-class Drawable(Base):
-    pass
 
 
-class Text(Drawable):
-    def __init__(self, x, y, text, decos=[]):
-        for deco in decos:
-            assert isinstance(deco, Deco)
+class Text(Item):
+    def __init__(self, x, y, text):
         self.x = SCALE_CM_TO_POINT*x
         self.y = SCALE_CM_TO_POINT*y
         self.text = text
-        self.decos = list(decos)
 
     def get_bound(self):
         extents = text_extents_cairo(self.text)
@@ -503,69 +554,21 @@ class Text(Drawable):
         return b
 
     def process_cairo(self, cxt):
-        decos = self.decos
         cxt.save()
-        for deco in decos:
-            deco.pre_process_cairo(cxt)
         cxt.move_to(self.x, -self.y)
         cxt.show_text(self.text)
-        for deco in decos:
-            deco.post_process_cairo(cxt)
         cxt.restore()
 
 
-class DecoPath(Drawable):
-    "A Path and a list of Deco's"
-    def __init__(self, path, decos=[]):
-        assert isinstance(path, Path)
-        for deco in decos:
-            assert isinstance(deco, Deco)
-        self.path = path
-        self.decos = list(decos)
-
-    def get_bound(self):
-        return self.path.get_bound()
-
-    def process_cairo(self, cxt):
-        decos = self.decos
-        path = self.path
-        cxt.save()
-        for deco in decos:
-            deco.pre_process_cairo(cxt)
-        self.path.process_cairo(cxt)
-        for deco in decos:
-            deco.post_process_cairo(cxt)
-        cxt.restore()
-
-
-class Canvas(Base):
-    "A list of Drawable's"
-    def __init__(self, draws=[]):
-        for draw in draws:
-            assert isinstance(draw, Drawable)
-        self.draws = list(draws)
-
-    def get_bound(self):
-        bound = Bound()
-        for draw in self.draws:
-            bound.update(draw.get_bound())
-        return bound
-
-    def append(self, draw):
-        assert isinstance(draw, Drawable)
-        self.draws.append(draw)
+class Canvas(Compound):
 
     def stroke(self, path, decos=[]):
-        decos = list(decos)
-        decos.append(Stroke())
-        draw = DecoPath(path, decos)
-        self.append(draw)
+        item = Compound(decos, path, Stroke())
+        self.append(item)
 
     def fill(self, path, decos=[]):
-        decos = list(decos)
-        decos.append(Fill())
-        draw = DecoPath(path, decos)
-        self.append(draw)
+        item = Compound(decos, path, Fill())
+        self.append(item)
 
     def text_extents(self, text):
         dx, dy, width, height, _, _ = text_extents_cairo(text)
@@ -574,15 +577,36 @@ class Canvas(Base):
 
     def text(self, x, y, text, decos=[]):
         #print("Canvas.text", x, y, text)
-        draw = Text(x, y, text, decos)
-        self.append(draw)
+        item = Compound(decos, Text(x, y, text))
+        self.append(item)
+
+    def on_item(self, item):
+        #print("on_item", item)
+        if isinstance(item, MoveTo_Pt):
+            self.pos = item.x, item.y
+        else:
+            b = item.get_bound()
+            if b.is_empty():
+                return
+            self.bound.update(b)
+            if self.pos:
+                x, y = self.pos
+                self.bound.update(Bound(x, y, x, y))
+
+    def get_bound(self):
+        self.pos = None
+        self.bound = Bound()
+        self.visit(self)
+        bound = self.bound
+        del self.bound
+        return bound
 
     def writePDFfile(self, name):
         #print(self)
         assert name.endswith(".pdf")
 
         bound = self.get_bound()
-        #print(bound)
+        print("writePDFfile:", bound)
 
         SCALE = 1.0
 
@@ -608,8 +632,8 @@ class Canvas(Base):
         cxt = cairo.Context(surface)
         cxt.scale(SCALE, SCALE)
         cxt.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
-        for draw in self.draws:
-            draw.process_cairo(cxt)
+        for item in self.items:
+            item.process_cairo(cxt)
         surface.finish()
 
     def writeSVGfile(self, name):

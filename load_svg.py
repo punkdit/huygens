@@ -36,7 +36,7 @@ class Context(object):
         self.stack = []
         self.pos = None # current point
         self.offset = 0., 0. # translate
-        self.path = []
+        self.path = back.Compound()
         self.paths = []
 
     def save(self):
@@ -67,8 +67,13 @@ class Context(object):
         assert abs(sy-1.0)<1e-6, "TODO"
 
     def get_current_point(self):
-        self.log("get_current_point()")
-        return self.pos
+        #self.log("get_current_point()")
+        return (0., 0.) # seems to work ...
+        #return self.pos
+
+    def has_current_point(self):
+        return False # seems to work ...
+        #return self.pos is not None
 
     def translate(self, dx, dy):
         x, y = self.offset
@@ -76,14 +81,17 @@ class Context(object):
 
     def move_to(self, x, y):
         dx, dy = self.offset
-        pos = (x+dx, y+dy)
-        self.pos = pos
+        x, y = (x+dx, y+dy)
+        item = back.MoveTo_Pt(x, -y)
+        path = self.path
+        path.append(item)
+        self.pos = x, y
 
     def line_to(self, x, y):
         dx, dy = self.offset
         x += dx
         y += dy
-        item = back.LineTo_Pt(x, y)
+        item = back.LineTo_Pt(x, -y)
         self.path.append(item)
         self.pos = (x, y)
 
@@ -95,7 +103,7 @@ class Context(object):
         y1 += dy
         x2 += dx
         y2 += dy
-        item = back.CurveTo_Pt(x0, y0, x1, y1, x2, y2)
+        item = back.CurveTo_Pt(x0, -y0, x1, -y1, x2, -y2)
         self.path.append(item)
         self.pos = (x2, y2)
 
@@ -105,38 +113,39 @@ class Context(object):
 
     def set_source_rgba(self, r, g, b, a):
         deco = back.RGBA(r, g, b, a)
+        self.path.append(deco)
 
     def set_line_width(self, w):
-        deco = back.LineWidth_Pt(r, g, b, a)
+        deco = back.LineWidth_Pt(w)
+        self.path.append(deco)
 
     def fill_preserve(self):
         deco = back.FillPreserve()
+        self.path.append(deco)
 
     def stroke(self):
         deco = back.Stroke()
+        self.path.append(deco)
         self.paths.append(self.path)
-        self.path = []
+        self.path = back.Compound()
         self.pos = None
 
-    def has_current_point(self):
-        return self.pos is not None
-
     def get_font_options(self):
-        return self
+        return self # me again!
 
-    def set_font_options(self, fo):
+    def set_font_options(self, fo): # skip this ...
         pass
 
-    def set_hint_style(self, x): # font_options
+    def set_hint_style(self, x): # font_options method
         pass
 
-    def set_hint_metrics(self, x): # font_options
+    def set_hint_metrics(self, x): # font_options method
         pass
 
-    def set_miter_limit(self, x):
+    def set_miter_limit(self, x): # skip this ...
         pass
 
-    def set_antialias(self, x):
+    def set_antialias(self, x): # skip this ...
         pass
 
 
@@ -186,6 +195,11 @@ class MySurf(Surface):
         self.draw(tree)
     
         #surface.finish()
+
+        paths = self.context.paths
+
+        cvs = back.Canvas(paths)
+        cvs.writePDFfile("test_out.1.pdf")
 
 
 
