@@ -17,10 +17,16 @@ The api uses the first quadrant coordinate system:
     
 """
 
-#from math import pi
+from math import pi, sqrt
 
 
-CAIRO_SCALE = 72.0/2.54 # convert cm's to points at 72 dpi.
+# simple namespace class
+class NS(object):
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+SCALE_CM_TO_POINT = 72.0/2.54 # convert cm's to points at 72 dpi.
 
 
 class Base(object):
@@ -98,8 +104,8 @@ class ClosePath(Item):
 
 class Moveto(Item):
     def __init__(self, x, y):
-        self.x = CAIRO_SCALE*x
-        self.y = CAIRO_SCALE*y
+        self.x = SCALE_CM_TO_POINT*x
+        self.y = SCALE_CM_TO_POINT*y
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -110,8 +116,8 @@ class Moveto(Item):
 
 class Lineto(Item):
     def __init__(self, x, y):
-        self.x = CAIRO_SCALE*x
-        self.y = CAIRO_SCALE*y
+        self.x = SCALE_CM_TO_POINT*x
+        self.y = SCALE_CM_TO_POINT*y
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -122,12 +128,12 @@ class Lineto(Item):
 
 class Curveto(Item):
     def __init__(self, x0, y0, x1, y1, x2, y2):
-        self.x0 = CAIRO_SCALE*x0
-        self.y0 = CAIRO_SCALE*y0
-        self.x1 = CAIRO_SCALE*x1
-        self.y1 = CAIRO_SCALE*y1
-        self.x2 = CAIRO_SCALE*x2
-        self.y2 = CAIRO_SCALE*y2
+        self.x0 = SCALE_CM_TO_POINT*x0
+        self.y0 = SCALE_CM_TO_POINT*y0
+        self.x1 = SCALE_CM_TO_POINT*x1
+        self.y1 = SCALE_CM_TO_POINT*y1
+        self.x2 = SCALE_CM_TO_POINT*x2
+        self.y2 = SCALE_CM_TO_POINT*y2
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -138,8 +144,8 @@ class Curveto(Item):
 
 class RMoveto(Item):
     def __init__(self, dx, dy):
-        self.dx = CAIRO_SCALE*dx
-        self.dy = CAIRO_SCALE*dy
+        self.dx = SCALE_CM_TO_POINT*dx
+        self.dy = SCALE_CM_TO_POINT*dy
 
     def get_bound(self):
         assert 0, "???"
@@ -150,8 +156,8 @@ class RMoveto(Item):
 
 class RLineto(Item):
     def __init__(self, dx, dy):
-        self.dx = CAIRO_SCALE*dx
-        self.dy = CAIRO_SCALE*dy
+        self.dx = SCALE_CM_TO_POINT*dx
+        self.dy = SCALE_CM_TO_POINT*dy
 
     def get_bound(self):
         assert 0, "???"
@@ -162,12 +168,12 @@ class RLineto(Item):
 
 class RCurveto(Item):
     def __init__(self, dx0, dy0, dx1, dy1, dx2, dy2):
-        self.dx0 = CAIRO_SCALE*dx0
-        self.dy0 = CAIRO_SCALE*dy0
-        self.dx1 = CAIRO_SCALE*dx1
-        self.dy1 = CAIRO_SCALE*dy1
-        self.dx2 = CAIRO_SCALE*dx2
-        self.dy2 = CAIRO_SCALE*dy2
+        self.dx0 = SCALE_CM_TO_POINT*dx0
+        self.dy0 = SCALE_CM_TO_POINT*dy0
+        self.dx1 = SCALE_CM_TO_POINT*dx1
+        self.dy1 = SCALE_CM_TO_POINT*dy1
+        self.dx2 = SCALE_CM_TO_POINT*dx2
+        self.dy2 = SCALE_CM_TO_POINT*dy2
 
     def get_bound(self):
         assert 0, "???"
@@ -180,9 +186,9 @@ class RCurveto(Item):
 class Arc(Item):
     def __init__(self, x, y, r, angle1, angle2):
         "angle in degrees"
-        self.x = CAIRO_SCALE*x
-        self.y = CAIRO_SCALE*y
-        self.r = CAIRO_SCALE*r
+        self.x = SCALE_CM_TO_POINT*x
+        self.y = SCALE_CM_TO_POINT*y
+        self.r = SCALE_CM_TO_POINT*r
         self.angle1 = angle1
         self.angle2 = angle2
 
@@ -268,9 +274,11 @@ class Stroke(Deco):
     def post_process_cairo(self, cxt):
         cxt.stroke()
 
+
 class Fill(Deco):
     def post_process_cairo(self, cxt):
         cxt.fill()
+
 
 class RGBA(Deco):
     def __init__(self, r, g, b, a=1.0):
@@ -278,9 +286,150 @@ class RGBA(Deco):
 
     def pre_process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
-
 RGB = RGBA
-    
+
+
+class LineWidth(Deco):
+    def __init__(self, w):
+        self.w = w*SCALE_CM_TO_POINT
+
+    def pre_process_cairo(self, cxt):
+        cxt.set_line_width(self.w)
+
+
+# cairo constants:
+#    cairo.LINE_CAP_BUTT           
+#    cairo.LINE_CAP_ROUND         
+#    cairo.LINE_CAP_SQUARE       
+#    cairo.LINE_JOIN_BEVEL      
+#    cairo.LINE_JOIN_MITER     
+#    cairo.LINE_JOIN_ROUND    
+
+
+class LineCap(Deco):
+    def __init__(self, desc):
+        assert type(desc) is str
+        assert desc.lower() in "butt round square".split()
+        self.desc = desc.upper()
+
+    def pre_process_cairo(self, cxt):
+        import cairo
+        cap = getattr(cairo, "LINE_CAP_%s"%(self.desc,))
+        cxt.set_line_cap(cap)
+
+
+class LineJoin(Deco):
+    def __init__(self, desc):
+        assert type(desc) is str
+        assert desc.lower() in "bevel miter round".split()
+        self.desc = desc.upper()
+
+    def pre_process_cairo(self, cxt):
+        import cairo
+        cap = getattr(cairo, "LINE_JOIN_%s"%(self.desc,))
+        cxt.set_line_join(cap)
+
+
+_defaultlinewidth = 0.02 # cm
+
+style = NS(
+    linecap = NS(
+        butt = LineCap("butt"),
+        round = LineCap("round"), 
+        square = LineCap("square")),
+    linejoin = NS(
+        bevel = LineJoin("bevel"),
+        miter = LineJoin("miter"),
+        round = LineJoin("round")),
+    linewidth = NS(
+        THIN = LineWidth(_defaultlinewidth/sqrt(32)),
+        THIn = LineWidth(_defaultlinewidth/sqrt(16)),
+        THin = LineWidth(_defaultlinewidth/sqrt(8)),
+        Thin = LineWidth(_defaultlinewidth/sqrt(4)),
+        thin = LineWidth(_defaultlinewidth/sqrt(2)),
+        normal = LineWidth(_defaultlinewidth),
+        thick = LineWidth(_defaultlinewidth*sqrt(2)),
+        Thick = LineWidth(_defaultlinewidth*sqrt(4)),
+        THick = LineWidth(_defaultlinewidth*sqrt(8)),
+        THIck = LineWidth(_defaultlinewidth*sqrt(16)),
+        THICk = LineWidth(_defaultlinewidth*sqrt(32)),
+        THICK = LineWidth(_defaultlinewidth*sqrt(64)),
+    ))
+
+
+class TextSize(Deco):
+    def __init__(self, size):
+        #self.size = float(size) * SCALE_CM_TO_POINT
+        self.size = size # ???
+
+    def pre_process_cairo(self, cxt):
+        pass
+        #cxt.set_font_size(self.size)
+
+
+class TextAlign(Deco):
+    def __init__(self, desc):
+        self.desc = desc
+
+
+text = NS(
+    size = NS(
+        tiny = TextSize(-4),
+        script = TextSize(-3),
+        footnote = TextSize(-2),
+        small = TextSize(-1),
+        normal = TextSize(0),
+        large = TextSize(1),
+        Large = TextSize(2),
+        LARGE = TextSize(3),
+        huge = TextSize(4),
+        Huge = TextSize(5)),
+    halign = NS(
+        left = TextAlign("left"),
+        center = TextAlign("center"),
+        right = TextAlign("right"),
+        clear = TextAlign("clear"),
+        boxleft = TextAlign("boxleft"),
+        boxcenter = TextAlign("boxcenter"),
+        boxright = TextAlign("boxright"),
+        flushleft = TextAlign("flushleft"),
+        flushcenter = TextAlign("flushcenter"),
+        flushright = TextAlign("flushright")),
+    valign = NS(
+        top = TextAlign("top"),
+        middle = TextAlign("middle"),
+        bottom = TextAlign("bottom")))
+
+
+
+#linestyle.solid = linestyle(linecap.butt, dash([]))
+#linestyle.dashed = linestyle(linecap.butt, dash([2]))
+#linestyle.dotted = linestyle(linecap.round, dash([0, 2]))
+#linestyle.dashdotted = linestyle(linecap.round, dash([0, 2, 2, 2]))
+
+
+class Translate(Deco):
+    def __init__(self, dx, dy):
+        self.dx = dx*SCALE_CM_TO_POINT
+        self.dy = dy*SCALE_CM_TO_POINT
+
+    def pre_process_cairo(self, cxt):
+        cxt.translate(self.dx, self.dy)
+
+
+class Scale(Deco):
+    def __init__(self, sx, sy):
+        self.sx = float(sx)
+        self.sy = float(sy)
+
+    def pre_process_cairo(self, cxt):
+        cxt.scale(self.sx, self.sy)
+
+
+trafo = NS(translate = Translate, scale = Scale)
+
+
+
 
 
 # ----------------------------------------------------------------------------
@@ -306,8 +455,8 @@ class Text(Drawable):
     def __init__(self, x, y, text, decos=[]):
         for deco in decos:
             assert isinstance(deco, Deco)
-        self.x = CAIRO_SCALE*x
-        self.y = CAIRO_SCALE*y
+        self.x = SCALE_CM_TO_POINT*x
+        self.y = SCALE_CM_TO_POINT*y
         self.text = text
         self.decos = list(decos)
 
@@ -384,7 +533,8 @@ class Canvas(Base):
 
     def text_extents(self, text):
         dx, dy, width, height, _, _ = text_extents_cairo(text)
-        return (dx/CAIRO_SCALE, dy/CAIRO_SCALE, width/CAIRO_SCALE, height/CAIRO_SCALE)
+        return (dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT, 
+            width/SCALE_CM_TO_POINT, height/SCALE_CM_TO_POINT)
 
     def text(self, x, y, text, decos=[]):
         #print("Canvas.text", x, y, text)
@@ -396,7 +546,7 @@ class Canvas(Base):
         assert name.endswith(".pdf")
 
         bound = self.get_bound()
-        print(bound)
+        #print(bound)
 
         SCALE = 1.0
 
@@ -421,7 +571,7 @@ class Canvas(Base):
 
         cxt = cairo.Context(surface)
         cxt.scale(SCALE, SCALE)
-        cxt.set_line_width(0.5)
+        cxt.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
         for draw in self.draws:
             draw.process_cairo(cxt)
         surface.finish()
@@ -435,10 +585,6 @@ class Canvas(Base):
 # ----------------------------------------------------------------------------
 # namespaces
 #
-
-class NS(object):
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
 
 path = NS(line = Line, curve = Curve, rect = Rect, circle = Circle)
 
