@@ -2,10 +2,14 @@
 
 import sys
 
-import cairo
-
 from cairosvg.parser import Tree
 from cairosvg.surface import Surface
+
+from bruhat.argv import argv
+from bruhat.render import back
+from bruhat.render.back import SCALE_CM_TO_POINT
+
+POINT_TO_CM = 1./SCALE_CM_TO_POINT
 
 
 class State(object):
@@ -25,17 +29,21 @@ class Method(object):
 
 
 class Context(object):
+
+    save_attrs = 'pos offset'.split()
+
     def __init__(self):
         self.stack = []
-        self.dx = 0.
-        self.dy = 0.
-        self.x = 0.
-        self.y = 0.
+        self.pos = None # current point
+        self.offset = 0., 0. # translate
+        self.path = []
+        self.paths = []
 
     def save(self):
         #self.log("save")
-        state = dict(self.__dict__)
-        del state["stack"]
+        state = {}
+        for k in self.save_attrs:
+            state[k] = getattr(self, k)
         self.stack.append(state)
 
     def restore(self):
@@ -48,53 +56,70 @@ class Context(object):
     __repr__ = __str__
 
     def __getattr__(self, attr):
-        return Context(self.name + '.' + attr)
+        return Method(self, attr)
 
     def log(self, method, *args):
         INDENT = "  "*len(self.stack)
         print("%scontext.%s(%s)"%(INDENT, method, ', '.join(str(a) for a in args)))
 
     def scale(self, sx, sy):
-        assert abs(sx-1.0)<1e-6
-        assert abs(sy-1.0)<1e-6
+        assert abs(sx-1.0)<1e-6, "TODO"
+        assert abs(sy-1.0)<1e-6, "TODO"
 
     def get_current_point(self):
-        #self.log("get_current_point()")
-        return self.x, self.y
+        self.log("get_current_point()")
+        return self.pos
 
     def translate(self, dx, dy):
-        self.dx += dx
-        self.dy += dy
+        x, y = self.offset
+        self.offset = (x+dx, y+dy)
 
     def move_to(self, x, y):
-        self.x = x
-        self.y = y
+        dx, dy = self.offset
+        pos = (x+dx, y+dy)
+        self.pos = pos
 
     def line_to(self, x, y):
-        self.x = x
-        self.y = y
+        dx, dy = self.offset
+        x += dx
+        y += dy
+        item = back.LineTo_Pt(x, y)
+        self.path.append(item)
+        self.pos = (x, y)
 
     def curve_to(self, x0, y0, x1, y1, x2, y2):
-        self.x = x2
-        self.y = y2
+        dx, dy = self.offset
+        x0 += dx
+        y0 += dy
+        x1 += dx
+        y1 += dy
+        x2 += dx
+        y2 += dy
+        item = back.CurveTo_Pt(x0, y0, x1, y1, x2, y2)
+        self.path.append(item)
+        self.pos = (x2, y2)
 
     def close_path(self):
-        pass
+        item = back.ClosePath()
+        self.path.append(item)
 
     def set_source_rgba(self, r, g, b, a):
-        pass
+        deco = back.RGBA(r, g, b, a)
 
     def set_line_width(self, w):
-        pass
+        deco = back.LineWidth_Pt(r, g, b, a)
 
     def fill_preserve(self):
-        pass
+        deco = back.FillPreserve()
 
     def stroke(self):
-        pass
+        deco = back.Stroke()
+        self.paths.append(self.path)
+        self.path = []
+        self.pos = None
 
     def has_current_point(self):
-        return False # ???
+        return self.pos is not None
 
     def get_font_options(self):
         return self
@@ -117,9 +142,9 @@ class Context(object):
 
 class MySurf(Surface):
 
-    def _create_surface(self, width, height): # FAIL
-        surface = cairo.PDFSurface("test_out.pdf", width, height)
-        return surface, width, height
+    #def _create_surface(self, width, height): # FAIL
+    #    surface = cairo.PDFSurface("test_out.pdf", width, height)
+    #    return surface, width, height
 
     def __init__(self, tree, output, dpi):
     
@@ -165,6 +190,8 @@ class MySurf(Surface):
 
 
 def test():
+    import cairo
+
     W, H = 600., 200. # point == 1/72 inch
 
     surface = cairo.PDFSurface("test_out.pdf", W, H)
@@ -173,7 +200,7 @@ def test():
     context.move_to(91.93, 81.96)
     context.translate(91.93, 81.96)
     context.set_source_rgba(0.0, 0.0, 0.0, 1.0)
-    context.set_line_width(1.0)
+    #context.set_line_width(1.0)
 
 
     if 1:
@@ -221,15 +248,16 @@ def test():
 
 if __name__ == "__main__":
 
-    if 1:
-        name = sys.argv[1]
+    if argv.test:
+        test()
+
+    else:
+
+        name = argv.next()
         s = open(name).read()
         tree = Tree(bytestring=s)
     
         my = MySurf(tree, None, 72.)
-
-    else:
-        test()
 
 
 

@@ -102,10 +102,10 @@ class ClosePath(Item):
         cxt.close_path()
 
 
-class Moveto(Item):
+class MoveTo_Pt(Item):
     def __init__(self, x, y):
-        self.x = SCALE_CM_TO_POINT*x
-        self.y = SCALE_CM_TO_POINT*y
+        self.x = x
+        self.y = y
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -114,10 +114,16 @@ class Moveto(Item):
         cxt.move_to(self.x, -self.y)
 
 
-class Lineto(Item):
+class MoveTo(MoveTo_Pt):
     def __init__(self, x, y):
         self.x = SCALE_CM_TO_POINT*x
         self.y = SCALE_CM_TO_POINT*y
+
+
+class LineTo_Pt(Item):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -126,14 +132,20 @@ class Lineto(Item):
         cxt.line_to(self.x, -self.y)
 
 
-class Curveto(Item):
+class LineTo(LineTo_Pt):
+    def __init__(self, x, y):
+        self.x = SCALE_CM_TO_POINT*x
+        self.y = SCALE_CM_TO_POINT*y
+
+
+class CurveTo_Pt(Item):
     def __init__(self, x0, y0, x1, y1, x2, y2):
-        self.x0 = SCALE_CM_TO_POINT*x0
-        self.y0 = SCALE_CM_TO_POINT*y0
-        self.x1 = SCALE_CM_TO_POINT*x1
-        self.y1 = SCALE_CM_TO_POINT*y1
-        self.x2 = SCALE_CM_TO_POINT*x2
-        self.y2 = SCALE_CM_TO_POINT*y2
+        self.x0 = x0
+        self.y0 = y0
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -142,7 +154,17 @@ class Curveto(Item):
         cxt.curve_to(self.x0, -self.y0, self.x1, -self.y1, self.x2, -self.y2)
 
 
-class RMoveto(Item):
+class CurveTo(CurveTo_Pt):
+    def __init__(self, x0, y0, x1, y1, x2, y2):
+        self.x0 = SCALE_CM_TO_POINT*x0
+        self.y0 = SCALE_CM_TO_POINT*y0
+        self.x1 = SCALE_CM_TO_POINT*x1
+        self.y1 = SCALE_CM_TO_POINT*y1
+        self.x2 = SCALE_CM_TO_POINT*x2
+        self.y2 = SCALE_CM_TO_POINT*y2
+
+
+class RMoveTo(Item):
     def __init__(self, dx, dy):
         self.dx = SCALE_CM_TO_POINT*dx
         self.dy = SCALE_CM_TO_POINT*dy
@@ -154,7 +176,7 @@ class RMoveto(Item):
         cxt.rel_move_to(self.dx, -self.dy)
 
 
-class RLineto(Item):
+class RLineTo(Item):
     def __init__(self, dx, dy):
         self.dx = SCALE_CM_TO_POINT*dx
         self.dy = SCALE_CM_TO_POINT*dy
@@ -166,7 +188,7 @@ class RLineto(Item):
         cxt.rel_line_to(self.dx, -self.dy)
 
 
-class RCurveto(Item):
+class RCurveTo(Item):
     def __init__(self, dx0, dy0, dx1, dy1, dx2, dy2):
         self.dx0 = SCALE_CM_TO_POINT*dx0
         self.dy0 = SCALE_CM_TO_POINT*dy0
@@ -228,34 +250,37 @@ class Path(Base):
 class Line(Path):
     def __init__(self, x0, y0, x1, y1):
         Path.__init__(self, [
-            Moveto(x0, y0), 
-            Lineto(x1, y1)])
+            MoveTo(x0, y0), 
+            LineTo(x1, y1)])
 
 
 class Curve(Path):
     def __init__(self, x0, y0, x1, y1, x2, y2, x3, y3):
         Path.__init__(self, [
-            Moveto(x0, y0), 
-            Curveto(x1, y1, x2, y2, x3, y3)])
+            MoveTo(x0, y0), 
+            CurveTo(x1, y1, x2, y2, x3, y3)])
     
 
 class Rect(Path):
     def __init__(self, x, y, width, height):
         Path.__init__(self, [
-            Moveto(x, y), 
-            Lineto(x+width, y),
-            Lineto(x+width, y+height),
-            Lineto(x, y+height),
+            MoveTo(x, y), 
+            LineTo(x+width, y),
+            LineTo(x+width, y+height),
+            LineTo(x, y+height),
             ClosePath()])
 
 
 class Circle(Path):
     def __init__(self, x, y, r):
         Path.__init__(self, [
-            Moveto(x+r, y),
+            MoveTo(x+r, y),
             Arc(x, y, r, 0, 360),
             ClosePath()])
         
+
+path = NS(line = Line, curve = Curve, rect = Rect, circle = Circle)
+
 
 # ----------------------------------------------------------------------------
 # Deco
@@ -280,21 +305,32 @@ class Fill(Deco):
         cxt.fill()
 
 
+class FillPreserve(Deco):
+    def post_process_cairo(self, cxt):
+        cxt.fill_preserve()
+
+
 class RGBA(Deco):
     def __init__(self, r, g, b, a=1.0):
         self.cl = (r, g, b, a)
 
     def pre_process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
+
 RGB = RGBA
 
 
-class LineWidth(Deco):
+class LineWidth_Pt(Deco):
     def __init__(self, w):
-        self.w = w*SCALE_CM_TO_POINT
+        self.w = w
 
     def pre_process_cairo(self, cxt):
         cxt.set_line_width(self.w)
+
+
+class LineWidth(LineWidth_Pt):
+    def __init__(self, w):
+        self.w = w*SCALE_CM_TO_POINT
 
 
 # cairo constants:
@@ -582,11 +618,6 @@ class Canvas(Base):
 
 
 
-# ----------------------------------------------------------------------------
-# namespaces
-#
-
-path = NS(line = Line, curve = Curve, rect = Rect, circle = Circle)
 
 
 # ----------------------------------------------------------------------------
