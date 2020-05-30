@@ -90,8 +90,8 @@ class TextBox(Box):
         system.add(self.left + self.right == width+dx)
         system.add(self.top + self.bot == height)
         system.add(self.left == 0)
-        assert dy <= 0., dy
-        system.add(self.top == -dy)
+        assert dy >= 0., dy
+        system.add(self.top == dy)
 
     def on_render(self, cvs, system):
         Box.on_render(self, cvs, system)
@@ -187,6 +187,7 @@ def main():
                 box = EmptyBox(top, bot, left, right)
                 boxs.append(box)
             boxs.append(TextBox("hig%d !"%row))
+            #boxs.append(TextBox(r"$\to$"))
             box = HBox(boxs)
             rows.append(box)
         box = VBox(rows)

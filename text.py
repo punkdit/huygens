@@ -5,36 +5,48 @@ import hashlib
 
 from bruhat.render import load_svg
 
-def make_cachedir(name="__bruhat__"):
+def file_exists(name):
     try:
         os.stat(name)
-        return
+        return True
     except:
         pass
-    os.mkdir(name)
+    return False
+
+
+def command(cmd):
+    ret = os.system(cmd)
+    assert ret == 0, "%r failed with return value %d"%(cmd, ret)
 
 
 def make_text(text):
     cache = "__bruhat__"
-    make_cachedir(cache)
-    os.chdir(cache)
+    if not file_exists(cache):
+        os.mkdir(cache)
+    os.chdir(cache) # <---------- chdir <-----
 
     data = text.encode('utf-8')
     stem = hashlib.sha1(data).hexdigest()
 
-    f = open("%s.tex"%stem, 'w')
-    print(r"\def\folio{}", file=f)
-    print(r"%s\bye"%text, file=f)
-    f.close()
+    tex = "%s.tex"%stem
+    svg = "%s.svg"%stem
+    pdf = "%s.pdf"%stem
 
-    ret = os.system("pdftex %s.tex"%stem)
-    assert ret == 0, ret
+    if not file_exists(svg):
 
-    ret = os.system("pdf2svg %s.pdf %s.svg"%(stem, stem))
+        f = open(tex, 'w')
+    
+        # if you change this don't forget to delete the cache 
+        print(r"\def\folio{}", file=f)
+        print(r"%s\bye"%text, file=f)
+        f.close()
+    
+        command("pdftex %s"%tex)
+        command("pdf2svg %s %s" % (pdf, svg))
 
-    item = load_svg.load("%s.svg"%stem)
+    item = load_svg.load(svg)
 
-    os.chdir("..")
+    os.chdir("..") # <---------- chdir <-----
 
     return item
 

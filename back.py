@@ -32,7 +32,10 @@ SCALE_CM_TO_POINT = 72.0/2.54 # convert cm's to points at 72 dpi.
 
 class Base(object):
     def __str__(self):
-        return "%s(%s)"%(self.__class__.__name__, self.__dict__)
+        attrs = list(self.__dict__.keys())
+        attrs.sort()
+        attrs = ', '.join("%s=%s"%(k, self.__dict__[k]) for k in attrs)
+        return "%s(%s)"%(self.__class__.__name__, attrs)
     __repr__ = __str__
 
 
@@ -53,6 +56,8 @@ def n_max(a, b):
 
 class Bound(Base):
     def __init__(self, llx=None, lly=None, urx=None, ury=None):
+        assert urx is None or llx is None or urx-llx >= 0., (llx, lly, urx, ury)
+        assert ury is None or lly is None or ury-lly >= 0., (llx, lly, urx, ury)
         self.llx = llx
         self.lly = lly
         self.urx = urx
@@ -100,6 +105,40 @@ class Bound(Base):
 # 
 #
 
+
+class Visitor(object):
+    def on_item(self, item):
+        pass
+
+class DumpVisitor(Visitor):
+    def on_item(self, item):
+        print(item)
+
+
+class BoundVisitor(Visitor):
+    def __init__(self):
+        self.pos = None
+        self.bound = Bound()
+
+    def on_item(self, item):
+        #print("on_item", item)
+        if isinstance(item, MoveTo_Pt):
+            self.pos = item.x, item.y
+        elif isinstance(item, Translate_Pt):
+            assert 0, "%s not implemented"%item
+        elif isinstance(item, Scale):
+            assert 0, "%s not implemented"%item
+        else:
+            b = item.get_bound()
+            if b.is_empty():
+                return
+            self.bound.update(b)
+            if self.pos:
+                x, y = self.pos
+                self.bound.update(Bound(x, y, x, y))
+
+
+
 class Item(Base):
 
     DEBUG = False
@@ -112,6 +151,10 @@ class Item(Base):
 
     def visit(self, visitor):
         visitor.on_item(self)
+
+    def dump(self):
+        visitor = DumpVisitor()
+        self.visit(visitor)
 
 
 
@@ -258,25 +301,6 @@ class Arcn(Arc):
 #
 #
 
-class Visitor(object):
-    def __init__(self):
-        self.pos = None
-        self.bound = Bound()
-
-    def on_item(self, item):
-        #print("on_item", item)
-        if isinstance(item, MoveTo_Pt):
-            self.pos = item.x, item.y
-        else:
-            b = item.get_bound()
-            if b.is_empty():
-                return
-            self.bound.update(b)
-            if self.pos:
-                x, y = self.pos
-                self.bound.update(Bound(x, y, x, y))
-
-
 class Compound(Item):
     def __init__(self, *args):
         items = []
@@ -296,32 +320,26 @@ class Compound(Item):
             item.visit(visitor)
 
     def get_bound(self):
-        visitor = Visitor()
+        visitor = BoundVisitor()
         self.visit(visitor)
         return visitor.bound
+
+    def get_bound_cairo(self):
+        import cairo
+        surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
+        cxt = cairo.Context(surface)
+        self.process_cairo(cxt)
+        extents = surface.ink_extents()
+        (ulx, uly, width, height) = extents
+        llx, lly = ulx, -uly-height
+        urx, ury = llx+width, lly+height
+        return Bound(llx, lly, urx, ury)
 
     def process_cairo(self, cxt):
         cxt.save()
         for item in self.items:
             item.process_cairo(cxt)
         cxt.restore()
-
-
-#class Path(Item): # XXX same as Compound below ...
-#    def __init__(self, items):
-#        for item in items:
-#            assert isinstance(item, Item)
-#        self.items = list(items)
-#
-#    def get_bound(self):
-#        b = Bound()
-#        for item in self.items:
-#            b.update(item.get_bound())
-#        return b
-#
-#    def process_cairo(self, cxt):
-#        for item in self.items:
-#            item.process_cairo(cxt)
 
 
 class Path(Compound):
@@ -556,7 +574,8 @@ trafo = NS(translate = Translate, scale = Scale)
 def text_extents_cairo(text):
     import cairo
     surface = cairo.PDFSurface("/dev/null", 0, 0)
-    #surface = cairo.RecordingSurface("/dev/null", 0, 0) # only in cairo 1.11.0
+    # only in cairo 1.11.0:
+    #surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
     cxt = cairo.Context(surface)
     ex = cxt.text_extents(text)
     surface.finish()
@@ -582,26 +601,38 @@ class CairoText(Item):
         cxt.restore()
 
 
-class Text(Compound):
+class Text(Item):
     def __init__(self, x, y, text):
-        self.x = SCALE_CM_TO_POINT*x
-        self.y = SCALE_CM_TO_POINT*y
+        assert text
+        self.x = x = SCALE_CM_TO_POINT*x
+        self.y = y = SCALE_CM_TO_POINT*y
         self.text = text
         item = make_text(text)
+        #print(item)
         bound = item.get_bound()
+        assert not bound.is_empty(), bound
         llx, lly = bound.llx, bound.lly
-        trafo = Translate_Pt(self.x-llx, self.y-lly)
+        trafo = Translate_Pt(x-llx, y-lly)
         items = [trafo] + item.items
-        Compound.__init__(self, items)
+        #Compound.__init__(self, items)
+        self.items = items
+        self.bound = Bound(x, y, x+bound.width, y+bound.height)
 
     def get_bound(self):
-        bound = Compound.get_bound(self)
-        llx, lly, urx, ury = bound
-        x, y = self.x, self.y
-        llx, urx = x, urx - llx + x
-        lly, ury = y, ury - lly + y
-        bound = Bound(llx, lly, urx, ury)
-        return bound
+        return self.bound
+#        bound = Compound.get_bound(self)
+#        llx, lly, urx, ury = bound
+#        x, y = self.x, self.y
+#        llx, urx = x, urx - llx + x
+#        lly, ury = y, ury - lly + y
+#        bound = Bound(llx, lly, urx, ury)
+#        return bound
+
+    def process_cairo(self, cxt):
+        cxt.save()
+        for item in self.items:
+            item.process_cairo(cxt)
+        cxt.restore()
 
 
 class Canvas(Compound):
@@ -616,14 +647,15 @@ class Canvas(Compound):
 
 #    def text_extents(self, text):
 #        dx, dy, width, height, _, _ = text_extents_cairo(text)
-#        return (dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT, 
+#        return (dx/SCALE_CM_TO_POINT, -dy/SCALE_CM_TO_POINT,  # <-- sign flip
 #            width/SCALE_CM_TO_POINT, height/SCALE_CM_TO_POINT)
 
     def text_extents(self, text):
         item = Text(0., 0., text)
+        #item.dump()
         bound = item.get_bound()
         dx, dy = bound.urx, bound.ury
-        return (0., -dy/SCALE_CM_TO_POINT, dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT)
+        return (0., dy/SCALE_CM_TO_POINT, dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT)
 
     def text(self, x, y, text, decos=[]):
         #print("Canvas.text", x, y, text)
@@ -633,7 +665,7 @@ class Canvas(Compound):
     def _write_cairo(self, method, name):
 
         bound = self.get_bound()
-        print("_write_cairo:", bound)
+        #print("_write_cairo:", bound)
 
         import cairo
 
