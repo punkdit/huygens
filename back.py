@@ -19,6 +19,7 @@ The api uses the first quadrant coordinate system:
 
 from math import pi, sqrt
 
+from bruhat.render.text import make_text
 
 # simple namespace class
 class NS(object):
@@ -80,6 +81,9 @@ class Bound(Base):
     def is_empty(self):
         return (self.llx is None and self.lly is None and 
             self.urx is None and self.ury is None)
+
+    def __getitem__(self, idx):
+        return (self.llx, self.lly, self.urx, self.ury)[idx]
 
     @property
     def width(self):
@@ -254,6 +258,25 @@ class Arcn(Arc):
 #
 #
 
+class Visitor(object):
+    def __init__(self):
+        self.pos = None
+        self.bound = Bound()
+
+    def on_item(self, item):
+        #print("on_item", item)
+        if isinstance(item, MoveTo_Pt):
+            self.pos = item.x, item.y
+        else:
+            b = item.get_bound()
+            if b.is_empty():
+                return
+            self.bound.update(b)
+            if self.pos:
+                x, y = self.pos
+                self.bound.update(Bound(x, y, x, y))
+
+
 class Compound(Item):
     def __init__(self, *args):
         items = []
@@ -273,11 +296,9 @@ class Compound(Item):
             item.visit(visitor)
 
     def get_bound(self):
-        assert 0, "use Canvas.get_bound ?"
-        #b = Bound()
-        #for item in self.items:
-        #    b += item.get_bound()
-        #return b
+        visitor = Visitor()
+        self.visit(visitor)
+        return visitor.bound
 
     def process_cairo(self, cxt):
         cxt.save()
@@ -500,13 +521,19 @@ text = NS(
 #linestyle.dashdotted = linestyle(linecap.round, dash([0, 2, 2, 2]))
 
 
-class Translate(Deco):
+class Translate_Pt(Deco):
+    def __init__(self, dx, dy):
+        self.dx = dx
+        self.dy = dy
+
+    def process_cairo(self, cxt):
+        cxt.translate(self.dx, -self.dy)
+
+
+class Translate(Translate_Pt):
     def __init__(self, dx, dy):
         self.dx = dx*SCALE_CM_TO_POINT
         self.dy = dy*SCALE_CM_TO_POINT
-
-    def process_cairo(self, cxt):
-        cxt.translate(self.dx, self.dy)
 
 
 class Scale(Deco):
@@ -521,11 +548,8 @@ class Scale(Deco):
 trafo = NS(translate = Translate, scale = Scale)
 
 
-
-
-
 # ----------------------------------------------------------------------------
-# Canvas
+# 
 #
 
 
@@ -539,9 +563,7 @@ def text_extents_cairo(text):
     return ex
 
 
-
-
-class Text(Item):
+class CairoText(Item):
     def __init__(self, x, y, text):
         self.x = SCALE_CM_TO_POINT*x
         self.y = SCALE_CM_TO_POINT*y
@@ -560,6 +582,28 @@ class Text(Item):
         cxt.restore()
 
 
+class Text(Compound):
+    def __init__(self, x, y, text):
+        self.x = SCALE_CM_TO_POINT*x
+        self.y = SCALE_CM_TO_POINT*y
+        self.text = text
+        item = make_text(text)
+        bound = item.get_bound()
+        llx, lly = bound.llx, bound.lly
+        trafo = Translate_Pt(self.x-llx, self.y-lly)
+        items = [trafo] + item.items
+        Compound.__init__(self, items)
+
+    def get_bound(self):
+        bound = Compound.get_bound(self)
+        llx, lly, urx, ury = bound
+        x, y = self.x, self.y
+        llx, urx = x, urx - llx + x
+        lly, ury = y, ury - lly + y
+        bound = Bound(llx, lly, urx, ury)
+        return bound
+
+
 class Canvas(Compound):
 
     def stroke(self, path, decos=[]):
@@ -570,75 +614,55 @@ class Canvas(Compound):
         item = Compound(decos, path, Fill())
         self.append(item)
 
+#    def text_extents(self, text):
+#        dx, dy, width, height, _, _ = text_extents_cairo(text)
+#        return (dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT, 
+#            width/SCALE_CM_TO_POINT, height/SCALE_CM_TO_POINT)
+
     def text_extents(self, text):
-        dx, dy, width, height, _, _ = text_extents_cairo(text)
-        return (dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT, 
-            width/SCALE_CM_TO_POINT, height/SCALE_CM_TO_POINT)
+        item = Text(0., 0., text)
+        bound = item.get_bound()
+        dx, dy = bound.urx, bound.ury
+        return (0., -dy/SCALE_CM_TO_POINT, dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT)
 
     def text(self, x, y, text, decos=[]):
         #print("Canvas.text", x, y, text)
         item = Compound(decos, Text(x, y, text))
         self.append(item)
 
-    def on_item(self, item):
-        #print("on_item", item)
-        if isinstance(item, MoveTo_Pt):
-            self.pos = item.x, item.y
-        else:
-            b = item.get_bound()
-            if b.is_empty():
-                return
-            self.bound.update(b)
-            if self.pos:
-                x, y = self.pos
-                self.bound.update(Bound(x, y, x, y))
-
-    def get_bound(self):
-        self.pos = None
-        self.bound = Bound()
-        self.visit(self)
-        bound = self.bound
-        del self.bound
-        return bound
-
-    def writePDFfile(self, name):
-        #print(self)
-        assert name.endswith(".pdf")
+    def _write_cairo(self, method, name):
 
         bound = self.get_bound()
-        print("writePDFfile:", bound)
-
-        SCALE = 1.0
+        print("_write_cairo:", bound)
 
         import cairo
 
-        if 0:
-            W, H = 200., 200. # point == 1/72 inch
-            surface = cairo.PDFSurface(name, W, H)
+        W = bound.width
+        H = bound.height
+        surface = method(name, W, H)
 
-            dx = 0
-            dy = H
-            surface.set_device_offset(dx, dy)
-
-        else:
-            W = bound.width
-            H = bound.height
-            surface = cairo.PDFSurface(name, W, H)
-
-            dx = 0 - bound.llx
-            dy = H + bound.lly
-            surface.set_device_offset(dx, dy)
+        dx = 0 - bound.llx
+        dy = H + bound.lly
+        surface.set_device_offset(dx, dy)
 
         cxt = cairo.Context(surface)
-        cxt.scale(SCALE, SCALE)
+        #SCALE = 1.0
+        #cxt.scale(SCALE, SCALE)
         cxt.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
-        for item in self.items:
-            item.process_cairo(cxt)
+        self.process_cairo(cxt)
         surface.finish()
+
+    def writePDFfile(self, name):
+        assert name.endswith(".pdf")
+        import cairo
+        method = cairo.PDFSurface
+        self._write_cairo(method, name)
 
     def writeSVGfile(self, name):
         assert name.endswith(".svg")
-        surface = cairo.SVGSurface(name, W, H)
+        import cairo
+        method = cairo.SVGSurface
+        self._write_cairo(method, name)
 
 
 

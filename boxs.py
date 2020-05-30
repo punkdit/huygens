@@ -144,8 +144,6 @@ class VBox(CompoundBox):
             system.add(box.left <= self.left)
             system.add(box.right <= self.right)
         system.add(self.y - self.bot == y)
-        #system.add(self.bot == 20)
-        #system.add(self.bot == sum(box.height for box in boxs))
 
 
 def main():
@@ -188,21 +186,15 @@ def main():
                 right = rnd(a, b)
                 box = EmptyBox(top, bot, left, right)
                 boxs.append(box)
-            boxs.append(TextBox("hig !"))
+            boxs.append(TextBox("hig%d !"%row))
             box = HBox(boxs)
             rows.append(box)
         box = VBox(rows)
 
-    #    box = VBox([
-    #        EmptyBox(20, 5, 5, 18),
-    #        EmptyBox(10, 8, 9, 16),
-    #    ])
-    
-        #box = TextBox('xyyxy !')
-    
         cvs = Canvas()
         box.render(cvs, 0., 0.)
         cvs.writePDFfile("output.pdf")
+        cvs.writeSVGfile("output.svg")
 
 
 if __name__ == "__main__":

@@ -7,9 +7,7 @@ from cairosvg.surface import Surface
 
 from bruhat.argv import argv
 from bruhat.render import back
-from bruhat.render.back import SCALE_CM_TO_POINT
 
-POINT_TO_CM = 1./SCALE_CM_TO_POINT
 
 
 class State(object):
@@ -149,22 +147,13 @@ class Context(object):
         pass
 
 
-class MySurf(Surface):
-
-    #def _create_surface(self, width, height): # FAIL
-    #    surface = cairo.PDFSurface("test_out.pdf", width, height)
-    #    return surface, width, height
+class DummySurf(Surface):
 
     def __init__(self, tree, output, dpi):
     
         W, H = 600., 200. # point == 1/72 inch
 
-        if 0:
-            surface = cairo.PDFSurface("test_out.pdf", W, H)
-            self.context = cairo.Context(surface)
-
-        else:
-            self.context = Context()
+        self.context = Context()
 
         self.dpi = dpi
 
@@ -196,11 +185,17 @@ class MySurf(Surface):
     
         #surface.finish()
 
-        paths = self.context.paths
+        self.paths = self.context.paths
 
-        cvs = back.Canvas(paths)
-        cvs.writePDFfile("test_out.1.pdf")
 
+
+def load(name, dpi=72.):
+    assert name.endswith(".svg")
+    s = open(name).read()
+    tree = Tree(bytestring=s)
+    dummy = DummySurf(tree, None, dpi)
+    item = back.Compound(dummy.paths)
+    return item
 
 
 def test():
@@ -216,44 +211,41 @@ def test():
     context.set_source_rgba(0.0, 0.0, 0.0, 1.0)
     #context.set_line_width(1.0)
 
+    context.move_to(0, 0)
+    context.move_to(0.921875, -0.921875)
+    context.curve_to(0.921875, -0.46875, 0.984375, -0.640625, 0.140625, -0.640625)
+    context.line_to(0.140625, 0.015625)
+    context.curve_to(0.671875, -0.015625, 1.171875, -0.03125, 1.453125, -0.03125)
+    context.curve_to(1.703125, -0.03125, 2.21875, -0.015625, 2.734375, 0.015625)
+    context.line_to(2.734375, -0.640625)
+    context.curve_to(1.890625, -0.640625, 1.953125, -0.46875, 1.953125, -0.921875)
+    context.line_to(1.953125, -2.75)
+    context.curve_to(1.953125, -3.78125, 2.5, -4.1875, 3.125, -4.1875)
+    context.curve_to(3.765625, -4.1875, 3.6875, -3.8125, 3.6875, -3.234375)
+    context.line_to(3.6875, -0.921875)
+    context.curve_to(3.6875, -0.46875, 3.765625, -0.640625, 2.90625, -0.640625)
+    context.line_to(2.90625, 0.015625)
+    context.curve_to(3.4375, -0.015625, 3.953125, -0.03125, 4.21875, -0.03125)
+    context.curve_to(4.46875, -0.03125, 5.0, -0.015625, 5.5, 0.015625)
+    context.line_to(5.5, -0.640625)
+    context.curve_to(4.8125, -0.640625, 4.734375, -0.46875, 4.71875, -0.765625)
+    context.line_to(4.71875, -2.671875)
+    context.curve_to(4.71875, -3.53125, 4.671875, -3.953125, 4.359375, -4.3125)
+    context.curve_to(4.234375, -4.484375, 3.78125, -4.734375, 3.203125, -4.734375)
+    context.curve_to(2.359375, -4.734375, 1.75, -3.96875, 1.578125, -3.59375)
+    context.line_to(1.921875, -3.59375)
+    context.line_to(1.921875, -7.265625)
+    context.line_to(0.140625, -7.125)
+    context.line_to(0.140625, -6.5)
+    context.curve_to(1.015625, -6.5, 0.921875, -6.59375, 0.921875, -6.09375)
+    context.close_path()
+    context.move_to(0.921875, -0.921875)
 
-    if 1:
-      context.move_to(0, 0)
-      context.move_to(0.921875, -0.921875)
-      context.curve_to(0.921875, -0.46875, 0.984375, -0.640625, 0.140625, -0.640625)
-      context.line_to(0.140625, 0.015625)
-      context.curve_to(0.671875, -0.015625, 1.171875, -0.03125, 1.453125, -0.03125)
-      context.curve_to(1.703125, -0.03125, 2.21875, -0.015625, 2.734375, 0.015625)
-      context.line_to(2.734375, -0.640625)
-      context.curve_to(1.890625, -0.640625, 1.953125, -0.46875, 1.953125, -0.921875)
-      context.line_to(1.953125, -2.75)
-      context.curve_to(1.953125, -3.78125, 2.5, -4.1875, 3.125, -4.1875)
-      context.curve_to(3.765625, -4.1875, 3.6875, -3.8125, 3.6875, -3.234375)
-      context.line_to(3.6875, -0.921875)
-      context.curve_to(3.6875, -0.46875, 3.765625, -0.640625, 2.90625, -0.640625)
-      context.line_to(2.90625, 0.015625)
-      context.curve_to(3.4375, -0.015625, 3.953125, -0.03125, 4.21875, -0.03125)
-      context.curve_to(4.46875, -0.03125, 5.0, -0.015625, 5.5, 0.015625)
-      context.line_to(5.5, -0.640625)
-      context.curve_to(4.8125, -0.640625, 4.734375, -0.46875, 4.71875, -0.765625)
-      context.line_to(4.71875, -2.671875)
-      context.curve_to(4.71875, -3.53125, 4.671875, -3.953125, 4.359375, -4.3125)
-      context.curve_to(4.234375, -4.484375, 3.78125, -4.734375, 3.203125, -4.734375)
-      context.curve_to(2.359375, -4.734375, 1.75, -3.96875, 1.578125, -3.59375)
-      context.line_to(1.921875, -3.59375)
-      context.line_to(1.921875, -7.265625)
-      context.line_to(0.140625, -7.125)
-      context.line_to(0.140625, -6.5)
-      context.curve_to(1.015625, -6.5, 0.921875, -6.59375, 0.921875, -6.09375)
-      context.close_path()
-      context.move_to(0.921875, -0.921875)
-
-    if 1:
-        context.set_source_rgba(0.0, 0.0, 0.0, 1.0)
-        context.fill_preserve()
-        context.set_line_width(1.0)
-        context.set_source_rgba(0, 0, 0, 0.0)
-        context.stroke()
+    context.set_source_rgba(0.0, 0.0, 0.0, 1.0)
+    context.fill_preserve()
+    context.set_line_width(1.0)
+    context.set_source_rgba(0, 0, 0, 0.0)
+    context.stroke()
 
     surface.finish()
 
@@ -270,8 +262,9 @@ if __name__ == "__main__":
         name = argv.next()
         s = open(name).read()
         tree = Tree(bytestring=s)
-    
-        my = MySurf(tree, None, 72.)
+        my = DummySurf(tree, None, 72.)
+        cvs = back.Canvas(my.paths)
+        cvs.writePDFfile("test_out.1.pdf")
 
 
 
