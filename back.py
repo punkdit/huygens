@@ -165,8 +165,8 @@ class ClosePath(Item):
 
 class MoveTo_Pt(Item):
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
+        self.x = float(x)
+        self.y = float(y)
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -179,14 +179,15 @@ class MoveTo_Pt(Item):
 
 class MoveTo(MoveTo_Pt):
     def __init__(self, x, y):
+        x, y = float(x), float(y)
         self.x = SCALE_CM_TO_POINT*x
         self.y = SCALE_CM_TO_POINT*y
 
 
 class LineTo_Pt(Item):
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
+        self.x = float(x)
+        self.y = float(y)
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -199,6 +200,7 @@ class LineTo_Pt(Item):
 
 class LineTo(LineTo_Pt):
     def __init__(self, x, y):
+        x, y = float(x), float(y)
         self.x = SCALE_CM_TO_POINT*x
         self.y = SCALE_CM_TO_POINT*y
 

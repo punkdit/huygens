@@ -337,9 +337,12 @@ class System(object):
     def __getitem__(self, v):
         if isinstance(v, (int, float)):
             return v
-        assert isinstance(v, Variable)
+        assert isinstance(v, (Variable, Expr, Term)), repr(v)
         assert self.lookup is not None, "call solve first!"
-        return self.lookup[v]
+        #return self.lookup[v]
+        value = v.evaluate(self.lookup)
+        value = float(value)
+        return value
 
 
 def main():

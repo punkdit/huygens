@@ -264,7 +264,7 @@ if __name__ == "__main__":
         tree = Tree(bytestring=s)
         my = DummySurf(tree, None, 72.)
         cvs = back.Canvas(my.paths)
-        cvs.writePDFfile("test_out.1.pdf")
+        cvs.writePDFfile("test_load.pdf")
 
 
 
