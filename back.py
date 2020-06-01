@@ -604,6 +604,17 @@ class CairoText(Item):
 
 
 class Text(Item):
+
+    _baseline = None
+    @classmethod
+    def _get_baseline(cls):
+        if cls._baseline is None:
+            item = make_text("x") # measure this font using "x"
+            bound = item.get_bound()
+            #print("_get_baseline", bound)
+            cls._baseline = bound.lly
+        return cls._baseline
+
     def __init__(self, x, y, text):
         assert text
         self.x = x = SCALE_CM_TO_POINT*x
@@ -611,29 +622,22 @@ class Text(Item):
         self.text = text
         item = make_text(text)
         bound = item.get_bound()
-        #print(bound, text)
-        #self.base = 84.009875-82.072375 
+        y0 = self._get_baseline()
+        self.bot = y0 - bound.lly
+        #print(bound, text, self.bot)
         assert not bound.is_empty(), bound
         llx, lly = bound.llx, bound.lly
         trafo = Translate_Pt(x-llx, y-lly)
         items = [trafo] + item.items
-        #Compound.__init__(self, items)
         self.items = items
-        self.bound = Bound(x, y, x+bound.width, y+bound.height)
+        self.bound = Bound(x, y-self.bot, x+bound.width, y+bound.height-self.bot)
 
     def get_bound(self):
         return self.bound
-#        bound = Compound.get_bound(self)
-#        llx, lly, urx, ury = bound
-#        x, y = self.x, self.y
-#        llx, urx = x, urx - llx + x
-#        lly, ury = y, ury - lly + y
-#        bound = Bound(llx, lly, urx, ury)
-#        return bound
 
     def process_cairo(self, cxt):
         cxt.save()
-        #cxt.translate(0., self.base)
+        cxt.translate(0., self.bot)
         for item in self.items:
             item.process_cairo(cxt)
         cxt.restore()
@@ -658,9 +662,16 @@ class Canvas(Compound):
         item = Text(0., 0., text)
         #item.dump()
         bound = item.get_bound()
-        #print(text, bound)
-        dx, dy = bound.urx, bound.ury
-        return (0., dy/SCALE_CM_TO_POINT, dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT)
+        #print("text_extents", text, bound)
+        #dx, dy = bound.urx, bound.ury
+        llx, lly, urx, ury = bound
+        #return (0., dy/SCALE_CM_TO_POINT, dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT)
+        llx /= SCALE_CM_TO_POINT
+        lly /= SCALE_CM_TO_POINT
+        urx /= SCALE_CM_TO_POINT
+        ury /= SCALE_CM_TO_POINT
+        #print("text_extents", text, (0., ury, urx-llx, ury-lly))
+        return (0., ury, urx-llx, ury-lly)
 
     def text(self, x, y, text, decos=[]):
         #print("Canvas.text", x, y, text)
@@ -683,8 +694,6 @@ class Canvas(Compound):
         surface.set_device_offset(dx, dy)
 
         cxt = cairo.Context(surface)
-        #SCALE = 1.0
-        #cxt.scale(SCALE, SCALE)
         cxt.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
         self.process_cairo(cxt)
         surface.finish()

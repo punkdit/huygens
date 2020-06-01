@@ -15,7 +15,7 @@ def rnd(a, b):
 
 class Box(object):
 
-    DEBUG = True
+    DEBUG = False
     did_layout = False
 
     @classmethod
@@ -126,7 +126,7 @@ class Box(object):
 
 
 class EmptyBox(Box):
-    def __init__(self, top, bot, left, right):
+    def __init__(self, top=0., bot=0., left=0., right=0.):
         self.top = top
         self.bot = bot
         self.left = left
@@ -247,12 +247,12 @@ class AlignBox(Box):
 #        system.add(self.top + self.bot == self._height)
 
 
-class StrutBox(Box):
-    def __init__(self, top=None, bot=None, left=None, right=None):
-        self.top = top if top is not None else 0.
-        self.bot = bot if bot is not None else 0.
-        self.left = left if left is not None else 0.
-        self.right = right if right is not None else 0.
+#class StrutBox(Box):
+#    def __init__(self, top=None, bot=None, left=None, right=None):
+#        self.top = top if top is not None else 0.
+#        self.bot = bot if bot is not None else 0.
+#        self.left = left if left is not None else 0.
+#        self.right = right if right is not None else 0.
         
 
 class CompoundBox(Box):
@@ -407,8 +407,8 @@ def main():
 #        VBox([TextBox(text) for text in "123 xfdl sdal".split()]),
 #    ])
 
-    EmptyBox.DEBUG = True
-    Box.DEBUG = True
+    #EmptyBox.DEBUG = True
+    Box.DEBUG = argv.get("debug") or argv.get("DEBUG")
 
     if 0:
         box = EmptyBox(1., 1., 1., 1.)
@@ -428,16 +428,18 @@ def main():
             rows.append(row)
 
         box = TableBox(rows)
+    elif 0:
+        box = HBox("geghh xxde xyeey".split())
     elif 1:
         rows = []
         for i in range(3):
             row = []
             for j in range(3):
-                box = TextBox(choice("abcgef")*(i+1)*(j+1))
+                box = TextBox(choice("xbcgef")*(i+1)*(j+1))
                 #box = MarginBox(box, 0.1)
                 #box = AlignBox(box, "north")
                 row.append(box)
-            #row.append(StrutBox(bot=1.0))
+            #row.append(EmptyBox(bot=1.0))
             rows.append(row)
         box = TableBox(rows)
     elif 1:
