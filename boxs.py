@@ -16,10 +16,20 @@ def rnd(a, b):
 class Box(object):
 
     DEBUG = True
-    fixed = False
+    did_layout = False
+
+    @classmethod
+    def promote(cls, item):
+        if isinstance(item, Box):
+            return item
+        if isinstance(item, str):
+            return TextBox(item)
+        if isinstance(item, (tuple, list)):
+            return HBox(item)
+        raise TypeError(repr(item))
 
     def on_layout(self, cvs, system):
-        assert not self.fixed, "already called on_layout"
+        assert not self.did_layout, "already called on_layout"
         if self.DEBUG:
             print("%s.on_layout" % (self.__class__.__name__,))
         for attr in 'x y left right top bot'.split():
@@ -31,7 +41,7 @@ class Box(object):
             weight = 1.0 if attr not in 'xy' else 0.0
             v = system.get_var(stem, weight)
             setattr(self, attr, v)
-        self.fixed = True
+        self.did_layout = True
 
     def on_render(self, cvs, system):
         if not self.DEBUG:
@@ -58,6 +68,54 @@ class Box(object):
     def height(self):
         return self.top + self.bot
 
+    @property
+    def llx(self):
+        return self.x - self.left
+
+    @property
+    def lly(self):
+        return self.y - self.bot
+
+    @property
+    def urx(self):
+        return self.x + self.right
+
+    @property
+    def ury(self):
+        return self.y + self.top
+
+    @property
+    def bound(self):
+        return self.llx, self.lly, self.urx, self.ury
+
+    def get_align(self, align):
+        llx, lly, urx, ury = self.bound
+        xmid = 0.5*(llx + urx)
+        ymid = 0.5*(lly + ury)
+        if align == "center":
+            x, y = xmid, ymid
+        elif align == "north":
+            x, y = xmid, ury
+        elif align == "south":
+            x, y = xmid, lly
+        elif align == "east":
+            x, y = urx, ymid
+        elif align == "west":
+            x, y = llx, ymid
+        elif align == "northeast":
+            x, y = urx, ury
+        elif align == "northwest":
+            x, y = llx, ury
+        elif align == "southeast":
+            x, y = urx, lly
+        elif align == "southwest":
+            x, y = llx, lly
+        else:
+            assert 0, "alignment %r not understood" % align
+    
+        return x, y
+
+
     def render(self, cvs, x=0, y=0):
         system = System()
         self.on_layout(cvs, system)
@@ -75,6 +133,7 @@ class EmptyBox(Box):
         self.right = right
 
 
+    
 class StrokeBox(Box):
     def __init__(self, width, height, rgba=(0., 0., 0., 1.)):
         self.top = height
@@ -119,10 +178,87 @@ class TextBox(Box):
         cvs.text(x, y, self.text)
 
 
+class MarginBox(Box):
+    def __init__(self, child, margin):
+        self.child = Box.promote(child)
+        self.margin = margin
+
+    def SLOW_on_layout(self, cvs, system):
+        Box.on_layout(self, cvs, system)
+        child = self.child
+        child.on_layout(cvs, system)
+        system.add(self.x == child.x)
+        system.add(self.y == child.y)
+        margin = self.margin
+        system.add(self.left == child.left + margin)
+        system.add(self.right == child.right + margin)
+        system.add(self.top == child.top + margin)
+        system.add(self.bot == child.bot + margin)
+
+    def on_layout(self, cvs, system):
+        child = self.child
+        child.on_layout(cvs, system)
+        self.x = child.x
+        self.y = child.y
+        margin = self.margin
+        self.left = child.left + margin
+        self.right = child.right + margin
+        self.top = child.top + margin
+        self.bot = child.bot + margin
+        Box.on_layout(self, cvs, system)
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        self.child.on_render(cvs, system)
+
+
+class AlignBox(Box):
+    def __init__(self, child, align):
+        self.child = Box.promote(child)
+        self.align = align
+        assert align in ("center north south east west northeast"+
+            "northwest southeast southwest").split(), "align %r not understood"%align
+
+    def on_layout(self, cvs, system):
+        child = self.child
+        child.on_layout(cvs, system)
+        x, y = child.get_align(self.align)
+        self.x = x
+        self.y = y
+        self.left = x - child.llx
+        self.right = child.urx - x
+        self.bot = y - child.lly
+        self.top = child.ury - y
+        Box.on_layout(self, cvs, system)
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        self.child.on_render(cvs, system)
+
+
+#class VStrutBox(Box): # BLECH
+#    def __init__(self, height):
+#        self._height = height
+#        self.left = 0.
+#        self.right = 0.
+#        
+#    def on_layout(self, cvs, system):
+#        Box.on_layout(self, cvs, system)
+#        system.add(self.top + self.bot == self._height)
+
+
+class StrutBox(Box):
+    def __init__(self, top=None, bot=None, left=None, right=None):
+        self.top = top if top is not None else 0.
+        self.bot = bot if bot is not None else 0.
+        self.left = left if left is not None else 0.
+        self.right = right if right is not None else 0.
+        
+
 class CompoundBox(Box):
     def __init__(self, boxs):
         assert len(boxs)
-        self.boxs = list(boxs)
+        self.boxs = [Box.promote(box) for box in boxs]
 
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
@@ -182,7 +318,7 @@ class VBox(CompoundBox):
 
 
 class TableBox(CompoundBox):
-    def __init__(self, rows):
+    def __init__(self, rows, grid=False):
         boxs = []
         m = len(rows) # rows
         n = len(rows[0]) # cols
@@ -190,13 +326,14 @@ class TableBox(CompoundBox):
         for row in rows:
             assert len(row) == n
             for box in row:
-                assert isinstance(box, Box)
+                box = Box.promote(box)
                 boxs.append(box)
         self.rows = [list(row) for row in rows]
         self.shape = m, n
         # anchor is top left
         self.top = 0.
         self.left = 0.
+        self.grid = grid
         CompoundBox.__init__(self, boxs)
 
     def on_layout(self, cvs, system):
@@ -206,20 +343,16 @@ class TableBox(CompoundBox):
         xs, ys = {}, {}
         ws, hs = {}, {} # width's, height's
         for i in range(m): # rows
-            ys[i] = system.get_var("TableBox.row(%d)"%i, weight=-1.) 
-            hs[i] = system.get_var("TableBox.height(%d)"%i, weight=1.) 
+            ys[i] = system.get_var("TableBox.row(%d)"%i, weight=0.)
+            hs[i] = system.get_var("TableBox.height(%d)"%i, weight=1.) # minimize
         for j in range(n): # cols
-            xs[j] = system.get_var("TableBox.col(%d)"%j, weight=1.) 
-            ws[j] = system.get_var("TableBox.width(%d)"%j, weight=1.) 
+            xs[j] = system.get_var("TableBox.col(%d)"%j, weight=0.)
+            ws[j] = system.get_var("TableBox.width(%d)"%j, weight=1.) # minimize
         for i in range(m): # rows
             for j in range(n): # cols
                 box = rows[i][j]
                 system.add(box.y == ys[i]) # align
                 system.add(box.x == xs[j]) # align
-                #height = hs[i] # height of row i
-                #width = ws[j] # width of col j
-                #system.add(box.width <= width)
-                #system.add(box.height <= height)
 
         for i in range(m): # rows
             x = self.x
@@ -244,6 +377,8 @@ class TableBox(CompoundBox):
 
     def on_render(self, cvs, system):
         CompoundBox.on_render(self, cvs, system)
+        if not self.grid:
+            return
         m, n = self.shape
         xs, ys, ws, hs = self.vs
         width = system[self.width]
@@ -277,18 +412,11 @@ def main():
 
     if 0:
         box = EmptyBox(1., 1., 1., 1.)
-        cvs = Canvas()
-        box.render(cvs, 0., 0.)
-        cvs.writePDFfile("output.pdf")
-
     elif 0:
         box = TableBox([
-            [EmptyBox(.4, .1, 0.2, 2.2), 
-             EmptyBox(.3, 1.2, .5, 2.5),],
-            [EmptyBox(.8, .1, 0.4, 1.2), 
-             EmptyBox(.5, 0.4, .5, 1.5),]
+            [EmptyBox(.4, .1, 0.2, 2.2), EmptyBox(.3, 1.2, .5, 2.5),],
+            [EmptyBox(.8, .1, 0.4, 1.2), EmptyBox(.5, 0.4, .5, 1.5),]
         ])
-
     elif 0:
         a, b = 0.2, 2.0
         rows = []
@@ -300,28 +428,18 @@ def main():
             rows.append(row)
 
         box = TableBox(rows)
-    
-        cvs = Canvas()
-        box.render(cvs, 0., 0.)
-        cvs.writePDFfile("output.pdf")
-        #return
-    
     elif 1:
         rows = []
         for i in range(3):
             row = []
             for j in range(3):
-                box = TextBox(choice("abcdef")*(i+1)*(j+1))
+                box = TextBox(choice("abcgef")*(i+1)*(j+1))
+                #box = MarginBox(box, 0.1)
+                #box = AlignBox(box, "north")
                 row.append(box)
+            #row.append(StrutBox(bot=1.0))
             rows.append(row)
-
         box = TableBox(rows)
-    
-        cvs = Canvas()
-        box.render(cvs, 0., 0.)
-        cvs.writePDFfile("output.pdf")
-        #return
-    
     elif 1:
         box = OBox([
             EmptyBox(.4, .1, 0., 2.2),
@@ -329,14 +447,6 @@ def main():
             EmptyBox(1., .5, .5, .5),
             FillBox(.2, .2),
         ])
-
-        #box = VBox([HBox([EmptyBox(10., 10., 10., 10.)])])
-    
-        cvs = Canvas()
-        box.render(cvs, 0., 0.)
-        cvs.writePDFfile("output.pdf")
-        #return
-    
     else:
 
         a, b = 0.2, 2.0
@@ -356,10 +466,10 @@ def main():
             rows.append(box)
         box = VBox(rows)
 
-        cvs = Canvas()
-        box.render(cvs, 0., 0.)
-        cvs.writePDFfile("output.pdf")
-        cvs.writeSVGfile("output.svg")
+    cvs = Canvas()
+    box.render(cvs, 0., 0.)
+    cvs.writePDFfile("output.pdf")
+    #cvs.writeSVGfile("output.svg")
 
 
 if __name__ == "__main__":

@@ -610,8 +610,9 @@ class Text(Item):
         self.y = y = SCALE_CM_TO_POINT*y
         self.text = text
         item = make_text(text)
-        #print(item)
         bound = item.get_bound()
+        #print(bound, text)
+        #self.base = 84.009875-82.072375 
         assert not bound.is_empty(), bound
         llx, lly = bound.llx, bound.lly
         trafo = Translate_Pt(x-llx, y-lly)
@@ -632,6 +633,7 @@ class Text(Item):
 
     def process_cairo(self, cxt):
         cxt.save()
+        #cxt.translate(0., self.base)
         for item in self.items:
             item.process_cairo(cxt)
         cxt.restore()
@@ -656,6 +658,7 @@ class Canvas(Compound):
         item = Text(0., 0., text)
         #item.dump()
         bound = item.get_bound()
+        #print(text, bound)
         dx, dy = bound.urx, bound.ury
         return (0., dy/SCALE_CM_TO_POINT, dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT)
 

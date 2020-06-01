@@ -291,7 +291,7 @@ class Solver(object):
             b_eq = numpy.zeros((0,))
         #print(c)
         #print(A_ub)
-        result = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds)
+        result = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds, method="simplex")
         self.debug(result)
         assert result.success, result
         vs = {}
