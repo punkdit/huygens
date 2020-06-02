@@ -4,7 +4,6 @@ import os
 import hashlib
 from subprocess import Popen, PIPE
 
-from bruhat.render import load_svg
 
 def file_exists(name):
     try:
@@ -82,6 +81,7 @@ def make_text(text, tex_engine="pdftex"):
         command("%s %s"%(tex_engine, tex_name))
         command("pdf2svg %s %s" % (pdf_name, svg_name))
 
+    from bruhat.render import load_svg
     item = load_svg.load(svg_name)
 
     os.chdir("..") # <---------- chdir <-----

@@ -17,27 +17,15 @@ The api uses the first quadrant coordinate system:
     
 """
 
-from math import pi, sqrt
+from math import pi, sqrt, sin, cos
 
+from bruhat.render.base import EPSILON, NS, SCALE_CM_TO_POINT, Base, Matrix
 from bruhat.render.text import make_text
 
-# simple namespace class
-class NS(object):
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
 
-
-SCALE_CM_TO_POINT = 72.0/2.54 # convert cm's to points at 72 dpi.
-
-
-class Base(object):
-    def __str__(self):
-        attrs = list(self.__dict__.keys())
-        attrs.sort()
-        attrs = ', '.join("%s=%s"%(k, self.__dict__[k]) for k in attrs)
-        return "%s(%s)"%(self.__class__.__name__, attrs)
-    __repr__ = __str__
-
+# ----------------------------------------------------------------------------
+# 
+#
 
 def n_min(a, b):
     if a is None:
@@ -137,6 +125,11 @@ class BoundVisitor(Visitor):
                 x, y = self.pos
                 self.bound.update(Bound(x, y, x, y))
 
+
+
+# ----------------------------------------------------------------------------
+# 
+#
 
 
 class Item(Base):

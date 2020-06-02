@@ -42,6 +42,7 @@ class Dia(Box):
         r = 0.1
         x = system[self.x]
         y = system[self.y]
+        #cvs.stroke(path.rect(
         cvs.stroke(path.circle(x, y, r))
 
     def __mul__(self, other):
