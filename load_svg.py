@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+"""
+Hijack cairosvg to load svg into our internal data structures.
+"""
+
 import sys
 
 from cairosvg.parser import Tree
@@ -7,75 +11,15 @@ from cairosvg.surface import Surface
 
 from bruhat.argv import argv
 from bruhat.render import back
+from bruhat.render.base import Context
 
 
-
-class State(object):
-    def __init__(self, **kw):
-        self.state = dict(kw)
-
-
-class Method(object):
-    def __init__(self, context, name):
-        self.context = context
-        self.name = name
-        
-    def __call__(self, *args, **kw):
-        assert not kw
-        self.context.log(self.name, *args)
-        return self.context
-
-
-class Context(object):
-
-    save_attrs = 'pos offset'.split()
+class Reflexor(Context):
 
     def __init__(self):
-        self.stack = []
-        self.pos = None # current point
-        self.offset = 0., 0. # translate
+        Context.__init__(self)
         self.path = back.Compound()
         self.paths = []
-
-    def save(self):
-        #self.log("save")
-        state = {}
-        for k in self.save_attrs:
-            state[k] = getattr(self, k)
-        self.stack.append(state)
-
-    def restore(self):
-        #self.log("restore")
-        state = self.stack.pop()
-        self.__dict__.update(state)
-
-    def __str__(self):
-        return "Context(%r)"%(self.name,)
-    __repr__ = __str__
-
-    def __getattr__(self, attr):
-        return Method(self, attr)
-
-    def log(self, method, *args):
-        INDENT = "  "*len(self.stack)
-        print("%scontext.%s(%s)"%(INDENT, method, ', '.join(str(a) for a in args)))
-
-    def scale(self, sx, sy):
-        assert abs(sx-1.0)<1e-6, "TODO"
-        assert abs(sy-1.0)<1e-6, "TODO"
-
-    def get_current_point(self):
-        #self.log("get_current_point()")
-        return (0., 0.) # seems to work ...
-        #return self.pos
-
-    def has_current_point(self):
-        return False # seems to work ...
-        #return self.pos is not None
-
-    def translate(self, dx, dy):
-        x, y = self.offset
-        self.offset = (x+dx, y+dy)
 
     def move_to(self, x, y):
         dx, dy = self.offset
@@ -128,23 +72,6 @@ class Context(object):
         self.path = back.Compound()
         self.pos = None
 
-    def get_font_options(self):
-        return self # me again!
-
-    def set_font_options(self, fo): # skip this ...
-        pass
-
-    def set_hint_style(self, x): # font_options method
-        pass
-
-    def set_hint_metrics(self, x): # font_options method
-        pass
-
-    def set_miter_limit(self, x): # skip this ...
-        pass
-
-    def set_antialias(self, x): # skip this ...
-        pass
 
 
 class DummySurf(Surface):
@@ -153,7 +80,7 @@ class DummySurf(Surface):
     
         W, H = 600., 200. # point == 1/72 inch
 
-        self.context = Context()
+        self.context = Reflexor()
 
         self.dpi = dpi
 
@@ -186,7 +113,6 @@ class DummySurf(Surface):
         #surface.finish()
 
         self.paths = self.context.paths
-
 
 
 def load(name, dpi=72.):

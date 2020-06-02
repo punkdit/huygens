@@ -75,6 +75,127 @@ class Matrix(Base):
         return cls(c, s, -s, c, x-c*x+s*y, y-s*x-c*y)
 
 
+class State(object):
+    def __init__(self, **kw):
+        self.state = dict(kw)
+
+
+class Method(object):
+    def __init__(self, context, name):
+        self.context = context
+        self.name = name
+        
+    def __call__(self, *args, **kw):
+        assert not kw
+        self.context.log(self.name, *args)
+        return self.context
+
+
+class Context(object):
+
+    save_attrs = 'pos offset'.split()
+
+    def __init__(self):
+        self.stack = []
+        self.pos = None # current point
+        self.offset = 0., 0. # translate # XXX TODO USE Matrix XXX TODO
+
+    def save(self):
+        #self.log("save")
+        state = {}
+        for k in self.save_attrs:
+            state[k] = getattr(self, k)
+        self.stack.append(state)
+
+    def restore(self):
+        #self.log("restore")
+        state = self.stack.pop()
+        self.__dict__.update(state)
+
+    def __str__(self):
+        return "Context(%r)"%(self.name,)
+    __repr__ = __str__
+
+    def __getattr__(self, attr):
+        return Method(self, attr)
+
+    def log(self, method, *args):
+        INDENT = "  "*len(self.stack)
+        print("%scontext.%s(%s)"%(INDENT, method, ', '.join(str(a) for a in args)))
+
+    def scale(self, sx, sy):
+        assert abs(sx-1.0)<1e-6, "TODO"
+        assert abs(sy-1.0)<1e-6, "TODO"
+
+    def get_current_point(self):
+        #self.log("get_current_point()")
+        return (0., 0.) # seems to work ...
+        #return self.pos
+
+    def has_current_point(self):
+        return False # seems to work ...
+        #return self.pos is not None
+
+    def translate(self, dx, dy):
+        x, y = self.offset
+        self.offset = (x+dx, y+dy)
+
+    def move_to(self, x, y):
+        dx, dy = self.offset
+        x, y = (x+dx, y+dy)
+        self.pos = x, y
+
+    def line_to(self, x, y):
+        dx, dy = self.offset
+        x += dx
+        y += dy
+        self.pos = (x, y)
+
+    def curve_to(self, x0, y0, x1, y1, x2, y2):
+        dx, dy = self.offset
+        x0 += dx
+        y0 += dy
+        x1 += dx
+        y1 += dy
+        x2 += dx
+        y2 += dy
+        self.pos = (x2, y2)
+
+    def close_path(self):
+        pass
+
+    def set_source_rgba(self, r, g, b, a):
+        pass
+
+    def set_line_width(self, w):
+        pass
+
+    def fill_preserve(self):
+        pass
+
+    def stroke(self):
+        self.pos = None
+
+    def get_font_options(self):
+        return self # me again!
+
+    def set_font_options(self, fo): # skip this ...
+        pass
+
+    def set_hint_style(self, x): # font_options method
+        pass
+
+    def set_hint_metrics(self, x): # font_options method
+        pass
+
+    def set_miter_limit(self, x): # skip this ...
+        pass
+
+    def set_antialias(self, x): # skip this ...
+        pass
+
+
+
 def test():
     x, y = 1.2, 3.4
     radians = 1.234 * pi
@@ -92,6 +213,5 @@ def test():
 
 if __name__ == "__main__":
     test()
-
 
 
