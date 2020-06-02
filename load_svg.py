@@ -14,7 +14,7 @@ from bruhat.render import back
 from bruhat.render.base import Context
 
 
-class Reflexor(Context):
+class Reflector(Context):
 
     def __init__(self):
         Context.__init__(self)
@@ -80,7 +80,7 @@ class DummySurf(Surface):
     
         W, H = 600., 200. # point == 1/72 inch
 
-        self.context = Reflexor()
+        self.context = Reflector()
 
         self.dpi = dpi
 
