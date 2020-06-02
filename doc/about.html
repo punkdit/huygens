@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'></script>
+<script type="text/javascript">
+MathJax.Hub.Config({ "tex2jax": { inlineMath: [ [ '$', '$' ] ] } });
+MathJax.Hub.Config({
+  TeX: {
+    Macros: {
+    Complex: "{\\mathbb C}",
+    Real: "{\\mathbb R}",
+    Rational: "{\\mathbb Q}",
+    Integer: "{\\mathbb Z}",
+    Natural: "{\\mathbb N}",
+    End: "{\\mathrm{End}}",
+    Hom: "{\\mathrm{Hom}}",
+    Aut: "{\\mathrm{Aut}}",
+    ket: ["{|{#1}\\rangle}",1],
+    SL: "{\\mathrm{SL}}",
+    GL: "{\\mathrm{GL}}",
+    //RR: "{\\bf R}",
+    //bold: ["{\\bf #1}",1]
+    }
+  }
+});
+</script>
+
+<head> 
+<link rel="stylesheet" type="text/css" href="superstyle.css"> 
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Spectral">
+<link rel="stylesheet" 
+    href="https://unpkg.com/purecss@1.0.0/build/pure-min.css" 
+    integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" 
+    crossorigin="anonymous">
+<style>
+    body {
+        font-family: 'Spectral', serif;
+        font-size: 16px;
+    }
+
+    html, button, input, select, textarea,
+    .pure-g [class *= "pure-u"] {
+        font-family: 'Spectral', serif;
+        font-size: 16px;
+    }
+
+    .center {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+
+.jazz-table {
+    /* Remove spacing between table cells (from Normalize.css) */
+    border-collapse: collapse;
+    border-spacing: 0;
+    empty-cells: show;
+    /* border: 1px solid #cbcbcb; */
+    border: 0px;
+    margin: 0 auto;
+}
+
+.jazz-table-bordered {
+    border: 1px solid #cbcbcb;
+}
+
+.jazz-table caption {
+    color: #000;
+    /* font: italic 85%/1 arial, sans-serif; */
+    padding: 1em 0;
+    text-align: center;
+}
+
+.jazz-table td, 
+.jazz-table th {
+    /*
+    border-left: 1px solid #cbcbcb;
+    border-width: 0 0 0 1px;
+    */
+    font-size: inherit;
+    margin: 0;
+    overflow: visible; /*to make ths where the title is really long work*/
+    padding: 0.5em 1em; /* cell padding */
+}
+
+.jazz-table thead {
+    background-color: #e0e0e0;
+    color: #000;
+    text-align: left;
+    vertical-align: bottom;
+}
+
+
+
+.btn {
+  -webkit-appearance: none;
+  background: #dbdbdb;
+  background-image: -webkit-linear-gradient(top, #dbdbdb, #a3a3a3);
+  background-image: -moz-linear-gradient(top, #dbdbdb, #a3a3a3);
+  background-image: -ms-linear-gradient(top, #dbdbdb, #a3a3a3);
+  background-image: -o-linear-gradient(top, #dbdbdb, #a3a3a3);
+  background-image: linear-gradient(to bottom, #dbdbdb, #a3a3a3);
+  -webkit-border-radius: 4;
+  -moz-border-radius: 4;
+  border-radius: 4px;
+  font-family: Arial;
+  color: #000000;
+  padding: 5px 55px 0px 55px;
+  text-decoration: none;
+    display: inline-block;
+    margin-right:4px;
+}
+
+.btn:hover {
+  background: #f0f0f0;
+  background-image: -webkit-linear-gradient(top, #f0f0f0, #d6d6d6);
+  background-image: -moz-linear-gradient(top, #f0f0f0, #d6d6d6);
+  background-image: -ms-linear-gradient(top, #f0f0f0, #d6d6d6);
+  background-image: -o-linear-gradient(top, #f0f0f0, #d6d6d6);
+  background-image: linear-gradient(to bottom, #f0f0f0, #d6d6d6);
+  text-decoration: none;
+}
+
+.btn:active {
+  color: #dddddd;
+  background: #f0f0f0;
+  background-image: -webkit-linear-gradient(top, #f0f0f0, #d6d6d6);
+  background-image: -moz-linear-gradient(top, #f0f0f0, #d6d6d6);
+  background-image: -ms-linear-gradient(top, #f0f0f0, #d6d6d6);
+  background-image: -o-linear-gradient(top, #f0f0f0, #d6d6d6);
+  background-image: linear-gradient(to bottom, #f0f0f0, #d6d6d6);
+  text-decoration: none;
+}
+
+/*
+    range input css adapted from
+    https://css-tricks.com/styling-cross-browser-compatible-range-inputs-css/
+*/
+
+input[type=range] {
+  -webkit-appearance: none;
+  margin-top: 15px;
+  margin-bottom: 15px;
+  margin-right: 15px;
+  width: 70%;
+}
+input[type=range]:focus {
+  outline: none;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  width: 70%;
+  height: 8.4px;
+  cursor: pointer;
+  animate: 0.2s;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  background: #FAE59F;
+  border-radius: 1.3px;
+  border: 0.2px solid #010101;
+}
+input[type=range]::-webkit-slider-thumb {
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  border: 1px solid #000000;
+  height: 36px;
+  width: 16px;
+  border-radius: 3px;
+  background: #ffffff;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -14px;
+}
+input[type=range]:focus::-webkit-slider-runnable-track {
+  background: #ffd165;
+}
+input[type=range]::-moz-range-track {
+  width: 70%;
+  height: 8.4px;
+  cursor: pointer;
+  animate: 0.2s;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  background: #FAE59F;
+  border-radius: 1.3px;
+  border: 0.2px solid #010101;
+}
+input[type=range]::-moz-range-thumb {
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  border: 1px solid #000000;
+  height: 36px;
+  width: 16px;
+  border-radius: 3px;
+  background: #ffffff;
+  cursor: pointer;
+}
+input[type=range]::-ms-track {
+  width: 70%;
+  height: 8.4px;
+  cursor: pointer;
+  animate: 0.2s;
+  background: transparent;
+  border-color: transparent;
+  border-width: 16px 0;
+  color: transparent;
+}
+input[type=range]::-ms-fill-lower {
+  background: #2a6495;
+  border: 0.2px solid #010101;
+  border-radius: 2.6px;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+}
+input[type=range]::-ms-fill-upper {
+  background: #FAE59F;
+  border: 0.2px solid #010101;
+  border-radius: 2.6px;
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+}
+input[type=range]::-ms-thumb {
+  box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+  border: 1px solid #000000;
+  height: 36px;
+  width: 16px;
+  border-radius: 3px;
+  background: #ffffff;
+  cursor: pointer;
+}
+input[type=range]:focus::-ms-fill-lower {
+  background: #FAE59F;
+}
+input[type=range]:focus::-ms-fill-upper {
+  background: #ffd165;
+}
+
+
+    </style>
+</head>
+
+<body>
+
+<noscript><h3>Please enable JavaScript </h3></noscript>
+
+<main>
+
+<h2>bruhat.render</h2>
+<p>First we set a debug flag so we can see the shape of every box</p>
+<pre><code>Box.DEBUG = True
+</code></pre>
+<p>This is a box with fixed dimensions:</p>
+<pre><code>box = EmptyBox(1., 1., 1., 1.)
+</code></pre>
+<p><img src="pic-empty.svg" class="center"></p>
+<p>Horizontal box</p>
+<pre><code>box = HBox("geghh xxde xyeey".split())
+</code></pre>
+<p><img src="pic-hbox-text.svg" class="center"></p>
+<p>Overlay box:</p>
+<pre><code>box = OBox([
+    EmptyBox(.4, .1, 0., 2.2),
+    EmptyBox(.3, 0., .5, 2.5),
+    EmptyBox(1., .5, .5, .5),
+    FillBox(.2, .2),
+])
+</code></pre>
+<p><img src="pic-obox.svg" class="center"></p>
+<p>Horizontal box containing vertical boxes:</p>
+<pre><code>box = HBox([
+    VBox([TextBox(text) for text in "xxx1 ggg2 xxx3 xx4".split()]),
+    VBox([TextBox(text) for text in "123 xfdl sdal".split()]),
+])
+</code></pre>
+<p><img src="pic-hbox-vbox.svg" class="center"></p>
+<p>A 2x2 tabular arrangement:</p>
+<pre><code>box = TableBox([
+    [EmptyBox(.4, .1, 0.2, 2.2), EmptyBox(.3, 1.2, .5, 2.5),],
+    [EmptyBox(.8, .1, 0.4, 1.2), EmptyBox(.5, 0.4, .5, 1.5),]
+])
+</code></pre>
+<p><img src="pic-table.svg" class="center"></p>
+<p>A 3x3 table:</p>
+<pre><code>def rnd(a, b):
+    return (b-a)*random() + a
+
+a, b = 0.2, 1.0
+rows = []
+for row in range(3):
+    row = []
+    for col in range(3):
+        box = EmptyBox(rnd(a,b), rnd(a,b), rnd(a,b), rnd(a,b))
+        row.append(box)
+    rows.append(row)
+
+box = TableBox(rows)
+</code></pre>
+<p><img src="pic-table-2.svg" class="center"></p>
+<pre><code>rows = []
+for i in range(3):
+    row = []
+    for j in range(3):
+        box = TextBox(choice("xbcgef")*(i+1)*(j+1))
+        box = MarginBox(box, 0.1)
+        box = AlignBox(box, "north")
+        row.append(box)
+    row.append(EmptyBox(bot=1.0))
+    rows.append(row)
+box = TableBox(rows)
+</code></pre>
+<p><img src="pic-table-3.svg" class="center"></p>
+<pre><code>a, b = 0.2, 2.0
+rows = []
+for row in range(2):
+    boxs = []
+    for col in range(2):
+        top = rnd(a, b)
+        bot = rnd(a, b)
+        left = rnd(a, b)
+        right = rnd(a, b)
+        box = EmptyBox(top, bot, left, right)
+        boxs.append(box)
+    boxs.append(TextBox("Hig%d !"%row))
+    #boxs.append(TextBox(r"\(\to\)"))
+    box = HBox(boxs)
+    rows.append(box)
+box = VBox(rows)
+</code></pre>
+<p><img src="pic-table-4.svg" class="center"></p>
+
+<hr>
+
+Copyright (c) 2018 - 2020.
+
+</main>
+
+</body>
+
+

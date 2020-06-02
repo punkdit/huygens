@@ -288,6 +288,7 @@ class Arc(Item):
         self.angle2 = angle2
 
     def get_bound(self):
+        r = self.r
         return Bound(self.x-r, self.y-r, self.x+r, self.y+r) # XXX TODO XXX
 
     def process_cairo(self, cxt):
@@ -678,39 +679,42 @@ class Canvas(Compound):
         item = Compound(decos, Text(x, y, text))
         self.append(item)
 
-    def _write_cairo(self, method, name):
+    def _write_cairo(self, method, name, scale=1.0): # XXX hack a scale XXX
 
         bound = self.get_bound()
         #print("_write_cairo:", bound)
 
         import cairo
 
-        W = bound.width
-        H = bound.height
+        W = bound.width*scale
+        H = bound.height*scale
         surface = method(name, W, H)
 
-        dx = 0 - bound.llx
-        dy = H + bound.lly
+        dx = 0 - bound.llx*scale
+        dy = H + bound.lly*scale
+        #surface.set_device_offset(dx*scale, dy*scale)
         surface.set_device_offset(dx, dy)
 
         cxt = cairo.Context(surface)
+        cxt.scale(scale, scale)
         cxt.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
         self.process_cairo(cxt)
         surface.finish()
 
-    def writePDFfile(self, name):
+    def writePDFfile(self, name, scale=1.0):
         assert name.endswith(".pdf")
         import cairo
         method = cairo.PDFSurface
-        self._write_cairo(method, name)
+        self._write_cairo(method, name, scale=scale)
 
-    def writeSVGfile(self, name):
+    def writeSVGfile(self, name, scale=1.0):
         assert name.endswith(".svg")
         import cairo
         method = cairo.SVGSurface
-        self._write_cairo(method, name)
+        self._write_cairo(method, name, scale=scale)
 
 
+canvas = NS(canvas = Canvas)
 
 
 
