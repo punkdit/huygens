@@ -22,29 +22,23 @@ class Reflector(Context):
         self.paths = []
 
     def move_to(self, x, y):
-        dx, dy = self.offset
-        x, y = (x+dx, y+dy)
+        x, y = self.matrix(x, y)
         item = back.MoveTo_Pt(x, -y)
         path = self.path
         path.append(item)
+        x, y = self.matrix(x, y)
         self.pos = x, y
 
     def line_to(self, x, y):
-        dx, dy = self.offset
-        x += dx
-        y += dy
+        x, y = self.matrix(x, y)
         item = back.LineTo_Pt(x, -y)
         self.path.append(item)
         self.pos = (x, y)
 
     def curve_to(self, x0, y0, x1, y1, x2, y2):
-        dx, dy = self.offset
-        x0 += dx
-        y0 += dy
-        x1 += dx
-        y1 += dy
-        x2 += dx
-        y2 += dy
+        x0, y0 = self.matrix(x0, y0)
+        x1, y1 = self.matrix(x1, y1)
+        x2, y2 = self.matrix(x2, y2)
         item = back.CurveTo_Pt(x0, -y0, x1, -y1, x2, -y2)
         self.path.append(item)
         self.pos = (x2, y2)

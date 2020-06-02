@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from copy import deepcopy
 from math import pi, sqrt, sin, cos
 
 EPSILON = 1e-6
@@ -23,7 +24,7 @@ class Base(object):
 
 
 # ----------------------------------------------------------------------------
-# See: https://www.cairographics.org/cookbook/matrix_transform/
+# 
 #
 
 class Matrix(Base):
@@ -37,8 +38,8 @@ class Matrix(Base):
         self.y0 = y0 # y translate
 
     def __call__(self, _x, _y):
-        x = self.xx * self.x + self.xy * self.y + self.x0
-        y = self.yx * self.x + self.yy * self.y + self.y0
+        x = self.xx * _x + self.xy * _y + self.x0
+        y = self.yx * _x + self.yy * _y + self.y0
         return x, y
 
     def __eq__(self, other):
@@ -93,18 +94,19 @@ class Method(object):
 
 class Context(object):
 
-    save_attrs = 'pos offset'.split()
+    save_attrs = 'pos matrix'.split()
 
     def __init__(self):
         self.stack = []
         self.pos = None # current point
-        self.offset = 0., 0. # translate # XXX TODO USE Matrix XXX TODO
+        #self.offset = 0., 0. # translate # XXX TODO USE Matrix XXX TODO
+        self.matrix = Matrix()
 
     def save(self):
         #self.log("save")
         state = {}
         for k in self.save_attrs:
-            state[k] = getattr(self, k)
+            state[k] = deepcopy(getattr(self, k))
         self.stack.append(state)
 
     def restore(self):
@@ -117,18 +119,16 @@ class Context(object):
     __repr__ = __str__
 
     def __getattr__(self, attr):
+        assert 0, attr
         return Method(self, attr)
 
     def log(self, method, *args):
         INDENT = "  "*len(self.stack)
         print("%scontext.%s(%s)"%(INDENT, method, ', '.join(str(a) for a in args)))
 
-    def scale(self, sx, sy):
-        assert abs(sx-1.0)<1e-6, "TODO"
-        assert abs(sy-1.0)<1e-6, "TODO"
-
     def get_current_point(self):
         #self.log("get_current_point()")
+        # XXX apply inverse of current matrix XXX
         return (0., 0.) # seems to work ...
         #return self.pos
 
@@ -136,29 +136,26 @@ class Context(object):
         return False # seems to work ...
         #return self.pos is not None
 
+    def scale(self, sx, sy):
+        matrix = Matrix.scale(sx, sy) 
+        self.matrix = matrix * self.matrix
+
     def translate(self, dx, dy):
-        x, y = self.offset
-        self.offset = (x+dx, y+dy)
+        matrix = Matrix.translate(dx, dy) 
+        self.matrix = matrix * self.matrix
 
     def move_to(self, x, y):
-        dx, dy = self.offset
-        x, y = (x+dx, y+dy)
+        x, y = self.matrix(x, y)
         self.pos = x, y
 
     def line_to(self, x, y):
-        dx, dy = self.offset
-        x += dx
-        y += dy
+        x, y = self.matrix(x, y)
         self.pos = (x, y)
 
     def curve_to(self, x0, y0, x1, y1, x2, y2):
-        dx, dy = self.offset
-        x0 += dx
-        y0 += dy
-        x1 += dx
-        y1 += dy
-        x2 += dx
-        y2 += dy
+        x0, y0 = self.matrix(x0, y0)
+        x1, y1 = self.matrix(x1, y1)
+        x2, y2 = self.matrix(x2, y2)
         self.pos = (x2, y2)
 
     def close_path(self):
