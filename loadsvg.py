@@ -115,7 +115,7 @@ class DummySurf(Surface):
         self.paths = self.context.paths
 
 
-def load(name, dpi=72.):
+def loadsvg(name, dpi=72.):
     assert name.endswith(".svg")
     s = open(name).read()
     tree = Tree(bytestring=s)

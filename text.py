@@ -81,8 +81,8 @@ def make_text(text, tex_engine="pdftex"):
         command("%s %s"%(tex_engine, tex_name))
         command("pdf2svg %s %s" % (pdf_name, svg_name))
 
-    from bruhat.render import load_svg
-    item = load_svg.load(svg_name)
+    from bruhat.render import loadsvg
+    item = loadsvg.loadsvg(svg_name)
 
     os.chdir("..") # <---------- chdir <-----
 
