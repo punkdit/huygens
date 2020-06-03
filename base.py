@@ -48,11 +48,11 @@ class Matrix(Base):
         dy = self.yx * _dx + self.yy * _dy
         return dx, dy
 
-    def transform_angle(self, angle): # ????
-        x, y = cos(angle), sin(angle) 
-        x, y = self.transform_distance(x, y)
-        angle = atan(y / x)
-        return angle
+#    def transform_angle(self, angle): # ????
+#        x, y = cos(angle), sin(angle) 
+#        x, y = self.transform_distance(x, y)
+#        angle = atan(y / x)
+#        return angle
 
     def __eq__(self, other):
         return sum(abs(self[i]-other[i]) for i in range(6)) < EPSILON
@@ -63,14 +63,13 @@ class Matrix(Base):
     def __getitem__(self, idx):
         return [self.xx, self.yx, self.xy, self.yy, self.x0, self.y0][idx]
 
-    def multiply(self, other):
-        "algebraic order: first do other then do self"
-        xx = self.xx*other.xx + self.xy*other.yx
-        yx = self.yx*other.xx + self.yy*other.yx
-        xy = self.xx*other.xy + self.xy*other.yy
-        yy = self.xy*other.xy + self.yy*other.yy
-        x0 = self.xx*other.x0 + self.xy*other.y0 + self.x0
-        y0 = self.yx*other.x0 + self.yy*other.y0 + self.y0
+    def multiply(left, right):
+        xx = right.xx*left.xx + right.xy*left.yx
+        yx = right.yx*left.xx + right.yy*left.yx
+        xy = right.xx*left.xy + right.xy*left.yy
+        yy = right.xy*left.xy + right.yy*left.yy
+        x0 = right.xx*left.x0 + right.xy*left.y0 + right.x0
+        y0 = right.yx*left.x0 + right.yy*left.y0 + right.y0
         return Matrix(xx, yx, xy, yy, x0, y0)
     __mul__ = multiply
 
@@ -153,6 +152,7 @@ class Context(object):
         self.matrix = matrix * self.matrix
 
     def translate(self, dx, dy):
+        #dx, dy = self.matrix.transform_distance(dx, dy)
         matrix = Matrix.translate(dx, dy) 
         self.matrix = matrix * self.matrix
 
@@ -246,6 +246,9 @@ class Context(object):
     def set_antialias(self, x): # skip this ...
         pass
 
+    def set_line_cap(self, x):
+        pass
+
 
 
 def test():
@@ -257,7 +260,7 @@ def test():
     I = Matrix()
     assert translate(x, y) * translate(-x, -y) == I
 
-    lhs = translate(x, y)*rotate(radians)*translate(-x, -y)
+    lhs = translate(-x, -y)*rotate(radians)*translate(x, y)
     rhs = rotate(radians, x, y)
     assert lhs == rhs, (lhs, rhs)
 

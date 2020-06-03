@@ -12,6 +12,12 @@ This is a box with fixed dimensions:
 
 <img src="pic-empty.svg" class="center">
 
+This is a box with text:
+
+    box = TextBox("Hey there!")
+
+<img src="pic-text.svg" class="center">
+
 Horizontal box
 
     box = HBox("geghh xxde xyeey".split())

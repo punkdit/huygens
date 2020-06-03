@@ -123,9 +123,16 @@ class Flatten(Context):
 def test():
 
     def draw_test(cxt):
+        cxt.translate(100., 0.)
+        cxt.scale(0.8, 0.7)
+
         cxt.move_to(10., 10.)
         cxt.line_to(100., 100.)
         cxt.arc(200., 200., 80., 0., 1.1*pi)
+
+        cxt.scale(0.7, 1.2)
+        cxt.translate(50., 50.)
+
         cxt.line_to(300., 300.)
         cxt.arc_negative(400., 300., 60., 0., -1.8*pi)
         cxt.line_to(600.-10, 400.-10)

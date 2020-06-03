@@ -100,7 +100,7 @@ class Visitor(object):
 
 class DumpVisitor(Visitor):
     def on_item(self, item):
-        print(item)
+        print('\t%s'%item)
 
 
 class BoundVisitor(Visitor):
@@ -109,21 +109,26 @@ class BoundVisitor(Visitor):
         self.bound = Bound()
 
     def on_item(self, item):
-        #print("on_item", item)
-        if isinstance(item, MoveTo_Pt):
+        tp = item.__class__.__name__ # ARGGGHHH!!!
+        if tp == "Translate_Pt":
+            assert 0, "%s not implemented"%item
+        elif tp == "Scale":
+            assert 0, "%s not implemented"%item
+        elif tp == "MoveTo_Pt":
             self.pos = item.x, item.y
-        elif isinstance(item, Translate_Pt):
-            assert 0, "%s not implemented"%item
-        elif isinstance(item, Scale):
-            assert 0, "%s not implemented"%item
-        else:
+        elif tp in "Stroke Fill":
+            self.pos = None
+        elif tp in "LineTo_Pt CurveTo_Pt":
             b = item.get_bound()
             if b.is_empty():
-                return
+                assert 0
             self.bound.update(b)
-            if self.pos:
+            if self.pos is not None:
                 x, y = self.pos
                 self.bound.update(Bound(x, y, x, y))
+        else:
+            pass
+        #print("BoundVisitor.on_item", self.bound)
 
 
 
@@ -329,15 +334,15 @@ class Path(Compound):
         #for item in self:
         #    print('\t', item)
         n = len(self)
-        assert n%2 == 0
+        assert n%2 == 0, "not implemented"
         items = []
         idx = n-2
         while idx>=0:
             item = self[idx]
-            assert isinstance(item, LineTo_Pt)
+            assert isinstance(item, LineTo_Pt), "not implemented"
             x, y = item.x, item.y
             item = self[idx+1]
-            assert isinstance(item, CurveTo_Pt)
+            assert isinstance(item, CurveTo_Pt), "not implemented"
             x0, y0 = item.x0, item.y0
             x1, y1 = item.x1, item.y1
             x2, y2 = item.x2, item.y2
@@ -568,7 +573,9 @@ class Translate(Translate_Pt):
 
 
 class Scale(Deco):
-    def __init__(self, sx, sy):
+    def __init__(self, sx, sy=None):
+        if sy is None:
+            sy = sx
         self.sx = float(sx)
         self.sy = float(sy)
 
@@ -614,7 +621,7 @@ class CairoText(Item):
         cxt.restore()
 
 
-class Text(Item):
+class Text(Compound):
 
     _baseline = None
     @classmethod
@@ -633,25 +640,21 @@ class Text(Item):
         self.text = text
         item = make_text(text)
         bound = item.get_bound()
-        y0 = self._get_baseline()
-        self.bot = y0 - bound.lly
-        #print(bound, text, self.bot)
         assert not bound.is_empty(), bound
         llx, lly = bound.llx, bound.lly
-        trafo = Translate_Pt(x-llx, y-lly)
-        items = [trafo] + item.items
-        self.items = items
+        #print("Text.__init__", x, y, bound)
+        y0 = self._get_baseline()
+        self.bot = y0 - bound.lly
+        trafo = Translate_Pt(x-llx, y-lly-self.bot)
+        #print("Text.__init__ trafo:", trafo)
         self.bound = Bound(x, y-self.bot, x+bound.width, y+bound.height-self.bot)
+        items = list(item.items)
+        items = [trafo] + items
+        Compound.__init__(self, items)
 
     def get_bound(self):
         return self.bound
 
-    def process_cairo(self, cxt):
-        cxt.save()
-        cxt.translate(0., self.bot)
-        for item in self.items:
-            item.process_cairo(cxt)
-        cxt.restore()
 
 
 class Canvas(Compound):
@@ -691,8 +694,19 @@ class Canvas(Compound):
 
     def _write_cairo(self, method, name, scale=1.0): # XXX hack a scale XXX
 
-        bound = self.get_bound()
-        #print("_write_cairo:", bound)
+        #self.dump()
+        #bound = self.get_bound()
+        #print("_write_cairo: self.get_bound()", bound)
+
+        from bruhat.render.flatten import Flatten
+        cxt = Flatten()
+        self.process_cairo(cxt)
+        item = Compound(cxt.paths)
+        #print("Flatten:")
+        #item.dump()
+        bound = item.get_bound()
+        #print("_write_cairo: item.get_bound()", bound)
+        assert not bound.is_empty()
 
         import cairo
 
@@ -706,22 +720,23 @@ class Canvas(Compound):
         surface.set_device_offset(dx, dy)
 
         cxt = cairo.Context(surface)
-        cxt.scale(scale, scale)
+        #cxt.scale(scale, scale)
         cxt.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
         self.process_cairo(cxt)
+        #item.process_cairo(cxt)
         surface.finish()
 
-    def writePDFfile(self, name, scale=1.0):
+    def writePDFfile(self, name):
         assert name.endswith(".pdf")
         import cairo
         method = cairo.PDFSurface
-        self._write_cairo(method, name, scale=scale)
+        self._write_cairo(method, name)
 
-    def writeSVGfile(self, name, scale=1.0):
+    def writeSVGfile(self, name):
         assert name.endswith(".svg")
         import cairo
         method = cairo.SVGSurface
-        self._write_cairo(method, name, scale=scale)
+        self._write_cairo(method, name)
 
 
 canvas = NS(canvas=Canvas)
@@ -782,43 +797,6 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
     return p
 
 
-def arc_pos(x_pt, y_pt, r_pt, angle):
-    """return starting point of arc segment"""
-    return x_pt+r_pt*cos(angle), y_pt+r_pt*sin(angle)
-
-
-def arc_box(x_pt, y_pt, r_pt, angle1, angle2):
-    sx_pt, sy_pt = arc_pos(x_pt, y_pt, r_pt, angle1)
-    ex_pt, ey_pt = arc_pos(x_pt, y_pt, r_pt, angle2)
-
-    if angle2 < angle1:
-        angle2 = angle2 + (floor((angle1-angle2)/(2*pi))+1)*2*pi
-
-    if angle2 < (2*floor((angle1-pi)/(2*pi))+3)*pi:
-        llx = min(sx_pt, ex_pt)
-    else:
-        llx = x_pt-r_pt
-
-    if angle2 < (2*floor((angle1-3.0*pi/2)/(2*pi))+7.0/2)*pi:
-        lly = min(sy_pt, ey_pt)
-    else:
-        lly = y_pt-r_pt
-
-    if angle2 < (2*floor((angle1)/(2*pi))+2)*pi:
-        urx = max(sx_pt, ex_pt)
-    else:
-        urx = x_pt+r_pt
-
-    if angle2 < (2*floor((angle1-pi/2)/(2*pi))+5.0/2)*pi:
-        ury = max(sy_pt, ey_pt)
-    else:
-        ury = y_pt+r_pt
-
-    return llx, lly, urx, ury
-
-
-
-
 # ----------------------------------------------------------------------------
 #
 #
@@ -851,24 +829,44 @@ def test():
         path.arc(-1.5, 0., 0.5, 1.0*pi, 2.0*pi), path.closepath() ])
     p = path.path(items)
 
-    cvs.fill(p, [color.rgb.red])
+    cvs.fill(p, [color.rgb.red, trafo.scale(0.8, 0.8)])
     cvs.stroke(p, [color.rgb.black, style.linewidth.THick])
 
     cross(0., 0.)
     cross(-1.2, 1.2)
 
-    x, y, r, angle1, angle2 = 0., 0., 1., 0., 0.5*pi
-    p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
-    cvs.stroke(p, [color.rgb.white])
-
-    x, y, r, angle1, angle2 = 0., 0., 1., -0.5*pi, 0.
-    p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
-    cvs.stroke(p, [color.rgb.red])
+    if 0:
+        x, y, r, angle1, angle2 = 0., 0., 1., 0., 0.5*pi
+        p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
+        cvs.stroke(p, [color.rgb.white])
+    
+        x, y, r, angle1, angle2 = 0., 0., 1., -0.5*pi, 0.
+        p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
+        cvs.stroke(p, [color.rgb.red])
 
     cvs.writePDFfile("output.pdf")
 
     print("OK")
 
+
+def test():
+
+    cvs = canvas.canvas()
+
+    def cross(x, y):
+        r = 0.1
+        st = [color.rgb.blue, style.linewidth.normal, style.linecap.round]
+        cvs.stroke(path.line(x-r, y-r, x+r, y+r), st)
+        cvs.stroke(path.line(x-r, y+r, x+r, y-r), st)
+
+    #cvs.append(Translate(1., 1.))
+    cross(0., 0.)
+
+    cvs.text(0., 0., "hey there!")
+
+    cvs.writePDFfile("output.pdf")
+
+    print("OK\n")
 
 
 if __name__ == "__main__":

@@ -405,6 +405,9 @@ def test_build():
     box = EmptyBox(1., 1., 1., 1.)
     yield box, "empty"
 
+    box = TextBox("Hey there!")
+    #box = TextBox(".")
+    yield box, "text"
 
     box = HBox("geghh xxde xyeey".split())
     yield box, "hbox-text"
@@ -492,10 +495,11 @@ def test():
     
         try:
             cvs = Canvas()
+            cvs.append(Scale(2.0))
             box.render(cvs)
             #cvs = Canvas([Scale(2.0, 2.0)]+cvs.items)
-            cvs.writePDFfile("doc/pic-%s.pdf" % name, scale=2.0)
-            cvs.writeSVGfile("doc/pic-%s.svg" % name, scale=2.0)
+            cvs.writePDFfile("doc/pic-%s.pdf" % name)
+            cvs.writeSVGfile("doc/pic-%s.svg" % name)
         except:
             print("render failed for %r"%name)
             raise
