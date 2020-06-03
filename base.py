@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from copy import deepcopy
-from math import pi, sqrt, sin, cos
+from math import pi, sqrt, sin, cos, atan
 
 EPSILON = 1e-6
 
@@ -37,10 +37,22 @@ class Matrix(Base):
         self.x0 = x0 # x translate
         self.y0 = y0 # y translate
 
-    def __call__(self, _x, _y):
+    def transform_point(self, _x, _y):
         x = self.xx * _x + self.xy * _y + self.x0
         y = self.yx * _x + self.yy * _y + self.y0
         return x, y
+    __call__ = transform_point
+
+    def transform_distance(self, _dx, _dy):
+        dx = self.xx * _dx + self.xy * _dy
+        dy = self.yx * _dx + self.yy * _dy
+        return dx, dy
+
+    def transform_angle(self, angle): # ????
+        x, y = cos(angle), sin(angle) 
+        x, y = self.transform_distance(x, y)
+        angle = atan(y / x)
+        return angle
 
     def __eq__(self, other):
         return sum(abs(self[i]-other[i]) for i in range(6)) < EPSILON
@@ -144,6 +156,18 @@ class Context(object):
         matrix = Matrix.translate(dx, dy) 
         self.matrix = matrix * self.matrix
 
+    def rotate(self, angle):
+        matrix = Matrix.rotate(angle)
+        self.matrix = matrix * self.matrix
+
+    def transform(self, matrix):
+        #print(matrix)
+        matrix = Matrix(*tuple(matrix))
+        self.matrix = matrix * self.matrix
+
+    def new_sub_path(self):
+        self.pos = None
+
     def move_to(self, x, y):
         x, y = self.matrix(x, y)
         self.pos = x, y
@@ -158,13 +182,44 @@ class Context(object):
         x2, y2 = self.matrix(x2, y2)
         self.pos = (x2, y2)
 
+    def rel_move_to(self, dx, dy):
+        assert self.pos is not None, "no current point"
+        x, y = self.pos
+        dx, dy = self.matrix.transform_distance(dx, dy)
+        self.pos = x+dx, y+dy
+
+    def rel_line_to(self, dx, dy):
+        assert self.pos is not None, "no current point"
+        x, y = self.pos
+        dx, dy = self.matrix.transform_distance(dx, dy)
+        self.pos = x+dx, y+dy
+
+    def rel_curve_to(self, dx0, dy0, dx1, dy1, dx2, dy2):
+        assert self.pos is not None, "no current point"
+        x, y = self.pos
+        dx0, dy0 = self.matrix.transform_distance(dx0, dy0)
+        dx1, dy1 = self.matrix.transform_distance(dx1, dy1)
+        dx2, dy2 = self.matrix.transform_distance(dx2, dy2)
+        self.pos = (x+dx2, y+dy2)
+
+    def arc(self, x, y, radius, angle1, angle2):
+        x1, y1 = x+radius*cos(angle2), y+radius*sin(angle2)
+        self.move_to(x1, y1)
+
+    def arc_negative(self, x, y, radius, angle1, angle2):
+        x1, y1 = x+radius*cos(angle2), y+radius*sin(angle2)
+        self.move_to(x1, y1)
+
     def close_path(self):
-        pass
+        pass # self.pos = ?
 
     def set_source_rgba(self, r, g, b, a):
         pass
 
     def set_line_width(self, w):
+        pass
+
+    def set_tolerance(self, x):
         pass
 
     def fill_preserve(self):
@@ -206,6 +261,9 @@ def test():
     rhs = rotate(radians, x, y)
     assert lhs == rhs, (lhs, rhs)
 
+    #angle = rhs.transform_angle(0.)
+    #print(angle, radians)
+    #assert abs(angle - radians) == 0.
 
 
 if __name__ == "__main__":

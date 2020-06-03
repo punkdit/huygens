@@ -5,6 +5,7 @@ Hijack cairosvg to load svg into our internal data structures.
 """
 
 import sys
+from math import sin, cos, pi
 
 from cairosvg.parser import Tree
 from cairosvg.surface import Surface
@@ -24,16 +25,14 @@ class Reflector(Context):
     def move_to(self, x, y):
         x, y = self.matrix(x, y)
         item = back.MoveTo_Pt(x, -y)
-        path = self.path
-        path.append(item)
-        x, y = self.matrix(x, y)
+        self.path.append(item)
         self.pos = x, y
 
     def line_to(self, x, y):
         x, y = self.matrix(x, y)
         item = back.LineTo_Pt(x, -y)
         self.path.append(item)
-        self.pos = (x, y)
+        self.pos = x, y
 
     def curve_to(self, x0, y0, x1, y1, x2, y2):
         x0, y0 = self.matrix(x0, y0)
@@ -41,7 +40,55 @@ class Reflector(Context):
         x2, y2 = self.matrix(x2, y2)
         item = back.CurveTo_Pt(x0, -y0, x1, -y1, x2, -y2)
         self.path.append(item)
-        self.pos = (x2, y2)
+        self.pos = x2, y2
+
+    def rel_move_to(self, dx, dy):
+        assert self.pos is not None, "no current point"
+        x, y = self.pos
+        dx, dy = self.matrix.transform_distance(dx, dy)
+        x, y = x+dx, y+dy
+        item = back.MoveTo_Pt(x, -y)
+        self.path.append(item)
+        self.pos = x, y
+
+    def rel_line_to(self, dx, dy):
+        assert self.pos is not None, "no current point"
+        x, y = self.pos
+        dx, dy = self.matrix.transform_distance(dx, dy)
+        x, y = x+dx, y+dy
+        item = back.LineTo_Pt(x, -y)
+        self.path.append(item)
+        self.pos = x, y
+
+    def rel_curve_to(self, dx0, dy0, dx1, dy1, dx2, dy2):
+        assert self.pos is not None, "no current point"
+        x, y = self.pos
+        dx0, dy0 = self.matrix.transform_distance(dx0, dy0)
+        dx1, dy1 = self.matrix.transform_distance(dx1, dy1)
+        dx2, dy2 = self.matrix.transform_distance(dx2, dy2)
+        x0, y0 = x+dx0, y+dy0
+        x1, y1 = x+dx1, y+dy1
+        x2, y2 = x+dx2, y+dy2
+        item = back.CurveTo_Pt(x0, -y0, x1, -y1, x2, -y2)
+        self.path.append(item)
+        self.pos = x2, y2
+
+    def arc(self, x, y, radius, angle1, angle2):
+        # stay in user space coordinates
+        if self.pos is None:
+            x1, y1 = x+radius*cos(angle1), y+radius*sin(angle1)
+            self.move_to(x1, y1)
+        p = back.arc_to_bezier_pt(x, -y, radius, -angle2, -angle1)
+        p = p.reversed()
+        p.process_cairo(self)
+
+    def arc_negative(self, x, y, radius, angle1, angle2):
+        # stay in user space coordinates
+        if self.pos is None:
+            x1, y1 = x+radius*cos(angle1), y+radius*sin(angle1)
+            self.move_to(x1, y1)
+        p = back.arc_to_bezier_pt(x, -y, radius, -angle1, -angle2)
+        p.process_cairo(self)
 
     def close_path(self):
         item = back.ClosePath()
@@ -55,12 +102,19 @@ class Reflector(Context):
         deco = back.LineWidth_Pt(w)
         self.path.append(deco)
 
+    def stroke(self):
+        deco = back.Stroke()
+        self.path.append(deco)
+        self.paths.append(self.path)
+        self.path = back.Compound()
+        self.pos = None
+
     def fill_preserve(self):
         deco = back.FillPreserve()
         self.path.append(deco)
 
-    def stroke(self):
-        deco = back.Stroke()
+    def fill(self):
+        deco = back.Fill()
         self.path.append(deco)
         self.paths.append(self.path)
         self.path = back.Compound()
@@ -119,56 +173,38 @@ def loadsvg(name, dpi=72.):
 
 
 def test():
+
+    def draw_test(cxt):
+        cxt.move_to(10., 10.)
+        cxt.line_to(100., 100.)
+        cxt.arc(200., 200., 80., 0., 1.1*pi)
+        cxt.line_to(300., 300.)
+        cxt.arc_negative(400., 300., 60., 0., -1.8*pi)
+        cxt.line_to(600.-10, 400.-10)
+        cxt.stroke()
+
     import cairo
 
-    W, H = 600., 200. # point == 1/72 inch
+    W, H = 600., 400. # point == 1/72 inch
 
-    surface = cairo.PDFSurface("test_out.pdf", W, H)
+    # black line should follow the red line.
+    surface = cairo.PDFSurface("output.pdf", W, H)
     context = cairo.Context(surface)
 
-    context.move_to(91.93, 81.96)
-    context.translate(91.93, 81.96)
-    context.set_source_rgba(0.0, 0.0, 0.0, 1.0)
-    #context.set_line_width(1.0)
+    context.save()
+    context.set_source_rgba(1., 0., 0., 0.5)
+    context.set_line_width(10.)
+    draw_test(context)
+    context.restore()
 
-    context.move_to(0, 0)
-    context.move_to(0.921875, -0.921875)
-    context.curve_to(0.921875, -0.46875, 0.984375, -0.640625, 0.140625, -0.640625)
-    context.line_to(0.140625, 0.015625)
-    context.curve_to(0.671875, -0.015625, 1.171875, -0.03125, 1.453125, -0.03125)
-    context.curve_to(1.703125, -0.03125, 2.21875, -0.015625, 2.734375, 0.015625)
-    context.line_to(2.734375, -0.640625)
-    context.curve_to(1.890625, -0.640625, 1.953125, -0.46875, 1.953125, -0.921875)
-    context.line_to(1.953125, -2.75)
-    context.curve_to(1.953125, -3.78125, 2.5, -4.1875, 3.125, -4.1875)
-    context.curve_to(3.765625, -4.1875, 3.6875, -3.8125, 3.6875, -3.234375)
-    context.line_to(3.6875, -0.921875)
-    context.curve_to(3.6875, -0.46875, 3.765625, -0.640625, 2.90625, -0.640625)
-    context.line_to(2.90625, 0.015625)
-    context.curve_to(3.4375, -0.015625, 3.953125, -0.03125, 4.21875, -0.03125)
-    context.curve_to(4.46875, -0.03125, 5.0, -0.015625, 5.5, 0.015625)
-    context.line_to(5.5, -0.640625)
-    context.curve_to(4.8125, -0.640625, 4.734375, -0.46875, 4.71875, -0.765625)
-    context.line_to(4.71875, -2.671875)
-    context.curve_to(4.71875, -3.53125, 4.671875, -3.953125, 4.359375, -4.3125)
-    context.curve_to(4.234375, -4.484375, 3.78125, -4.734375, 3.203125, -4.734375)
-    context.curve_to(2.359375, -4.734375, 1.75, -3.96875, 1.578125, -3.59375)
-    context.line_to(1.921875, -3.59375)
-    context.line_to(1.921875, -7.265625)
-    context.line_to(0.140625, -7.125)
-    context.line_to(0.140625, -6.5)
-    context.curve_to(1.015625, -6.5, 0.921875, -6.59375, 0.921875, -6.09375)
-    context.close_path()
-    context.move_to(0.921875, -0.921875)
-
-    context.set_source_rgba(0.0, 0.0, 0.0, 1.0)
-    context.fill_preserve()
-    context.set_line_width(1.0)
-    context.set_source_rgba(0, 0, 0, 0.0)
-    context.stroke()
+    cxt = Reflector()
+    draw_test(cxt)
+    for path in cxt.paths:
+        path.process_cairo(context)
 
     surface.finish()
 
+    print("OK")
 
 
 
@@ -184,7 +220,7 @@ if __name__ == "__main__":
         tree = Tree(bytestring=s)
         my = DummySurf(tree, None, 72.)
         cvs = back.Canvas(my.paths)
-        cvs.writePDFfile("test_load.pdf")
+        cvs.writePDFfile("output.pdf")
 
 
 

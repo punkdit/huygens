@@ -17,7 +17,7 @@ The api uses the first quadrant coordinate system:
     
 """
 
-from math import pi, sqrt, sin, cos
+from math import pi, sqrt, sin, cos, sqrt, floor
 
 from bruhat.render.base import EPSILON, NS, SCALE_CM_TO_POINT, Base, Matrix
 from bruhat.render.text import make_text
@@ -230,53 +230,12 @@ class CurveTo(CurveTo_Pt):
         self.y2 = SCALE_CM_TO_POINT*y2
 
 
-class RMoveTo(Item):
-    def __init__(self, dx, dy):
-        self.dx = SCALE_CM_TO_POINT*dx
-        self.dy = SCALE_CM_TO_POINT*dy
-
-    def get_bound(self):
-        assert 0, "???"
-
-    def process_cairo(self, cxt):
-        cxt.rel_move_to(self.dx, -self.dy)
-
-
-class RLineTo(Item):
-    def __init__(self, dx, dy):
-        self.dx = SCALE_CM_TO_POINT*dx
-        self.dy = SCALE_CM_TO_POINT*dy
-
-    def get_bound(self):
-        assert 0, "???"
-
-    def process_cairo(self, cxt):
-        cxt.rel_line_to(self.dx, -self.dy)
-
-
-class RCurveTo(Item):
-    def __init__(self, dx0, dy0, dx1, dy1, dx2, dy2):
-        self.dx0 = SCALE_CM_TO_POINT*dx0
-        self.dy0 = SCALE_CM_TO_POINT*dy0
-        self.dx1 = SCALE_CM_TO_POINT*dx1
-        self.dy1 = SCALE_CM_TO_POINT*dy1
-        self.dx2 = SCALE_CM_TO_POINT*dx2
-        self.dy2 = SCALE_CM_TO_POINT*dy2
-
-    def get_bound(self):
-        assert 0, "???"
-
-    def process_cairo(self, cxt):
-        cxt.rel_curve_to(self.dx0, -self.dy0, 
-            self.dx1, -self.dy1, self.dx2, -self.dy2)
-
-
-class Arc(Item):
+class Arc_Pt(Item):
     def __init__(self, x, y, r, angle1, angle2):
-        "angle in degrees"
-        self.x = SCALE_CM_TO_POINT*x
-        self.y = SCALE_CM_TO_POINT*y
-        self.r = SCALE_CM_TO_POINT*r
+        "angle in radians"
+        self.x = x
+        self.y = y
+        self.r = r
         self.angle1 = angle1
         self.angle2 = angle2
 
@@ -285,12 +244,30 @@ class Arc(Item):
         return Bound(self.x-r, self.y-r, self.x+r, self.y+r) # XXX TODO XXX
 
     def process_cairo(self, cxt):
-        cxt.arc(self.x, -self.y, self.r, 2*pi*self.angle1, 2*pi*self.angle2)
+        cxt.arc_negative(self.x, -self.y, self.r, 2*pi-self.angle1, 2*pi-self.angle2)
 
 
-class Arcn(Arc):
+class Arc(Arc_Pt):
+    def __init__(self, x, y, r, angle1, angle2):
+        "angle in radians"
+        self.x = SCALE_CM_TO_POINT*x
+        self.y = SCALE_CM_TO_POINT*y
+        self.r = SCALE_CM_TO_POINT*r
+        self.angle1 = angle1
+        self.angle2 = angle2
+
+
+class _ArcnMixin(object):
     def process_cairo(self, cxt):
-        cxt.arc_negative(self.x, -self.y, self.r, 2*pi*self.angle1, 2*pi*self.angle2)
+        cxt.arc(self.x, -self.y, self.r, 2*pi-self.angle1, 2*pi-self.angle2)
+
+
+class Arcn(Arc, _ArcnMixin):
+    pass
+
+
+class Arcn_Pt(Arc_Pt, _ArcnMixin):
+    pass
 
 
 # ----------------------------------------------------------------------------
@@ -310,6 +287,12 @@ class Compound(Item):
     def append(self, item):
         items = self.items
         items.append(item)
+
+    def __len__(self):
+        return len(self.items)
+
+    def __getitem__(self, idx):
+        return self.items[idx]
 
     def visit(self, visitor):
         for item in self.items:
@@ -339,7 +322,31 @@ class Compound(Item):
 
 
 class Path(Compound):
-    pass
+    def reversed(self, pos=None):
+        if len(self)==0:
+            return self
+        #print("Path.reversed")
+        #for item in self:
+        #    print('\t', item)
+        n = len(self)
+        assert n%2 == 0
+        items = []
+        idx = n-2
+        while idx>=0:
+            item = self[idx]
+            assert isinstance(item, LineTo_Pt)
+            x, y = item.x, item.y
+            item = self[idx+1]
+            assert isinstance(item, CurveTo_Pt)
+            x0, y0 = item.x0, item.y0
+            x1, y1 = item.x1, item.y1
+            x2, y2 = item.x2, item.y2
+            items.append(LineTo_Pt(x2, y2))
+            items.append(CurveTo_Pt(x1, y1, x0, y0, x, y))
+            idx -= 2
+        p = Path(items)
+        return p
+
 
 
 class Line(Path):
@@ -370,11 +377,14 @@ class Circle(Path):
     def __init__(self, x, y, r):
         Path.__init__(self, [
             MoveTo(x+r, y),
-            Arc(x, y, r, 0, 360),
+            Arc(x, y, r, 0, 2*pi),
             ClosePath()])
         
 
-path = NS(line = Line, curve = Curve, rect = Rect, circle = Circle)
+path = NS(
+    line=Line, curve=Curve, rect=Rect, circle=Circle, path=Path,
+    arc=Arc, arcn=Arcn, moveto=MoveTo, lineto=LineTo, 
+    curveto=CurveTo, closepath=ClosePath)
 
 
 # ----------------------------------------------------------------------------
@@ -409,6 +419,13 @@ class RGBA(Deco):
         cxt.set_source_rgba(*self.cl)
 
 RGB = RGBA
+RGB.red = RGB(1., 0., 0.)
+RGB.green = RGB(0., 1., 0.)
+RGB.blue = RGB(0., 0., 1.)
+RGB.white = RGB(1., 1., 1.)
+RGB.black = RGB(0., 0., 0.)
+
+color = NS(rgb=RGBA)
 
 
 class LineWidth_Pt(Deco):
@@ -707,21 +724,150 @@ class Canvas(Compound):
         self._write_cairo(method, name, scale=scale)
 
 
-canvas = NS(canvas = Canvas)
+canvas = NS(canvas=Canvas)
 
 
 
 # ----------------------------------------------------------------------------
-# test
+# Some good code copied from PyX
 #
+
+
+def arc_to_curve_pt(x_pt, y_pt, r_pt, angle1, angle2):
+    dangle = angle2-angle1
+
+    if dangle==0:
+        return None
+
+    x0_pt, y0_pt = x_pt+r_pt*cos(angle1), y_pt+r_pt*sin(angle1)
+    x3_pt, y3_pt = x_pt+r_pt*cos(angle2), y_pt+r_pt*sin(angle2)
+
+    l = r_pt*4*(1-cos(dangle/2))/(3*sin(dangle/2))
+
+    x1_pt, y1_pt = x0_pt-l*sin(angle1), y0_pt+l*cos(angle1)
+    x2_pt, y2_pt = x3_pt+l*sin(angle2), y3_pt-l*cos(angle2)
+
+    items = [
+        LineTo_Pt(x0_pt, y0_pt), 
+        CurveTo_Pt(x1_pt, y1_pt, x2_pt, y2_pt, x3_pt, y3_pt)]
+    return items
+
+
+def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
+    x_pt = x*SCALE_CM_TO_POINT
+    y_pt = y*SCALE_CM_TO_POINT
+    r_pt = r*SCALE_CM_TO_POINT
+    p = arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax)
+    return p
+
+
+def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
+    if angle2<angle1:
+        angle2 = angle2 + (floor((angle1-angle2)/(2*pi))+1)*2*pi
+    elif angle2>angle1+2*pi:
+        angle2 = angle2 - (floor((angle2-angle1)/(2*pi))-1)*2*pi
+
+    if r_pt == 0 or angle1-angle2 == 0:
+        return []
+
+    subdivisions = int((angle2-angle1)/danglemax)+1
+
+    dangle = (angle2-angle1)/subdivisions
+
+    items = []
+    for i in range(subdivisions):
+        items += arc_to_curve_pt(x_pt, y_pt, r_pt, angle1+i*dangle, angle1+(i+1)*dangle)
+
+    p = path.path(items)
+    return p
+
+
+def arc_pos(x_pt, y_pt, r_pt, angle):
+    """return starting point of arc segment"""
+    return x_pt+r_pt*cos(angle), y_pt+r_pt*sin(angle)
+
+
+def arc_box(x_pt, y_pt, r_pt, angle1, angle2):
+    sx_pt, sy_pt = arc_pos(x_pt, y_pt, r_pt, angle1)
+    ex_pt, ey_pt = arc_pos(x_pt, y_pt, r_pt, angle2)
+
+    if angle2 < angle1:
+        angle2 = angle2 + (floor((angle1-angle2)/(2*pi))+1)*2*pi
+
+    if angle2 < (2*floor((angle1-pi)/(2*pi))+3)*pi:
+        llx = min(sx_pt, ex_pt)
+    else:
+        llx = x_pt-r_pt
+
+    if angle2 < (2*floor((angle1-3.0*pi/2)/(2*pi))+7.0/2)*pi:
+        lly = min(sy_pt, ey_pt)
+    else:
+        lly = y_pt-r_pt
+
+    if angle2 < (2*floor((angle1)/(2*pi))+2)*pi:
+        urx = max(sx_pt, ex_pt)
+    else:
+        urx = x_pt+r_pt
+
+    if angle2 < (2*floor((angle1-pi/2)/(2*pi))+5.0/2)*pi:
+        ury = max(sy_pt, ey_pt)
+    else:
+        ury = y_pt+r_pt
+
+    return llx, lly, urx, ury
+
+
+
+
+# ----------------------------------------------------------------------------
+#
+#
+
 
 def test():
 
-    cvs = Canvas()
+    cvs = canvas.canvas()
 
-    cvs.stroke(path.line(10, 10, 50, 50))
+    def cross(x, y):
+        r = 0.1
+        st = [color.rgb.blue, style.linewidth.THick, style.linecap.round]
+        cvs.stroke(path.line(x-r, y-r, x+r, y+r), st)
+        cvs.stroke(path.line(x-r, y+r, x+r, y-r), st)
+
+    p = path.path([
+        path.moveto(0., 0.),
+        path.arc(0., 0., 1., 0., 0.5*pi),
+        path.lineto(-1., 1.),
+        path.arc(-1., 0., 1., 0.5*pi, 1.0*pi),
+        path.arc(-1.5, 0., 0.5, 1.0*pi, 2.0*pi),
+        path.closepath()
+    ])
+
+    items = (
+    [ 
+        path.moveto(0., 0.),
+        path.arc(0., 0., 1., 0., 0.5*pi),
+        path.lineto(-1., 1.), path.arc(-1., 0., 1., 0.5*pi, 1.0*pi),
+        path.arc(-1.5, 0., 0.5, 1.0*pi, 2.0*pi), path.closepath() ])
+    p = path.path(items)
+
+    cvs.fill(p, [color.rgb.red])
+    cvs.stroke(p, [color.rgb.black, style.linewidth.THick])
+
+    cross(0., 0.)
+    cross(-1.2, 1.2)
+
+    x, y, r, angle1, angle2 = 0., 0., 1., 0., 0.5*pi
+    p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
+    cvs.stroke(p, [color.rgb.white])
+
+    x, y, r, angle1, angle2 = 0., 0., 1., -0.5*pi, 0.
+    p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
+    cvs.stroke(p, [color.rgb.red])
 
     cvs.writePDFfile("output.pdf")
+
+    print("OK")
 
 
 
