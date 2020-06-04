@@ -5,8 +5,9 @@ from random import random, choice, seed
 from math import pi
 
 
-from bruhat.render.sat import Variable, System
-from bruhat.render.back import RGBA, path, Canvas, Scale
+from bruhat.render.sat import Expr, Variable, System
+from bruhat.render.back import RGBA, Canvas, Scale
+from bruhat.render.back import path, style
 from bruhat.argv import argv
 
 
@@ -36,25 +37,41 @@ class Box(object):
 
             # We don't try to minimize the absolute coordinate values.
             weight = 1.0 if attr not in 'xy' else 0.0
-            v = system.get_var(stem, weight)
+            vmin = None if attr in 'xy' else 0.
+            v = system.get_var(stem, weight, vmin=vmin)
             setattr(self, attr, v)
         self.did_layout = True
 
     def on_render(self, cvs, system):
+#        x = system[self.x]
+#        y = system[self.y]
+#        left = system[self.left]
+#        right = system[self.right]
+#        top = system[self.top]
+#        bot = system[self.bot]
+        attrs = list(self.__dict__.keys())
+        for attr in attrs:
+            value = getattr(self, attr)
+            if not isinstance(value, Expr):
+                continue
+            value = system[value]
+            setattr(self, attr, value)
         if not self.DEBUG:
             return
-        x = system[self.x]
-        y = system[self.y]
-        left = system[self.left]
-        right = system[self.right]
-        top = system[self.top]
-        bot = system[self.bot]
+        x = self.x
+        y = self.y
+        left = self.left
+        right = self.right
+        top = self.top
+        bot = self.bot
         #cvs.set_line_width(0.5)
         cl = RGBA(1., 0., 0., 0.5)
         r = 0.1
-        cvs.stroke(path.line(x-r, y-r, x+r, y+r), [cl])
+        cvs.stroke(path.line(x-r, y-r, x+r, y+r), [cl]) #, style.linewidth.Thick])
         cvs.stroke(path.line(x+r, y-r, x-r, y+r), [cl])
-        cvs.fill(path.rect(x-left, y-bot, left+right, top+bot), [RGBA(0.5, 0.5, 0., 0.1)])
+        #bg = RGBA(0.5*random(), 0.5*random(), 0.5*random(), 0.5)
+        bg = RGBA(0.5, 0.5, 0., 0.1)
+        cvs.fill(path.rect(x-left, y-bot, left+right, top+bot), [bg])
         cvs.stroke(path.rect(x-left, y-bot, left+right, top+bot), [cl])
 
     @property
@@ -130,6 +147,18 @@ class EmptyBox(Box):
         self.right = right
 
 
+class EmptyBox(Box):
+    def __init__(self, top=None, bot=None, left=None, right=None):
+        if top is not None:
+            self.top = top
+        if bot is not None:
+            self.bot = bot
+        if left is not None:
+            self.left = left
+        if right is not None:
+            self.right = right
+
+
     
 class StrokeBox(Box):
     def __init__(self, width, height, rgba=(0., 0., 0., 1.)):
@@ -163,7 +192,7 @@ class TextBox(Box):
         extents = cvs.text_extents(self.text)
         dx, dy, width, height = extents
         system.add(self.left + self.right == width+dx)
-        system.add(self.top + self.bot == height)
+        system.add(self.top + self.bot == height, 1.0)
         system.add(self.left == 0)
         assert dy >= 0., dy
         system.add(self.top == dy)
@@ -235,9 +264,10 @@ class AlignBox(ChildBox):
 
 
 class CompoundBox(Box):
-    def __init__(self, boxs):
+    def __init__(self, boxs, weight=None):
         assert len(boxs)
         self.boxs = [Box.promote(box) for box in boxs]
+        self.weight = weight
 
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
@@ -260,10 +290,10 @@ class OBox(CompoundBox):
             system.add(self.x == box.x) # align
             system.add(self.y == box.y) # align
             if self.strict:
-                system.add(box.left == self.left)
-                system.add(box.right == self.right)
-                system.add(box.top == self.top)
-                system.add(box.bot == self.bot)
+                system.add(box.left == self.left, self.weight)
+                system.add(box.right == self.right, self.weight)
+                system.add(box.top == self.top, self.weight)
+                system.add(box.bot == self.bot, self.weight)
             else:
                 system.add(box.left <= self.left)
                 system.add(box.right <= self.right)
@@ -284,13 +314,15 @@ class HBox(CompoundBox):
             system.add(box.x - box.left == left)
             left += box.width
             if self.strict:
-                system.add(box.top == self.top)
-                system.add(box.bot == self.bot)
+                system.add(box.top == self.top, self.weight)
+                system.add(box.bot == self.bot, self.weight)
             else:
                 system.add(box.top <= self.top)
                 system.add(box.bot <= self.bot)
         system.add(self.x + self.width == left)
 
+class StrictHBox(HBox):
+    strict = True
 
 class VBox(CompoundBox):
     "vertical compound box: anchor top"
@@ -305,12 +337,15 @@ class VBox(CompoundBox):
             system.add(box.y + box.top == y)
             y -= box.height
             if self.strict:
-                system.add(box.left == self.left)
-                system.add(box.right == self.right)
+                system.add(box.left == self.left, self.weight)
+                system.add(box.right == self.right, self.weight)
             else:
                 system.add(box.left <= self.left)
                 system.add(box.right <= self.right)
         system.add(self.y - self.bot == y)
+
+class StrictVBox(VBox):
+    strict = True
 
 
 class TableBox(CompoundBox):
@@ -460,7 +495,7 @@ def test_build():
             box = MarginBox(box, 0.1)
             box = AlignBox(box, "north")
             row.append(box)
-        row.append(EmptyBox(bot=1.0))
+        row.append(EmptyBox(bot=1.))
         rows.append(row)
     box = TableBox(rows)
     yield box, "table-3"
@@ -494,12 +529,14 @@ def test():
     for (box, name) in test_build():
     
         try:
+            print("rendering", name)
             cvs = Canvas()
             cvs.append(Scale(2.0))
             box.render(cvs)
             #cvs = Canvas([Scale(2.0, 2.0)]+cvs.items)
             cvs.writePDFfile("doc/pic-%s.pdf" % name)
             cvs.writeSVGfile("doc/pic-%s.svg" % name)
+            print()
         except:
             print("render failed for %r"%name)
             raise

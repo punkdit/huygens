@@ -291,9 +291,13 @@ class Solver(object):
             b_eq = numpy.zeros((0,))
         #print(c)
         #print(A_ub)
-        result = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds, method="simplex")
+        result = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds, method="revised simplex")
         self.debug(result)
-        assert result.success, result
+        #assert result.success, result
+        if not result.success:
+            print("WARNING: optimize failed")
+            print(result)
+            print("--------------------------")
         vs = {}
         x = result.x
         for i, v in enumerate(x):
@@ -325,9 +329,25 @@ class System(object):
         self.stems[stem] = idx
         return v
 
-    def add(self, item):
+    def add(self, item, weight=None):
         assert isinstance(item, Term)
-        self.items.append(item)
+        if weight is None:
+            # strict
+            self.items.append(item)
+        elif isinstance(item, Eq):
+            # allow equality violation at a cost == weight
+            assert weight > 0., "??"
+            c = self.get_var("eq_slack", weight)
+            a, b = item.lhs, item.rhs
+            self.add(c >= b-a)
+            self.add(c >= a-b)
+        elif isinstance(item, Le):
+            # allow inequality violation at a cost == weight
+            c = self.get_var("le_slack", weight, 0.)
+            a, b = item.lhs, item.rhs
+            self.add(c >= a-b)
+        else:
+            assert 0
 
     def solve(self):
         assert self.lookup is None, "already called solve!"

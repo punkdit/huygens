@@ -103,9 +103,11 @@ class DumpVisitor(Visitor):
         print('\t%s'%item)
 
 
+# XXX this probably should be a full fledged Context XXX
 class BoundVisitor(Visitor):
     def __init__(self):
         self.pos = None
+        self.lw = _defaultlinewidth*SCALE_CM_TO_POINT
         self.bound = Bound()
 
     def on_item(self, item):
@@ -114,14 +116,24 @@ class BoundVisitor(Visitor):
             assert 0, "%s not implemented"%item
         elif tp == "Scale":
             assert 0, "%s not implemented"%item
+        elif tp in "Compound Path": # save, restore not implemented
+            assert 0, "%s not implemented"%item
         elif tp == "MoveTo_Pt":
             self.pos = item.x, item.y
         elif tp in "Stroke Fill":
             self.pos = None
+        elif tp in "LineWidth_Pt":
+            self.lw = item.lw
         elif tp in "LineTo_Pt CurveTo_Pt":
             b = item.get_bound()
             if b.is_empty():
                 assert 0
+            # add a generous linewidth... does not work very well... XXX
+            r = 0.5*self.lw
+            b.llx -= r
+            b.lly -= r
+            b.urx += r
+            b.ury += r
             self.bound.update(b)
             if self.pos is not None:
                 x, y = self.pos
@@ -434,16 +446,16 @@ color = NS(rgb=RGBA)
 
 
 class LineWidth_Pt(Deco):
-    def __init__(self, w):
-        self.w = w
+    def __init__(self, lw):
+        self.lw = lw
 
     def process_cairo(self, cxt):
-        cxt.set_line_width(self.w)
+        cxt.set_line_width(self.lw)
 
 
 class LineWidth(LineWidth_Pt):
-    def __init__(self, w):
-        self.w = w*SCALE_CM_TO_POINT
+    def __init__(self, lw):
+        self.lw = lw*SCALE_CM_TO_POINT
 
 
 # cairo constants:
@@ -692,7 +704,7 @@ class Canvas(Compound):
         item = Compound(decos, Text(x, y, text))
         self.append(item)
 
-    def _write_cairo(self, method, name, scale=1.0): # XXX hack a scale XXX
+    def _write_cairo(self, method, name):
 
         #self.dump()
         #bound = self.get_bound()
@@ -710,17 +722,15 @@ class Canvas(Compound):
 
         import cairo
 
-        W = bound.width*scale
-        H = bound.height*scale
+        W = bound.width
+        H = bound.height
         surface = method(name, W, H)
 
-        dx = 0 - bound.llx*scale
-        dy = H + bound.lly*scale
-        #surface.set_device_offset(dx*scale, dy*scale)
+        dx = 0 - bound.llx
+        dy = H + bound.lly
         surface.set_device_offset(dx, dy)
 
         cxt = cairo.Context(surface)
-        #cxt.scale(scale, scale)
         cxt.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
         self.process_cairo(cxt)
         #item.process_cairo(cxt)
