@@ -12,9 +12,7 @@ from bruhat.render.boxs import (Box, EmptyBox, HBox, VBox, AlignBox,
 
 
 
-SIZE = 1.0
-
-Box.DEBUG = False
+SIZE = 2.0
 
 
 class Dia(object): # Mixin
@@ -206,16 +204,18 @@ class VWire(Box, Atom):
 
 
 class Cap(Box, Atom):
-    def __init__(self):
+    def __init__(self, weight=1.0):
         Atom.__init__(self, n_bot=2, min_height=0.5*SIZE)
+        self.weight = weight
 
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
         Atom.on_layout(self, cvs, system)
         x0 = self.x_bot[0]
         x1 = self.x_bot[1]
-        system.add(x0 == self.llx + (1./4)*self.width, weight=1.0)
-        system.add(x1 == self.llx + (3./4)*self.width, weight=1.0)
+        system.add(x0 == self.llx + (1./4)*self.width, weight=self.weight)
+        system.add(x1 == self.llx + (3./4)*self.width, weight=self.weight)
+        system.add(self.height >= x1-x0)
 
     def on_render(self, cvs, system):
         Box.on_render(self, cvs, system)
@@ -233,16 +233,18 @@ class Cap(Box, Atom):
 
 
 class Cup(Box, Atom):
-    def __init__(self):
+    def __init__(self, weight=1.0):
         Atom.__init__(self, n_top=2, min_height=0.5*SIZE)
+        self.weight = weight
 
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
         Atom.on_layout(self, cvs, system)
         x0 = self.x_top[0]
         x1 = self.x_top[1]
-        system.add(x0 == self.llx + (1./4)*self.width, weight=1.0)
-        system.add(x1 == self.llx + (3./4)*self.width, weight=1.0)
+        system.add(x0 == self.llx + (1./4)*self.width, weight=self.weight)
+        system.add(x1 == self.llx + (3./4)*self.width, weight=self.weight)
+        system.add(2*self.height >= x1-x0)
 
     def on_render(self, cvs, system):
         Box.on_render(self, cvs, system)
@@ -259,8 +261,88 @@ class Cup(Box, Atom):
         cvs.stroke(path.arc(x2, y0, radius, pi, 0.))
 
 
-def test():
-    Box.DEBUG = False
+class Spider(Box, Atom):
+    def __init__(self, n_top, n_bot, weight=1.0):
+        min_width = 0.5*SIZE
+        if n_top > 1 or n_bot > 1:
+            min_width = 1.0*SIZE
+        min_height = 0.5*SIZE
+        self.weight = weight
+        Atom.__init__(self, n_top=n_top, n_bot=n_bot,
+            min_width=min_width, min_height=min_height)
+
+    def on_layout(self, cvs, system):
+        Box.on_layout(self, cvs, system)
+        Atom.on_layout(self, cvs, system)
+
+        width = self.width
+        llx = self.llx
+
+        n_top = self.n_top
+        x_top = self.x_top
+        if n_top>0:
+            dx = width/(2*n_top)
+            x = llx + dx
+            for i in range(n_top):
+                system.add(x_top[i] == x, weight=self.weight)
+                x += 2*dx
+
+        n_bot = self.n_bot
+        x_bot = self.x_bot
+        if n_bot>0:
+            dx = width/(2*n_bot)
+            x = llx + dx
+            for i in range(n_bot):
+                system.add(x_bot[i] == x, weight=self.weight)
+                x += 2*dx
+
+        #n = n_top + n_bot
+        #if n==0:
+        #    return
+        #middle = system.get_var("middle", weight=0.)
+        #system.add(middle == (1./n)*sum(x_top + x_bot))
+        #self.middle = middle
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        Atom.on_render(self, cvs, system)
+
+        n = self.n_top + self.n_bot
+        if n==0:
+            return
+
+        y = system[self.y]
+        top = system[self.top]
+        bot = system[self.bot]
+        y_top = y+top
+        y_bot = y-bot
+        x_mid, y_mid = self.get_align("center")
+        x0, y0 = system[x_mid], system[y_mid]
+
+        x_top = [system[x] for x in self.x_top]
+        x_bot = [system[x] for x in self.x_bot]
+        x0 = (1./n)*sum(x_top + x_bot)
+
+        conv = lambda x0, x1, t: (1.-t)*x0 + t*x1
+
+        y3 = y_top
+        for x3 in x_top:
+            x2, y2 = x3, conv(y3, y0, 0.3)
+            x1, y1 = conv(x0, x3, 0.7), conv(y3, y0, 0.7)
+            cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3))
+
+        y3 = y_bot
+        for x3 in x_bot:
+            x2, y2 = x3, conv(y3, y0, 0.3)
+            x1, y1 = conv(x0, x3, 0.7), conv(y3, y0, 0.7)
+            cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3))
+
+        cvs.fill(path.circle(x0, y0, 0.04))
+
+
+
+def test_snake():
+    Box.DEBUG = True
 
     top = HDia([VWire(), Cap()])
     #mid = HDia([VWire(), VWire(), VWire()])
@@ -275,13 +357,28 @@ def test():
     boxs = [AlignBox(box, "center") for box in boxs]
     dia = HBox(boxs)
 
-    if 0:
-        boxs = ['a', '$=$']
-        dia = TextBox("$a=b$")
-        dia = HBox([dia, "$=$"])
-
     cvs = canvas.canvas()
     dia.render(cvs)
+    cvs.writePDFfile("test_snake.pdf")
+
+
+def test():
+    Box.DEBUG = True
+
+    # Note:
+    # __mul__ composes top-down, like VBox.
+
+    box = Spider(2, 2) @ VWire()
+    #box = box * (VWire() @ Spider(2, 2))
+    box = box * (Spider(3, 1))
+    box = box @ VWire()
+    #box = box * Cup()
+    box = box * Spider(2, 0, weight=0.9)
+    #box = (Cap() @ Cap()) * box
+    box = (Cap() @ Spider(0, 1) @ Spider(0, 1)) * box
+
+    cvs = canvas.canvas()
+    box.render(cvs)
     cvs.writePDFfile("test_diagram.pdf")
 
 
@@ -303,6 +400,7 @@ def test_boxs():
 
 if __name__ == "__main__":
 
+    test_snake()
     test()
     print("OK\n")
 

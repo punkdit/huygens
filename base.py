@@ -12,7 +12,7 @@ class NS(object):
 
 
 SCALE_CM_TO_POINT = 72.0/2.54 # convert cm's to points at 72 dpi.
-
+_defaultlinewidth = 0.02
 
 class Base(object):
     def __str__(self):
@@ -105,12 +105,12 @@ class Method(object):
 
 class Context(object):
 
-    save_attrs = 'pos matrix'.split()
+    save_attrs = 'pos matrix linewidth'.split()
 
     def __init__(self):
         self.stack = []
         self.pos = None # current point
-        #self.offset = 0., 0. # translate # XXX TODO USE Matrix XXX TODO
+        self.linewidth = _defaultlinewidth*SCALE_CM_TO_POINT
         self.matrix = Matrix()
 
     def save(self):

@@ -38,6 +38,9 @@ class Expr(object):
         assert isinstance(r, (int, float))
         return Scale(self, r)
 
+    def __truediv__(self, r):
+        return self.__rmul__(1./r)
+
     def __le__(self, other):
         other = Expr.promote(other)
         return Le(self, other)

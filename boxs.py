@@ -43,27 +43,34 @@ class Box(object):
         self.did_layout = True
 
     def on_render(self, cvs, system):
-#        x = system[self.x]
-#        y = system[self.y]
-#        left = system[self.left]
-#        right = system[self.right]
-#        top = system[self.top]
-#        bot = system[self.bot]
-        attrs = list(self.__dict__.keys())
-        for attr in attrs:
-            value = getattr(self, attr)
-            if not isinstance(value, Expr):
-                continue
-            value = system[value]
-            setattr(self, attr, value)
+
+        if 1:
+            x = system[self.x]
+            y = system[self.y]
+            left = system[self.left]
+            right = system[self.right]
+            top = system[self.top]
+            bot = system[self.bot]
+
+        else:
+            # set all our Variable attributes to actual solutions
+            attrs = list(self.__dict__.keys())
+            for attr in attrs:
+                value = getattr(self, attr)
+                if not isinstance(value, Expr):
+                    continue
+                value = system[value]
+                setattr(self, attr, value)
+
+            x = self.x
+            y = self.y
+            left = self.left
+            right = self.right
+            top = self.top
+            bot = self.bot
+
         if not self.DEBUG:
             return
-        x = self.x
-        y = self.y
-        left = self.left
-        right = self.right
-        top = self.top
-        bot = self.bot
         #cvs.set_line_width(0.5)
         cl = RGBA(1., 0., 0., 0.5)
         r = 0.1
