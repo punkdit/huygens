@@ -6,7 +6,7 @@ string diagram's
 
 from math import pi
 
-from bruhat.render.back import canvas, path
+from bruhat.render.front import canvas, path
 from bruhat.render.boxs import (Box, EmptyBox, HBox, VBox, AlignBox, 
     StrictVBox, StrictHBox, TextBox)
 
