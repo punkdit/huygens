@@ -644,7 +644,6 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
     for i in range(subdivisions):
         items += arc_to_curve_pt(x_pt, y_pt, r_pt, angle1+i*dangle, angle1+(i+1)*dangle)
 
-    #p = path.path(items)
     p = Path(items)
     return p
 

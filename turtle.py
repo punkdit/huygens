@@ -6,7 +6,9 @@ copied from arrowtheory repo
 import sys
 
 from math import sin, cos, pi, asin, acos
-from pyx import canvas, path, deco, trafo, style, text, color, deformer
+#from pyx import canvas, path, deco, trafo, style, text, color, deformer
+from bruhat.render.front import *
+
 
 def get_canvas():
     try:
@@ -36,22 +38,8 @@ def dopath(ps, extra=[], fill=[], closepath=False, smooth=0.0, stroke=True, cvs=
         c.stroke(p, extra)
 
 
-stack = []
-def push():
-    global c
-    stack.append(c)
-    c = canvas.canvas()
-
-def pop(*args):
-    global c
-    c1 = stack.pop()
-    c1.insert(c, *args)
-    c = c1
-
-
-
 class Turtle(object):
-    def __init__(self, x=0.0, y=0.0, angle=0.0):
+    def __init__(self, x=0.0, y=0.0, angle=0.0, cvs=None, extra=[]):
         "angle: clockwise degrees starting from angle=0.0 is up"
         self.x = x
         self.y = y
@@ -60,6 +48,8 @@ class Turtle(object):
         self.paths = []
         self.pen = True
         self._save = None
+        self.cvs = cvs
+        self.extra = extra
 
     def copy(self):
         import copy
@@ -161,7 +151,8 @@ class Turtle(object):
             self.paths.append(self.ps)
         for ps in self.paths:
             if len(ps)>1:
-                dopath(ps, extra, fill, closepath, smooth=0., cvs=cvs)
+                dopath(ps, extra, fill, closepath, 
+                    smooth=0., cvs=cvs or self.cvs)
         self.paths = []
         self.ps = self.ps[-1:]
         return self
@@ -171,9 +162,40 @@ class Turtle(object):
             self.paths.append(self.ps)
         for ps in self.paths:
             if len(ps)>1:
-                dopath(ps, [], fill, closepath=True, smooth=0., stroke=False, cvs=cvs)
+                dopath(ps, [], fill, closepath=True, smooth=0., 
+                    stroke=False, cvs=cvs or self.cvs)
         self.paths = []
         self.ps = self.ps[-1:]
         return self
+
+
+def test():
+
+    cvs = canvas.canvas()
+    extra = [style.linewidth.THIck, color.rgb(0.2, 0.6, 0.2, 0.6),
+        style.linejoin.bevel]
+    turtle = Turtle(cvs=cvs, extra=extra)
+
+    n = 8
+    angle = 360. / n
+    R = 3.0
+    for i in range(n):
+        turtle.fwd(1.*R)
+        turtle.left((1./3)*angle)
+        turtle.back(0.5*R)
+        turtle.left((1./3)*angle)
+        turtle.back(0.7*R)
+        turtle.left((1./3)*angle)
+        turtle.stroke(extra)
+
+    cvs.writePDFfile("test_turtle.pdf")
+
+    print("OK")
+
+
+if __name__ == "__main__":
+
+    test()
+
 
 

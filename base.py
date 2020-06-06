@@ -219,6 +219,9 @@ class Context(object):
     def set_line_width(self, w):
         pass
 
+    def set_line_join(self, w):
+        pass
+
     def set_tolerance(self, x):
         pass
 
