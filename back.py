@@ -111,10 +111,8 @@ class BoundVisitor(Visitor):
         self.bound = Bound()
 
     def on_item(self, item):
-        if isinstance(item, Translate_Pt):
-            assert 0, "%s translate not implemented"%item
-        elif isinstance(item, Scale):
-            assert 0, "%s scale not implemented"%item
+        if isinstance(item, (Scale, Rotate, Translate_Pt)):
+            assert 0, "trafo %s not implemented"%item
         elif isinstance(item, Compound):
             assert 0, "%s: save restore not implemented"%item
         elif isinstance(item, MoveTo_Pt):
@@ -519,6 +517,14 @@ class Scale(Deco):
 
     def process_cairo(self, cxt):
         cxt.scale(self.sx, self.sy)
+
+
+class Rotate(Deco):
+    def __init__(self, angle):
+        self.angle = angle
+
+    def process_cairo(self, cxt):
+        cxt.rotate(self.angle)
 
 
 

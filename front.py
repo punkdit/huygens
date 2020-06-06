@@ -73,6 +73,7 @@ style = NS(
     ))
 
 
+# XXX TODO
 text = NS(
     size = NS(
         tiny = TextSize(-4),
@@ -109,7 +110,7 @@ text = NS(
 #linestyle.dashdotted = linestyle(linecap.round, dash([0, 2, 2, 2]))
 
 
-trafo = NS(translate = Translate, scale = Scale)
+trafo = NS(translate = Translate, scale = Scale, rotate = Rotate)
 
 
 

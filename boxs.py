@@ -17,14 +17,18 @@ class Box(object):
     did_layout = False
 
     @classmethod
-    def promote(cls, item):
+    def promote(cls, item, align=None):
         if isinstance(item, Box):
-            return item
-        if isinstance(item, str):
-            return TextBox(item)
-        if isinstance(item, (tuple, list)):
-            return HBox(item)
-        raise TypeError(repr(item))
+            box = item
+        elif isinstance(item, str):
+            box = TextBox(item)
+        elif isinstance(item, (tuple, list)):
+            box = HBox(item)
+        else:
+            raise TypeError(repr(item))
+        if align is not None:
+            box = AlignBox(box, align)
+        return box
 
     def on_layout(self, cvs, system):
         assert not self.did_layout, "already called on_layout"
@@ -271,10 +275,16 @@ class AlignBox(ChildBox):
 
 
 class CompoundBox(Box):
-    def __init__(self, boxs, weight=None):
+    def __init__(self, boxs, weight=None, align=None):
         assert len(boxs)
-        self.boxs = [Box.promote(box) for box in boxs]
+        self.boxs = [Box.promote(box, align) for box in boxs]
         self.weight = weight
+
+    def __len__(self):
+        return len(self.boxs)
+
+    def __getitem__(self, idx):
+        return self.boxs[idx]
 
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
@@ -328,8 +338,10 @@ class HBox(CompoundBox):
                 system.add(box.bot <= self.bot)
         system.add(self.x + self.width == left)
 
+
 class StrictHBox(HBox):
     strict = True
+
 
 class VBox(CompoundBox):
     "vertical compound box: anchor top"
@@ -350,6 +362,7 @@ class VBox(CompoundBox):
                 system.add(box.left <= self.left)
                 system.add(box.right <= self.right)
         system.add(self.y - self.bot == y)
+
 
 class StrictVBox(VBox):
     strict = True
@@ -373,6 +386,12 @@ class TableBox(CompoundBox):
         self.left = 0.
         self.grid = grid
         CompoundBox.__init__(self, boxs)
+
+    def __getitem__(self, key):
+        assert type(key) is tuple
+        assert len(key) == 2
+        row, col = key
+        return self.rows[row][col]
 
     def on_layout(self, cvs, system):
         CompoundBox.on_layout(self, cvs, system)

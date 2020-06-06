@@ -6,7 +6,7 @@ string diagram's
 
 from math import pi
 
-from bruhat.render.front import canvas, path
+from bruhat.render.front import canvas, path, trafo
 from bruhat.render.boxs import (Box, EmptyBox, HBox, VBox, AlignBox, 
     StrictVBox, StrictHBox, TextBox)
 
@@ -261,7 +261,7 @@ class Cup(Box, Atom):
         cvs.stroke(path.arc(x2, y0, radius, pi, 0.))
 
 
-class Spider(Box, Atom):
+class Multi(Box, Atom):
     def __init__(self, n_top, n_bot, weight=1.0):
         min_width = 0.5*SIZE
         if n_top > 1 or n_bot > 1:
@@ -307,6 +307,12 @@ class Spider(Box, Atom):
         Box.on_render(self, cvs, system)
         Atom.on_render(self, cvs, system)
 
+
+class Spider(Multi):
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        Atom.on_render(self, cvs, system)
+
         n = self.n_top + self.n_bot
         if n==0:
             return
@@ -340,6 +346,110 @@ class Spider(Box, Atom):
         cvs.fill(path.circle(x0, y0, 0.04))
 
 
+class Relation(Multi):
+    def __init__(self, n_top, n_bot, rels, weight=1.0):
+        min_width = 0.5*SIZE
+        if n_top > 1 or n_bot > 1:
+            min_width = 1.0*SIZE
+        min_height = 0.5*SIZE
+        self.weight = weight
+        for (a, b) in rels:
+            assert 0<=a<n_top
+            assert 0<=b<n_bot
+        assert len(set(rels)) == len(rels)
+        self.rels = list(rels)
+        Atom.__init__(self, n_top=n_top, n_bot=n_bot,
+            min_width=min_width, min_height=min_height)
+
+    def on_render(self, cvs, system):
+        Multi.on_render(self, cvs, system)
+
+        n = self.n_top + self.n_bot
+        if n==0:
+            return
+
+        y = system[self.y]
+        top = system[self.top]
+        bot = system[self.bot]
+        y_top = y+top
+        y_bot = y-bot
+        x_mid, y_mid = self.get_align("center")
+        x_mid, y_mid = system[x_mid], system[y_mid]
+
+        x_top = [system[x] for x in self.x_top]
+        x_bot = [system[x] for x in self.x_bot]
+        x_avg = (1./n)*sum(x_top + x_bot)
+
+        conv = lambda x0, x1, t: (1.-t)*x0 + t*x1
+
+        for (i_top, i_bot) in self.rels:
+            x0 = x_bot[i_bot]
+            x1 = x_top[i_top]
+            cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top))
+
+
+class Braid(Multi):
+    def __init__(self, inverse=False, space=0.8, weight=1.0):
+        Multi.__init__(self, 2, 2, weight)
+        self.inverse = inverse
+        self.space = space
+
+    def on_layout(self, cvs, system):
+        Multi.on_layout(self, cvs, system)
+        # need this extra constraint
+        for i in [0, 1]:
+            system.add(self.x_bot[i] == self.x_top[i])
+
+    def on_render(self, cvs, system):
+        Multi.on_render(self, cvs, system)
+
+        y = system[self.y]
+        top = system[self.top]
+        bot = system[self.bot]
+        y_top = y+top
+        y_bot = y-bot
+        x_mid, y_mid = self.get_align("center")
+        x_mid, y_mid = system[x_mid], system[y_mid]
+
+        x_top = [system[x] for x in self.x_top]
+        x_bot = [system[x] for x in self.x_bot]
+
+        conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
+
+        alpha = self.space
+        under = self.inverse
+        x0, x1 = x_bot[1], x_top[0]
+
+        for i0, i1 in [(0, 1), (1, 0)]:
+            x0, x1 = x_bot[i0], x_top[i1]
+
+            if under:
+                # I think this is de Casteljau subdivision...
+                xt, yt = conv(x0, x1, 0.25), conv(y_bot, y_mid, 0.75) # control point
+                p = path.curve(
+                    x0, y_bot, 
+                    x0, conv(y_bot, y_mid),
+                    xt, yt,
+                    conv(xt, x_mid, alpha), conv(yt, y_mid, alpha))
+                cvs.stroke(p)
+        
+                xt, yt = conv(x0, x1, 0.75), conv(y_mid, y_top, 0.25) # control point
+                p = path.curve(
+                    conv(xt, x_mid, alpha), conv(yt, y_mid, alpha),
+                    xt, yt,
+                    x1, conv(y_mid, y_top),
+                    x1, y_top)
+                cvs.stroke(p)
+
+            else:
+                x0 = x_bot[0]
+                x1 = x_top[1]
+                p = path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top)
+                cvs.stroke(p)
+
+            under = not under
+
+
 
 def test_snake():
     Box.DEBUG = True
@@ -365,8 +475,7 @@ def test_snake():
 def test():
     Box.DEBUG = True
 
-    # Note:
-    # __mul__ composes top-down, like VBox.
+    # Note: __mul__ composes top-down, like VBox.
 
     box = Spider(2, 2) @ VWire()
     #box = box * (VWire() @ Spider(2, 2))
@@ -376,6 +485,45 @@ def test():
     box = box * Spider(2, 0, weight=0.9)
     #box = (Cap() @ Cap()) * box
     box = (Cap() @ Spider(0, 1) @ Spider(0, 1)) * box
+
+    cvs = canvas.canvas()
+    #cvs.append(trafo.rotate(-pi/4))
+    #cvs.append(trafo.scale(1., -1.))
+    #cvs.append(trafo.rotate(pi/4))
+    #cvs.append(trafo.rotate(pi/2))
+    box.render(cvs)
+    cvs.writePDFfile("test_diagram.pdf")
+
+
+def test_relation():
+    Box.DEBUG = True
+
+    # Note: __mul__ composes top-down, like VBox.
+
+    box = Relation(3, 4, [(0, 0), (1, 0), (2, 1), (1, 2), (2, 3)])
+    box = box * (Cup() @ Cup())
+    box = (VWire() @ Spider(0, 1) @ VWire()) * box
+    box = Cap() * box
+
+    cvs = canvas.canvas()
+    box.render(cvs)
+    cvs.writePDFfile("test_diagram.pdf")
+
+
+def test():
+    Box.DEBUG = False
+
+    # Note: __mul__ composes top-down, like VBox.
+
+    Id = VWire
+
+    s12 = lambda : Braid() @ Id()
+    s23 = lambda : Id() @ Braid()
+
+    lhs = s12() * s23() * s12()
+    #lhs = lhs @ Braid()
+    rhs = s23() * s12() * s23()
+    box = HBox([lhs, "$=$", rhs], align="center")
 
     cvs = canvas.canvas()
     box.render(cvs)
