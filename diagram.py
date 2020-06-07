@@ -6,16 +6,19 @@ string diagram's
 
 from math import pi
 
-from bruhat.render.front import canvas, path, trafo
+from bruhat.render.base import Base
+from bruhat.render.front import canvas, path, trafo, style, color
 from bruhat.render.boxs import (Box, EmptyBox, HBox, VBox, AlignBox, 
-    StrictVBox, StrictHBox, TextBox)
+    StrictVBox, StrictHBox, TextBox, RectBox)
 
 
 
 SIZE = 2.0
 
+conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
 
-class Dia(object): # Mixin
+
+class Dia(Base): # Mixin
     def __init__(self, n_top=0, n_bot=0, n_left=0, n_right=0, 
         min_width=SIZE, min_height=SIZE):
         self.n_top = n_top
@@ -262,11 +265,13 @@ class Cup(Box, Atom):
 
 
 class Multi(Box, Atom):
-    def __init__(self, n_top, n_bot, weight=1.0):
-        min_width = 0.5*SIZE
-        if n_top > 1 or n_bot > 1:
-            min_width = 1.0*SIZE
-        min_height = 0.5*SIZE
+    def __init__(self, n_top, n_bot, weight=1.0, min_width=None, min_height=None):
+        if min_width is None:
+            min_width = 0.5*SIZE
+            if n_top > 1 or n_bot > 1:
+                min_width = 1.0*SIZE
+        if min_height is None:
+            min_height = 0.5*SIZE
         self.weight = weight
         Atom.__init__(self, n_top=n_top, n_bot=n_bot,
             min_width=min_width, min_height=min_height)
@@ -347,19 +352,25 @@ class Spider(Multi):
 
 
 class Relation(Multi):
-    def __init__(self, n_top, n_bot, rels, weight=1.0):
+    def __init__(self, n_top, n_bot, toptop=[], topbot=[], botbot=[], weight=1.0):
         min_width = 0.5*SIZE
         if n_top > 1 or n_bot > 1:
             min_width = 1.0*SIZE
         min_height = 0.5*SIZE
         self.weight = weight
-        for (a, b) in rels:
+        for (a, b) in topbot:
             assert 0<=a<n_top
             assert 0<=b<n_bot
-        assert len(set(rels)) == len(rels)
-        self.rels = list(rels)
+        assert len(set(topbot)) == len(topbot)
+        self.topbot = list(topbot)
+        self.toptop = list(toptop)
+        self.botbot = list(botbot)
         Atom.__init__(self, n_top=n_top, n_bot=n_bot,
             min_width=min_width, min_height=min_height)
+
+    def on_layout(self, cvs, system):
+        Multi.on_layout(self, cvs, system)
+        system.add(self.height >= 0.5*self.width)
 
     def on_render(self, cvs, system):
         Multi.on_render(self, cvs, system)
@@ -380,17 +391,34 @@ class Relation(Multi):
         x_bot = [system[x] for x in self.x_bot]
         x_avg = (1./n)*sum(x_top + x_bot)
 
-        conv = lambda x0, x1, t: (1.-t)*x0 + t*x1
+        conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
 
-        for (i_top, i_bot) in self.rels:
+        for (i_top, j_top) in self.toptop:
+            x0 = x_top[i_top]
+            x1 = x_top[j_top]
+            #cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top))
+            x = conv(x0, x1)
+            r = 0.5*(x1-x0)
+            cvs.stroke(path.arc(x, y_top, r, pi, 2*pi))
+
+        for (i_top, i_bot) in self.topbot:
             x0 = x_bot[i_bot]
             x1 = x_top[i_top]
             cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top))
 
+        for (i_bot, j_bot) in self.botbot:
+            x0 = x_bot[i_bot]
+            x1 = x_bot[j_bot]
+            x = conv(x0, x1)
+            r = 0.5*(x1-x0)
+            cvs.stroke(path.arc(x, y_bot, r, 0, pi))
+
+
 
 class Braid(Multi):
-    def __init__(self, inverse=False, space=0.8, weight=1.0):
-        Multi.__init__(self, 2, 2, weight)
+    def __init__(self, inverse=False, space=0.8, weight=1.0, 
+            min_width=SIZE, min_height=0.5*SIZE):
+        Multi.__init__(self, 2, 2, weight, min_width=min_width, min_height=min_height)
         self.inverse = inverse
         self.space = space
 
@@ -408,13 +436,12 @@ class Braid(Multi):
         bot = system[self.bot]
         y_top = y+top
         y_bot = y-bot
-        x_mid, y_mid = self.get_align("center")
-        x_mid, y_mid = system[x_mid], system[y_mid]
+        y_mid = conv(self.lly, self.ury)
+        y_mid = system[y_mid]
 
         x_top = [system[x] for x in self.x_top]
         x_bot = [system[x] for x in self.x_bot]
-
-        conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
+        x_mid = conv(x_bot[0], x_bot[1])
 
         alpha = self.space
         under = self.inverse
@@ -442,8 +469,6 @@ class Braid(Multi):
                 cvs.stroke(p)
 
             else:
-                x0 = x_bot[0]
-                x1 = x_top[1]
                 p = path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top)
                 cvs.stroke(p)
 
@@ -500,7 +525,7 @@ def test_relation():
 
     # Note: __mul__ composes top-down, like VBox.
 
-    box = Relation(3, 4, [(0, 0), (1, 0), (2, 1), (1, 2), (2, 3)])
+    box = Relation(3, 4, topbot=[(0, 0), (1, 0), (2, 1), (1, 2), (2, 3)])
     box = box * (Cup() @ Cup())
     box = (VWire() @ Spider(0, 1) @ VWire()) * box
     box = Cap() * box
@@ -510,15 +535,18 @@ def test_relation():
     cvs.writePDFfile("test_diagram.pdf")
 
 
-def test():
+def test_yang_baxter():
     Box.DEBUG = False
 
     # Note: __mul__ composes top-down, like VBox.
 
     Id = VWire
 
-    s12 = lambda : Braid() @ Id()
-    s23 = lambda : Id() @ Braid()
+    scale = 2.0
+    w = 1.5*scale
+    h = 0.5*scale
+    s12 = lambda : Braid(min_width=w, min_height=h) @ Id(min_height=h, min_width=h)
+    s23 = lambda : Id(min_height=h, min_width=h) @ Braid(min_width=w, min_height=h)
 
     lhs = s12() * s23() * s12()
     #lhs = lhs @ Braid()
@@ -527,6 +555,73 @@ def test():
 
     cvs = canvas.canvas()
     box.render(cvs)
+    cvs.writePDFfile("test_diagram.pdf")
+
+
+def test():
+    from random import shuffle, seed, randint
+    from operator import matmul
+    from functools import reduce
+
+    seed(1)
+
+    Box.DEBUG = False
+
+    # Note: __mul__ composes top-down, like VBox.
+
+    scale = 1.0
+    w = 1.3*scale
+    h = 1.2*scale
+    Id = lambda : VWire(min_height=0.5, min_width=0.5)
+    Swap = lambda inverse : Braid(inverse=inverse, min_width=w, min_height=h, space=0.7)
+
+    box = None
+    m, n = 3, 3
+    k = 2*m+n
+    for count in range(4):
+        items = [Swap(randint(0,1)) for k in range(m)] + [Id() for k in range(n)]
+        shuffle(items)
+        row = reduce(matmul, items)
+        if box is None:
+            box = row
+        else:
+            box = box * row
+
+    #box = Id() @ box
+    lhs = reduce(matmul, [Id() for i in range(k)])
+    box = lhs @ box
+    rels = [(i, 2*k-i-1) for i in range(k)]
+    rel = Relation(0, 2*k, botbot=rels, weight=200.0)
+    box = rel * box
+    rels = [(i, 2*k-i-1) for i in range(k)]
+    rel = Relation(2*k, 0, toptop=rels, weight=200.0)
+    box = box * rel
+
+    #rect = RectBox(box, bg=color.rgb(0.9, 0.9, 0.3, 0.6))
+
+    cvs = canvas.canvas()
+    #cvs.append(trafo.rotate(pi/2))
+
+    box.layout(cvs)
+    system = box.system
+    x = system[box.llx]
+    y = system[box.lly]
+    width = system[box.width]
+    height = system[box.height]
+    cvs.fill(path.rect(x, y, width, height), [color.rgb(0.9, 0.8, 0.5)])
+    p = path.rect(
+        x+0.5*width, y+0.34*height, 0.5*width, 0.32*height)
+    cvs.fill(p, [color.rgb(0.9, 0.7, 0.4)])
+    cvs.stroke(p, [])
+
+    cvs.append(style.linewidth.THICk)
+    cvs.append(color.rgb(0.2,0.5,0.2))
+    box.render(cvs)
+
+    cvs.append(style.linewidth.thick)
+    cvs.append(color.rgb(0.9,0.9,0.9))
+    box.render(cvs)
+
     cvs.writePDFfile("test_diagram.pdf")
 
 
@@ -548,8 +643,16 @@ def test_boxs():
 
 if __name__ == "__main__":
 
-    test_snake()
-    test()
+    from bruhat.argv import argv
+    if argv.profile:
+        import cProfile as profile
+        profile.run("test()")
+
+    else:
+
+        test_snake()
+        test()
+
     print("OK\n")
 
 

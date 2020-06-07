@@ -46,8 +46,17 @@ class Box(object):
             setattr(self, attr, v)
         self.did_layout = True
 
-    def on_render(self, cvs, system):
+    def assign_variables(self, system):
+        # set all our Variable attributes to actual solutions
+        attrs = list(self.__dict__.keys())
+        for attr in attrs:
+            value = getattr(self, attr)
+            if not isinstance(value, Expr):
+                continue
+            value = system[value]
+            setattr(self, attr, value)
 
+    def on_render(self, cvs, system):
         if 1:
             x = system[self.x]
             y = system[self.y]
@@ -57,15 +66,7 @@ class Box(object):
             bot = system[self.bot]
 
         else:
-            # set all our Variable attributes to actual solutions
-            attrs = list(self.__dict__.keys())
-            for attr in attrs:
-                value = getattr(self, attr)
-                if not isinstance(value, Expr):
-                    continue
-                value = system[value]
-                setattr(self, attr, value)
-
+            self.assign_variables(system)
             x = self.x
             y = self.y
             left = self.left
@@ -102,12 +103,20 @@ class Box(object):
         return self.y - self.bot
 
     @property
+    def ll(self):
+        return self.llx, self.lly
+
+    @property
     def urx(self):
         return self.x + self.right
 
     @property
     def ury(self):
         return self.y + self.top
+
+    @property
+    def ur(self):
+        return self.urx, self.ury
 
     @property
     def bound(self):
@@ -140,14 +149,18 @@ class Box(object):
     
         return x, y
 
-
-    def render(self, cvs, x=0, y=0):
+    def layout(self, cvs, x=0, y=0):
         system = System()
         self.on_layout(cvs, system)
         system.add(self.x == x)
         system.add(self.y == y)
         system.solve()
-        self.on_render(cvs, system)
+        self.system = system
+
+    def render(self, cvs, x=0, y=0):
+        if not self.did_layout:
+            self.layout(cvs, x, y)
+        self.on_render(cvs, self.system)
 
 
 class EmptyBox(Box):
@@ -252,6 +265,23 @@ class MarginBox(ChildBox):
         self.top = child.top + margin
         self.bot = child.bot + margin
         Box.on_layout(self, cvs, system)
+
+
+class RectBox(MarginBox):
+    def __init__(self, child, margin=0, bg=None):
+        MarginBox.__init__(self, child, margin)
+        self.bg = bg
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        bg = self.bg
+        if bg is not None:
+            llx = system[self.llx]
+            lly = system[self.lly]
+            width = system[self.width]
+            height = system[self.height]
+            cvs.fill(path.rect(llx, lly, width, height), [bg])
+        self.child.on_render(cvs, system)
 
 
 class AlignBox(ChildBox):
