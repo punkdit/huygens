@@ -3,8 +3,8 @@
 
 def test_boxs():
 
-    # bruhat.render.boxs
-    # ------------------
+    # Layout with Boxs
+    # ----------------
     # 
 
     from random import random, choice

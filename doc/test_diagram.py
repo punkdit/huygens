@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 
-from bruhat.render.boxs import *
-from bruhat.render.diagram import *
+#from bruhat.render.box import *
+#from bruhat.render.diagram import *
 
 
 def test_snake():
-    Box.DEBUG = True
+
+    # Diagrams
+    # ========
+    #
+    # 
+    #
+
+    from bruhat.render.box import HBox
+    from bruhat.render.diagram import HDia, VDia
 
     top = HDia([VWire(), Cap()])
     #mid = HDia([VWire(), VWire(), VWire()])
@@ -17,21 +25,24 @@ def test_snake():
     rsnake = VDia([top, bot])
 
     boxs = [lsnake, "$=$", VWire(min_height=SIZE), "$=$", rsnake]
-    boxs = [AlignBox(box, "center") for box in boxs]
-    dia = HBox(boxs)
+    dia = HBox(boxs, align="center")
 
     cvs = canvas.canvas()
     dia.render(cvs)
-    #cvs.writePDFfile("test_snake.pdf")
+    cvs.writeSVGfile("output.svg")
 
     yield cvs
 
 
 def test_spider():
 
-    Box.DEBUG = True
+    # Instead of explicitly using `VDia` and `HDia`
+    # we can use the operators `*` and `@`, respectively.
+    # The `*` operator composes top-down, like VBox.
+    # The `@` operator composes left to right, like HBox.
 
-    # Note: __mul__ composes top-down, like VBox.
+    from bruhat.render.diagram import Spider, VWire, Cap, Cup
+    Box.DEBUG = True
 
     box = Spider(2, 2) @ VWire()
     #box = box * (VWire() @ Spider(2, 2))
@@ -42,35 +53,26 @@ def test_spider():
     #box = (Cap() @ Cap()) * box
     box = (Cap() @ Spider(0, 1) @ Spider(0, 1)) * box
 
-    cvs = canvas.canvas()
-    #cvs.append(trafo.rotate(-pi/4))
-    #cvs.append(trafo.scale(1., -1.))
-    #cvs.append(trafo.rotate(pi/4))
-    #cvs.append(trafo.rotate(pi/2))
-
     yield box
 
 
 def test_relation():
+
+    from bruhat.render.diagram import Spider, VWire, Cap, Cup, Relation
     Box.DEBUG = True
-
-    # Note: __mul__ composes top-down, like VBox.
-
     box = Relation(3, 4, topbot=[(0, 0), (1, 0), (2, 1), (1, 2), (2, 3)])
     box = box * (Cup() @ Cup())
     box = (VWire() @ Spider(0, 1) @ VWire()) * box
     box = Cap() * box
 
-    cvs = canvas.canvas()
-    box.render(cvs)
-
-    yield cvs
+    yield box
 
 
 def test_yang_baxter():
-    Box.DEBUG = False
 
-    # Note: __mul__ composes top-down, like VBox.
+    from bruhat.render.box import HBox
+    from bruhat.render.diagram import VWire, Braid
+    Box.DEBUG = False
 
     Id = VWire
 
@@ -88,14 +90,14 @@ def test_yang_baxter():
     yield box
 
 
-def test_braid():
+def XXXtest_braid():
     from random import shuffle, seed, randint
     from operator import matmul
     from functools import reduce
 
     seed(1)
 
-    # Note: __mul__ composes top-down, like VBox.
+    # Note: `__mul__` composes top-down, like VBox.
 
     scale = 0.5
     w = 1.4*scale

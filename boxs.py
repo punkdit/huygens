@@ -158,10 +158,14 @@ class Box(object):
         self.system = system
         return system
 
-    def render(self, cvs, x=0, y=0):
+    def render(self, cvs, x=0, y=0, debug=None):
+        save = Box.DEBUG
+        if debug is not None:
+            Box.DEBUG = debug
         if not self.did_layout:
             self.layout(cvs, x, y)
         self.on_render(cvs, self.system)
+        Box.DEBUG = save
 
 
 #class EmptyBox(Box):

@@ -69,7 +69,7 @@ def run_test(func, dummy=False):
             continue
 
         try:
-            print("run_tests: rendering", name)
+            print("run_tests: rendering", name, func)
             if cvs is None:
                 cvs = Canvas()
                 cvs.append(Scale(2.0))

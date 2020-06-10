@@ -2,81 +2,20 @@
 
 
 #st = [color.rgb.blue, style.linewidth.THick, style.linecap.round]
-
-
-def test_canvas():
-
-    # Canvas
-    # ======
-    # This is how to use the canvas.
-
-    from bruhat.render.front import canvas, style, path, color, trafo
-
-    def cross(x, y):
-        r = 0.1
-        st = [color.rgb.blue, style.linewidth.THick, style.linecap.round]
-        cvs.stroke(path.line(x-r, y-r, x+r, y+r), st)
-        cvs.stroke(path.line(x-r, y+r, x+r, y-r), st)
-
-    cvs = canvas.canvas()
-
-    cross(0., 0.)
-
-    cvs.text(0., 0., "hey there!")
-
-    yield cvs
-
-
-    cvs = canvas.canvas()
-
-    # Unlike PyX we use radians in calls to `path.arc`:
-    from math import pi
-
-    p = path.path([
-        path.moveto(0., 0.),
-        path.arc(0., 0., 1., 0., 0.5*pi),
-        path.lineto(-1., 1.),
-        path.arc(-1., 0., 1., 0.5*pi, 1.0*pi),
-        path.arc(-1.5, 0., 0.5, 1.0*pi, 2.0*pi),
-        path.closepath()
-    ])
-
-    p = path.path(
-    [ 
-        path.moveto(0., 0.),
-        path.arc(0., 0., 1., 0., 0.5*pi),
-        path.lineto(-1., 1.), path.arc(-1., 0., 1., 0.5*pi, 1.0*pi),
-        path.arc(-1.5, 0., 0.5, 1.0*pi, 2.0*pi), path.closepath() ])
-
-    cvs.fill(p, [color.rgb.red, trafo.scale(0.8, 0.8)])
-    cvs.stroke(p, [color.rgb.black, style.linewidth.THick])
-
-    cross(0., 0.)
-    cross(-1.2, 1.2)
-
-    yield cvs
-
-    if 0:
-        x, y, r, angle1, angle2 = 0., 0., 1., 0., 0.5*pi
-        p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
-        cvs.stroke(p, [color.rgb.white])
-    
-        x, y, r, angle1, angle2 = 0., 0., 1., -0.5*pi, 0.
-        p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
-        cvs.stroke(p, [color.rgb.red])
-
-    #cvs.writePDFfile("output.pdf")
+#attrs = [style.linewidth.THIck, color.rgb(0.2, 0.6, 0.2, 0.6), style.linejoin.bevel]
 
 
 def test_turtle():
 
-    from bruhat.render.front import canvas, style, path, color, trafo
+    # Turtle graphics
+    # ===============
+    # Use a turtle to keep track of a path as you build it.
+
+    from bruhat.render import canvas, style, color
     from bruhat.render.turtle import Turtle
 
     cvs = canvas.canvas()
-    attrs = [style.linewidth.THIck, color.rgb(0.2, 0.6, 0.2, 0.6),
-        style.linejoin.bevel]
-    turtle = Turtle(cvs=cvs, attrs=attrs)
+    turtle = Turtle(cvs=cvs)
 
     n = 8
     angle = 360. / n
@@ -90,11 +29,31 @@ def test_turtle():
         turtle.left((1./3)*angle)
         turtle.stroke()
 
+    cvs.writeSVGfile("output.svg")
+
     yield cvs
+
+    # We can change the stroke style that the turtle uses
+    # to a thick green line.
+
+    attrs = [style.linewidth.THIck, color.rgb(0.2, 0.6, 0.2)]
 
     cvs = canvas.canvas()
     turtle = Turtle(cvs=cvs, attrs=attrs)
 
+    turtle.fwd(2.)
+    turtle.right(300, 1.)
+    turtle.fwd(2.)
+    turtle.arrow(0.4)
+    turtle.stroke()
+
+    yield cvs
+
+
+    cvs = canvas.canvas()
+    turtle = Turtle(cvs=cvs, attrs=attrs)
+
+    R = 1.0
     for i in range(24*2):
         turtle.left(320, 0.6*R)
         turtle.left(-60, 0.3*R)
@@ -102,21 +61,4 @@ def test_turtle():
         turtle.stroke(attrs)
 
     yield cvs
-
-    cvs = canvas.canvas()
-    turtle = Turtle(cvs=cvs, attrs=attrs)
-
-    for i in range(1):
-        turtle.fwd(2.)
-        turtle.right(300, 1.)
-    turtle.arrow(0.4)
-    turtle.stroke(attrs)
-
-    yield cvs
-
-
-
-
-
-
 

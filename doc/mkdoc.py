@@ -11,6 +11,7 @@ from pygments.lexers import Python3Lexer
 from bruhat.argv import argv
 from bruhat.render.doc import run_tests
 from bruhat.render.front import Canvas, Scale
+from bruhat.render.boxs import Box
 
 
 def html_head(s):
@@ -20,13 +21,14 @@ def html_head(s):
 <head>
 <link rel="stylesheet" type="text/css" href="superstyle.css"> 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Spectral">
-<link rel="stylesheet" type="text/css" href="superstyle.css"> 
 %s
 <style>
- body {
+ p {
      font-family: 'Spectral', serif;
      font-size: 16px;
  }
+
+ pre { font-size: 14px; }
 
  .center {
      display: block;
@@ -66,7 +68,8 @@ def html_img(name):
 def main():
     dummy = argv.dummy
     path = "."
-    names = "test_canvas.py test_sat.py test_boxs.py test_diagram.py".split()
+    names = "test_canvas.py test_turtle.py test_sat.py test_boxs.py test_diagram.py"
+    names = names.split()
     for name in names:
         process(path, name, dummy)
 
@@ -84,7 +87,6 @@ def process(path, name, dummy=False):
     style = HtmlFormatter().get_style_defs('.highlight') 
     print(html_head(html_style(style)), file=output)
 
-
     for test in run_tests.harvest(path, name, dummy=dummy):
 
         end = test.end or find_dedent(code, test.start)
@@ -96,8 +98,16 @@ def process(path, name, dummy=False):
         if test.img:
             print(html_img(test.img), file=output)
 
+    start = end
+    end = find_dedent(code, start)
+    if end > start:
+        snip = code[start+1 : end]
+        for block in html_snip(snip):
+            print(block, file=output)
+
     print(html_tail(), file=output)
     output.close()
+    Box.DEBUG = False
 
 
 def html_code(lines):
@@ -132,6 +142,8 @@ def html_snip(lines):
                 yield html_code(code)
                 code = []
             comment.append(line)
+        elif line.startswith("#"):
+            pass
         else:
             if comment:
                 yield html_comment(comment)
@@ -178,7 +190,8 @@ def dedent(lines):
         space = get_indent(line)
         if indent is None or indent.startswith(space):
             indent = space
-    assert indent is not None
+    if indent is None:
+        return []
     lines = [line[len(indent):] for line in lines]
     return lines
 

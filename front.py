@@ -180,19 +180,34 @@ class Canvas(Compound):
         cxt.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
         self.process_cairo(cxt)
         #item.process_cairo(cxt)
-        surface.finish()
+        return surface
 
     def writePDFfile(self, name):
         assert name.endswith(".pdf")
         import cairo
         method = cairo.PDFSurface
-        self._write_cairo(method, name)
+        surface = self._write_cairo(method, name)
+        surface.finish()
 
     def writeSVGfile(self, name):
         assert name.endswith(".svg")
         import cairo
         method = cairo.SVGSurface
-        self._write_cairo(method, name)
+        surface = self._write_cairo(method, name)
+        surface.finish()
+
+    def writePNGfile(self, name):
+        assert 0, "TODO"
+        assert name.endswith(".png")
+        import cairo
+        def method(name, W, H):
+            W = int(round(W))
+            H = int(round(H))
+            surface = cairo.ImageSurface(cairo.Format.RGB24, W, H)
+            return surface
+        surface = self._write_cairo(method, name)
+        surface.write_to_png(name)
+        surface.finish()
 
 
 canvas = NS(canvas=Canvas)

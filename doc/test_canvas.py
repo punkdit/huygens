@@ -8,114 +8,56 @@ def test_canvas():
 
     # Canvas
     # ======
-    # This is how to use the canvas.
+    #
+    # The canvas is a front-end drawing API
+    # modelled after the amazing
+    # [PyX](https://pyx-project.org/) package.
+    #
+    # The canvas coordinates are positive in the
+    # upper right quadrant.
 
-    from bruhat.render.front import canvas, style, path, color, trafo
-
-    def cross(x, y):
-        r = 0.1
-        st = [color.rgb.blue, style.linewidth.THick, style.linecap.round]
-        cvs.stroke(path.line(x-r, y-r, x+r, y+r), st)
-        cvs.stroke(path.line(x-r, y+r, x+r, y-r), st)
+    from bruhat.render import canvas, path, color
 
     cvs = canvas.canvas()
+    cvs.stroke(path.line(0., 0., 3., 2.))
+    cvs.fill(path.circle(3., 2., 0.2), [color.rgb.red])
+    cvs.writeSVGfile("output.svg")
 
-    cross(0., 0.)
-
-    cvs.text(0., 0., "hey there!")
+    # This produces the following SVG image:
 
     yield cvs
 
+    # The canvas also has a `writePDFfile` method.
+    #
+    # Unlike PyX, angles are specified in
+    # radians in calls to `path.arc` and `trafo.rotate`.
+
+    from math import pi
+    from bruhat.render import style, trafo
 
     cvs = canvas.canvas()
 
-    # Unlike PyX we use radians in calls to `path.arc`:
-    from math import pi
+    cvs.stroke(path.circle(0., 0., 1.), [style.linewidth.thick, color.rgb.blue])
+    cvs.text(0., 0., "hey there!", [trafo.rotate(0.5*pi)])
 
-    p = path.path([
-        path.moveto(0., 0.),
-        path.arc(0., 0., 1., 0., 0.5*pi),
-        path.lineto(-1., 1.),
-        path.arc(-1., 0., 1., 0.5*pi, 1.0*pi),
-        path.arc(-1.5, 0., 0.5, 1.0*pi, 2.0*pi),
-        path.closepath()
-    ])
+    yield cvs
 
-    p = path.path(
-    [ 
+    # Composite paths are build using the `path.path` constructor:
+
+    cvs = canvas.canvas()
+    p = path.path([ 
         path.moveto(0., 0.),
         path.arc(0., 0., 1., 0., 0.5*pi),
         path.lineto(-1., 1.), path.arc(-1., 0., 1., 0.5*pi, 1.0*pi),
         path.arc(-1.5, 0., 0.5, 1.0*pi, 2.0*pi), path.closepath() ])
 
-    cvs.fill(p, [color.rgb.red, trafo.scale(0.8, 0.8)])
+    cvs.fill(p, [color.rgb.red, trafo.scale(1.2, 1.2)])
     cvs.stroke(p, [color.rgb.black, style.linewidth.THick])
 
-    cross(0., 0.)
-    cross(-1.2, 1.2)
-
     yield cvs
 
-    if 0:
-        x, y, r, angle1, angle2 = 0., 0., 1., 0., 0.5*pi
-        p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
-        cvs.stroke(p, [color.rgb.white])
-    
-        x, y, r, angle1, angle2 = 0., 0., 1., -0.5*pi, 0.
-        p = arc_to_bezier(x, y, r, angle1, angle2, danglemax=pi/2.)
-        cvs.stroke(p, [color.rgb.red])
-
-    #cvs.writePDFfile("output.pdf")
-
-
-def test_turtle():
-
-    from bruhat.render.front import canvas, style, path, color, trafo
-    from bruhat.render.turtle import Turtle
-
-    cvs = canvas.canvas()
-    attrs = [style.linewidth.THIck, color.rgb(0.2, 0.6, 0.2, 0.6),
-        style.linejoin.bevel]
-    turtle = Turtle(cvs=cvs, attrs=attrs)
-
-    n = 8
-    angle = 360. / n
-    R = 3.0
-    for i in range(n):
-        turtle.fwd(1.*R)
-        turtle.left((1./3)*angle)
-        turtle.back(0.5*R)
-        turtle.left((1./3)*angle)
-        turtle.back(0.7*R)
-        turtle.left((1./3)*angle)
-        turtle.stroke()
-
-    yield cvs
-
-    cvs = canvas.canvas()
-    turtle = Turtle(cvs=cvs, attrs=attrs)
-
-    for i in range(24*2):
-        turtle.left(320, 0.6*R)
-        turtle.left(-60, 0.3*R)
-        turtle.right(90, 0.6*R)
-        turtle.stroke(attrs)
-
-    yield cvs
-
-    cvs = canvas.canvas()
-    turtle = Turtle(cvs=cvs, attrs=attrs)
-
-    for i in range(1):
-        turtle.fwd(2.)
-        turtle.right(300, 1.)
-    turtle.arrow(0.4)
-    turtle.stroke(attrs)
-
-    yield cvs
-
-
-
+    # Building these paths are easier using 
+    # the [turtle](test_turtle.html) module.
 
 
 
