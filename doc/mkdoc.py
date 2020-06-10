@@ -3,6 +3,7 @@
 import os
 import collections
 
+import markdown
 from pygments.formatters import HtmlFormatter
 from pygments import highlight
 from pygments.lexers import Python3Lexer
@@ -62,17 +63,28 @@ def html_img(name):
 
 # This is like recursive descent parsing:
 
-def process(path, name):
+def main():
+    dummy = argv.dummy
+    path = "."
+    names = "test_canvas.py test_sat.py test_boxs.py test_diagram.py".split()
+    for name in names:
+        process(path, name, dummy)
+
+
+def process(path, name, dummy=False):
 
     fullname = os.path.join(path, name)
+    code = open(fullname).read().split('\n')
+
+    assert fullname.endswith(".py")
+    output = fullname[:-len(".py")] + ".html"
     
-    output = open("output.html", 'w')
+    output = open(output, 'w')
     style = HtmlFormatter().get_style_defs('.highlight') 
     print(html_head(html_style(style)), file=output)
 
-    code = open(fullname).read().split('\n')
 
-    for test in run_tests.harvest(path, name):
+    for test in run_tests.harvest(path, name, dummy=dummy):
         snip = code[test.start : test.end]
 
         for block in html_snip(snip):
@@ -90,10 +102,16 @@ def html_code(lines):
         return ""
     return highlight(s, Python3Lexer(), HtmlFormatter())
 
+COMMENT = "# "
+
 def html_comment(lines):
-    lines = [line[1:] for line in lines]
+    lines = [line[len(COMMENT):] for line in lines]
     s = '\n'.join(lines)
-    return html_p(s)
+    #return html_p(s)
+
+    md = markdown.Markdown()
+    html = md.convert(s)
+    return html
 
 
 def html_snip(lines):
@@ -105,7 +123,7 @@ def html_snip(lines):
     idx = 0
     while idx < len(lines):
         line = lines[idx]
-        if line.startswith("#"):
+        if line.startswith(COMMENT):
             if code:
                 yield html_code(code)
                 code = []
@@ -142,14 +160,8 @@ def dedent(lines):
     return lines
 
 
-def main():
-    path = "."
-    names = "test_boxs.py".split()
-    for name in names:
-        process(path, name)
-
-
 if __name__ == "__main__":
     main()
+    print("mkdoc: OK")
 
 

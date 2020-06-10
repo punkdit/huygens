@@ -20,6 +20,10 @@ class TestRun(object):
 def run_test(func, dummy=False):
 
     items = func()
+
+    if items is None:
+        return
+
     start = items.gi_frame.f_lineno # index
 
     while 1:
@@ -52,7 +56,7 @@ def run_test(func, dummy=False):
 
 
 
-def harvest(path, name):
+def harvest(path, name, dummy=False):
     print("run_tests.harvest", name)
     assert name.endswith(".py")
     stem = name[:-len(".py")]
@@ -67,7 +71,7 @@ def harvest(path, name):
 
     funcs.sort(key = lambda f : (f.__module__, f.__code__.co_firstlineno))
     for func in funcs:
-        for test in run_test(func):
+        for test in run_test(func, dummy=dummy):
             yield test
 
 
@@ -87,6 +91,8 @@ def run():
 def main():
     for test in run():
         pass
+
+    print("run_tests.main: finished")
 
 
 if __name__ == "__main__":

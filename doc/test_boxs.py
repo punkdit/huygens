@@ -1,19 +1,35 @@
 #!/usr/bin/env python3
 
-from bruhat.render.boxs import *
 
 
 def test_build():
 
+    # bruhat.render.boxs
+    # ------------------
+    # 
+
+    from random import random, choice
+    from bruhat.render.front import canvas
+    from bruhat.render.boxs import (Box, EmptyBox, TextBox, 
+        HBox, VBox, OBox, TableBox, FillBox, MarginBox, AlignBox)
+
     # First we set a debug flag so we can see the shape of every box
+    # 
 
     Box.DEBUG = True
 
-    def rnd(a, b):
-        return (b-a)*random() + a
+    # Every Box has an anchor point, shown with a cross.
+    # Then, the distance to the four sides of the box
+    # are stored as attributes `top`, `bot`, `left`, and `right`.
 
+    box = EmptyBox(top=0.5, bot=1.0, left=0.2, right=2.)
 
-    box = EmptyBox(1., 1., 1., 1.)
+    # To render a box onto a canvas:
+    cvs = canvas.canvas()
+    box.render(cvs)
+
+    # We can then call `cvs.writeSVGfile("output.svg")` to save an svg file:
+    
     yield box, "empty"
 
     box = TextBox("Hey there!")
@@ -25,6 +41,13 @@ def test_build():
     box = VBox("geghh xxde xyeey".split())
     yield box, "vbox-text"
 
+    r = 1.0
+    a = EmptyBox(top=r, bot=r)
+    b = EmptyBox(top=r, bot=r)
+    c = EmptyBox(left=r, right=r)
+    #box = StrictVBox([a, c])
+    box = VBox([a, c])
+    yield box, 'vbox-empty'
 
     box = OBox([
         EmptyBox(.4, .1, 0., 2.2),
@@ -48,6 +71,9 @@ def test_build():
     ])
     yield box, "table"
 
+
+    def rnd(a, b):
+        return (b-a)*random() + a
 
     a, b = 0.2, 1.0
     rows = []

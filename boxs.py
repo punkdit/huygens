@@ -164,12 +164,12 @@ class Box(object):
         self.on_render(cvs, self.system)
 
 
-class EmptyBox(Box):
-    def __init__(self, top=0., bot=0., left=0., right=0.):
-        self.top = top
-        self.bot = bot
-        self.left = left
-        self.right = right
+#class EmptyBox(Box):
+#    def __init__(self, top=0., bot=0., left=0., right=0.):
+#        self.top = top
+#        self.bot = bot
+#        self.left = left
+#        self.right = right
 
 
 class EmptyBox(Box):
@@ -209,15 +209,17 @@ class FillBox(StrokeBox):
 
 
 class TextBox(Box):
-    def __init__(self, text):
+    def __init__(self, text, weight=2.0):
         self.text = text
+        # Use weight=2.0, higher than the default weight of 1.0.
+        self.weight = weight
 
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
         extents = cvs.text_extents(self.text)
         dx, dy, width, height = extents
         system.add(self.left + self.right == width+dx)
-        system.add(self.top + self.bot == height, 1.0)
+        system.add(self.top + self.bot == height, self.weight)
         system.add(self.left == 0)
         assert dy >= 0., dy
         system.add(self.top == dy)
