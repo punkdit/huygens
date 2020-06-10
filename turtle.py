@@ -6,7 +6,6 @@ copied from arrowtheory repo
 import sys
 
 from math import sin, cos, pi, asin, acos
-#from pyx import canvas, path, deco, trafo, style, text, color, deformer
 from bruhat.render.front import *
 
 
@@ -18,28 +17,33 @@ def get_canvas():
     return c
 
 
-def dopath(ps, extra=[], fill=[], closepath=False, smooth=0.0, stroke=True, cvs=None):
+def mkpath(ps, closepath=False):
+    ps = [path.moveto(*ps[0])]+[path.lineto(*p) for p in ps[1:]]
+    if closepath:
+        ps.append(path.closepath())
+    p = path.path(*ps)
+    return p
+
+
+def dopath(ps, attrs=[], fill=[], closepath=False, smooth=0.0, stroke=True, cvs=None):
     #print("dopath:", ps)
     c = cvs
     if c is None:
         c = get_canvas()
     if len(ps) < 2:
         return
-    ps = [path.moveto(*ps[0])]+[path.lineto(*p) for p in ps[1:]]
-    if closepath:
-        ps.append(path.closepath())
-    p = path.path(*ps)
-    extra = list(extra)
+    p = mkpath(ps)
+    attrs = list(attrs)
     if smooth:
-        extra.append(deformer.smoothed(smooth))
+        attrs.append(deformer.smoothed(smooth)) # XXX not implemented
     if fill:
-        c.fill(p, extra+fill)
+        c.fill(p, attrs+fill)
     if stroke:
-        c.stroke(p, extra)
+        c.stroke(p, attrs)
 
 
 class Turtle(object):
-    def __init__(self, x=0.0, y=0.0, angle=0.0, cvs=None, extra=[]):
+    def __init__(self, x=0.0, y=0.0, angle=0.0, cvs=None, attrs=[]):
         "angle: clockwise degrees starting from angle=0.0 is up"
         self.x = x
         self.y = y
@@ -49,7 +53,7 @@ class Turtle(object):
         self.pen = True
         self._save = None
         self.cvs = cvs
-        self.extra = extra
+        self.attrs = attrs
 
     def copy(self):
         import copy
@@ -146,29 +150,37 @@ class Turtle(object):
         t.left(2*angle)
         t.back(r)
         
-    def stroke(self, extra=[], fill=[], closepath=False, cvs=None):
+    def _render(self, attrs=None, closepath=False, cvs=None, name="stroke"):
+        if attrs is None:
+            attrs = self.attrs
+        if cvs is None:
+            cvs = self.cvs
         if self.pen:
             self.paths.append(self.ps)
         for ps in self.paths:
             if len(ps)>1:
-                dopath(ps, extra, fill, closepath, 
-                    smooth=0., cvs=cvs or self.cvs)
-        self.paths = []
-        self.ps = self.ps[-1:]
+                p = mkpath(ps, closepath)
+                method = getattr(cvs, name)
+                method(p, attrs)
+        if not name.endswith("_preserve"):
+            self.paths = []
+            self.ps = self.ps[-1:]
         return self
 
-    def fill(self, fill, cvs=None):
-        if self.pen:
-            self.paths.append(self.ps)
-        for ps in self.paths:
-            if len(ps)>1:
-                dopath(ps, [], fill, closepath=True, smooth=0., 
-                    stroke=False, cvs=cvs or self.cvs)
-        self.paths = []
-        self.ps = self.ps[-1:]
-        return self
+    def stroke(self, *args, **kw):
+        kw["name"] = "stroke"
+        self._render(*args, **kw)
 
+    def fill(self, *args, **kw):
+        kw["name"] = "fill"
+        self._render(*args, **kw)
 
+    def stroke_preserve(self, *args, **kw):
+        kw["name"] = "stroke"
+        self._render(*args, **kw)
 
+    def fill_preserve(self, *args, **kw):
+        kw["name"] = "fill"
+        self._render(*args, **kw)
 
 
