@@ -14,6 +14,7 @@ from bruhat.render.boxs import (Box, EmptyBox, HBox, VBox, AlignBox,
 
 
 SIZE = 2.0
+PIP = 0.001
 
 conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
 
@@ -200,8 +201,8 @@ class VWire(Box, Atom):
         Atom.on_render(self, cvs, system)
         x = system[self.x]
         y = system[self.y]
-        top = system[self.top]
-        bot = system[self.bot]
+        top = system[self.top] + PIP
+        bot = system[self.bot] + PIP
         x0 = system[self.x_bot[0]]
         cvs.stroke(path.line(x0, y-bot, x0, y+top))
 
@@ -226,7 +227,7 @@ class Cap(Box, Atom):
 
         y = system[self.y]
         top = system[self.top]
-        bot = system[self.bot]
+        bot = system[self.bot] + PIP
         y0 = y-bot
         x0 = system[self.x_bot[0]]
         x1 = system[self.x_bot[1]]
@@ -254,7 +255,7 @@ class Cup(Box, Atom):
         Atom.on_render(self, cvs, system)
 
         y = system[self.y]
-        top = system[self.top]
+        top = system[self.top] + PIP
         bot = system[self.bot]
         y0 = y+top
         x0 = system[self.x_top[0]]
@@ -323,8 +324,8 @@ class Spider(Multi):
             return
 
         y = system[self.y]
-        top = system[self.top]
-        bot = system[self.bot]
+        top = system[self.top] + PIP
+        bot = system[self.bot] + PIP
         y_top = y+top
         y_bot = y-bot
         x_mid, y_mid = self.get_align("center")
@@ -380,8 +381,8 @@ class Relation(Multi):
             return
 
         y = system[self.y]
-        top = system[self.top]
-        bot = system[self.bot]
+        top = system[self.top] + PIP
+        bot = system[self.bot] + PIP
         y_top = y+top
         y_bot = y-bot
         x_mid, y_mid = self.get_align("center")
@@ -432,8 +433,8 @@ class Braid(Multi):
         Multi.on_render(self, cvs, system)
 
         y = system[self.y]
-        top = system[self.top]
-        bot = system[self.bot]
+        top = system[self.top] + PIP
+        bot = system[self.bot] + PIP
         y_top = y+top
         y_bot = y-bot
         y_mid = conv(self.lly, self.ury)
@@ -565,20 +566,18 @@ def test():
 
     seed(1)
 
-    Box.DEBUG = False
-
     # Note: __mul__ composes top-down, like VBox.
 
-    scale = 1.0
-    w = 1.3*scale
-    h = 1.2*scale
+    scale = 0.5
+    w = 1.4*scale
+    h = 1.8*scale
     Id = lambda : VWire(min_height=0.5, min_width=0.5)
     Swap = lambda inverse : Braid(inverse=inverse, min_width=w, min_height=h, space=0.7)
 
     box = None
-    m, n = 3, 3
+    m, n = 4, 4
     k = 2*m+n
-    for count in range(4):
+    for count in range(6):
         items = [Swap(randint(0,1)) for k in range(m)] + [Id() for k in range(n)]
         shuffle(items)
         row = reduce(matmul, items)
@@ -591,6 +590,7 @@ def test():
     lhs = reduce(matmul, [Id() for i in range(k)])
     box = lhs @ box
     rels = [(i, 2*k-i-1) for i in range(k)]
+    #rels = [(i, i+k) for i in range(k)]
     rel = Relation(0, 2*k, botbot=rels, weight=200.0)
     box = rel * box
     rels = [(i, 2*k-i-1) for i in range(k)]
@@ -599,23 +599,38 @@ def test():
 
     #rect = RectBox(box, bg=color.rgb(0.9, 0.9, 0.3, 0.6))
 
+    Box.DEBUG = False
+
     cvs = canvas.canvas()
     #cvs.append(trafo.rotate(pi/2))
 
-    box.layout(cvs)
-    system = box.system
-    x = system[box.llx]
-    y = system[box.lly]
-    width = system[box.width]
-    height = system[box.height]
-    cvs.fill(path.rect(x, y, width, height), [color.rgb(0.9, 0.8, 0.5)])
-    p = path.rect(
-        x+0.5*width, y+0.34*height, 0.5*width, 0.32*height)
-    cvs.fill(p, [color.rgb(0.9, 0.7, 0.4)])
-    cvs.stroke(p, [])
+    system = box.layout(cvs)
+
+    def rectbox(box):
+        x = system[box.llx]
+        y = system[box.lly]
+        width = system[box.width]
+        height = system[box.height]
+        return x, y, width, height
+
+    def fillbox(box, st):
+        rect = rectbox(box)
+        p = path.rect(*rect)
+        cvs.fill(p, st)
+
+    #fillbox(box, [color.rgb(0.9, 0.8, 0.5)])
+
+    sub = box[0][1][1]
+    x = conv(system[box.llx], system[box.urx])
+    y = system[sub.lly]
+    width = system[box.urx] - x
+    height = system[sub.ury] - y
+    p = path.rect(x, y, width, height)
+    cvs.fill(p, [color.rgb(0.9, 0.9, 0.6)])
+    cvs.stroke(p, [style.linewidth.thick])
 
     cvs.append(style.linewidth.THICk)
-    cvs.append(color.rgb(0.2,0.5,0.2))
+    #cvs.append(color.rgb(0.2,0.5,0.2))
     box.render(cvs)
 
     cvs.append(style.linewidth.thick)

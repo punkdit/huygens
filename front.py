@@ -117,10 +117,12 @@ trafo = NS(translate = Translate, scale = Scale, rotate = Rotate)
 class Canvas(Compound):
 
     def stroke(self, path, decos=[]):
+        assert isinstance(path, Item), repr(path)
         item = Compound(decos, path, Stroke())
         self.append(item)
 
     def fill(self, path, decos=[]):
+        assert isinstance(path, Item), repr(path)
         item = Compound(decos, path, Fill())
         self.append(item)
 

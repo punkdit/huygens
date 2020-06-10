@@ -2,9 +2,12 @@
 
 from bruhat.render.boxs import *
 
-"hi there"
 
 def test_build():
+
+    # First we set a debug flag so we can see the shape of every box
+
+    Box.DEBUG = True
 
     def rnd(a, b):
         return (b-a)*random() + a
@@ -14,7 +17,6 @@ def test_build():
     yield box, "empty"
 
     box = TextBox("Hey there!")
-    #box = TextBox(".")
     yield box, "text"
 
     box = HBox("geghh xxde xyeey".split())
@@ -86,37 +88,11 @@ def test_build():
             box = EmptyBox(top, bot, left, right)
             boxs.append(box)
         boxs.append(TextBox("Hig%d !"%row))
-        #boxs.append(TextBox(r"$\to$"))
         box = HBox(boxs)
         rows.append(box)
     box = VBox(rows)
     yield box, "table-4"
 
 
-def test():
-
-    #Box.DEBUG = argv.get("debug") or argv.get("DEBUG")
-    Box.DEBUG = True
-    EmptyBox.DEBUG = True
-
-    for (box, name) in test_build():
-
-        try:
-            print("rendering", name)
-            cvs = Canvas()
-            cvs.append(Scale(2.0))
-            box.render(cvs)
-            #cvs = Canvas([Scale(2.0, 2.0)]+cvs.items)
-            cvs.writePDFfile("pic-%s.pdf" % name)
-            cvs.writeSVGfile("pic-%s.svg" % name)
-            print()
-        except:
-            print("render failed for %r"%name)
-            raise
-
-
-
-if __name__ == "__main__":
-    test()
 
 

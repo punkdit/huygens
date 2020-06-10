@@ -156,6 +156,7 @@ class Box(object):
         system.add(self.y == y)
         system.solve()
         self.system = system
+        return system
 
     def render(self, cvs, x=0, y=0):
         if not self.did_layout:
