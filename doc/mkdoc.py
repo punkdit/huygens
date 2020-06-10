@@ -68,7 +68,7 @@ def html_img(name):
 def main():
     dummy = argv.dummy
     path = "."
-    names = "test_canvas.py test_turtle.py test_sat.py test_boxs.py test_diagram.py"
+    names = "test_canvas.py test_turtle.py test_sat.py test_box.py test_diagram.py"
     names = names.split()
     for name in names:
         process(path, name, dummy)
