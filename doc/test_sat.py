@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-from bruhat.render.sat import Variable, Solver, System
 
 
 def test_variable():
+    from bruhat.render.sat import Variable, Solver, System
+    
     x = Variable('x')
     y = Variable('y')
     z = Variable('z')
