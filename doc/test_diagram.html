@@ -92,6 +92,164 @@
 <body>
 <main>
 
+<div class="highlight"><pre><span></span><span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="n">top</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">VWire</span><span class="p">(),</span> <span class="n">Cap</span><span class="p">()])</span>
+<span class="c1">#mid = HDia([VWire(), VWire(), VWire()])</span>
+<span class="n">bot</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">Cup</span><span class="p">(),</span> <span class="n">VWire</span><span class="p">()])</span>
+<span class="n">lsnake</span> <span class="o">=</span> <span class="n">VDia</span><span class="p">([</span><span class="n">top</span><span class="p">,</span> <span class="n">bot</span><span class="p">])</span>
+
+<span class="n">top</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">Cap</span><span class="p">(),</span> <span class="n">VWire</span><span class="p">()])</span>
+<span class="n">bot</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">VWire</span><span class="p">(),</span> <span class="n">Cup</span><span class="p">()])</span>
+<span class="n">rsnake</span> <span class="o">=</span> <span class="n">VDia</span><span class="p">([</span><span class="n">top</span><span class="p">,</span> <span class="n">bot</span><span class="p">])</span>
+
+<span class="n">boxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lsnake</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">VWire</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">SIZE</span><span class="p">),</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rsnake</span><span class="p">]</span>
+<span class="n">boxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">AlignBox</span><span class="p">(</span><span class="n">box</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">box</span> <span class="ow">in</span> <span class="n">boxs</span><span class="p">]</span>
+<span class="n">dia</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">(</span><span class="n">boxs</span><span class="p">)</span>
+
+<span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
+<span class="n">dia</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
+<span class="c1">#cvs.writePDFfile(&quot;test_snake.pdf&quot;)</span>
+</pre></div>
+
+<div class="highlight"><pre><span></span><span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+
+<p>Note: <strong>mul</strong> composes top-down, like VBox.</p>
+<div class="highlight"><pre><span></span><span class="n">box</span> <span class="o">=</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">()</span>
+<span class="c1">#box = box * (VWire() @ Spider(2, 2))</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="p">(</span><span class="n">Spider</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">()</span>
+<span class="c1">#box = box * Cup()</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+<span class="c1">#box = (Cap() @ Cap()) * box</span>
+<span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">Cap</span><span class="p">()</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">box</span>
+
+<span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
+<span class="c1">#cvs.append(trafo.rotate(-pi/4))</span>
+<span class="c1">#cvs.append(trafo.scale(1., -1.))</span>
+<span class="c1">#cvs.append(trafo.rotate(pi/4))</span>
+<span class="c1">#cvs.append(trafo.rotate(pi/2))</span>
+<span class="n">box</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
+<span class="c1">#cvs.writePDFfile(&quot;test_diagram.pdf&quot;)</span>
+</pre></div>
+
+<div class="highlight"><pre><span></span><span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+
+<p>Note: <strong>mul</strong> composes top-down, like VBox.</p>
+<div class="highlight"><pre><span></span><span class="n">box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">topbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="p">(</span><span class="n">Cup</span><span class="p">()</span> <span class="o">@</span> <span class="n">Cup</span><span class="p">())</span>
+<span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">VWire</span><span class="p">()</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">())</span> <span class="o">*</span> <span class="n">box</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">Cap</span><span class="p">()</span> <span class="o">*</span> <span class="n">box</span>
+
+<span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
+<span class="n">box</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
+<span class="c1">#cvs.writePDFfile(&quot;test_diagram.pdf&quot;)</span>
+</pre></div>
+
+<div class="highlight"><pre><span></span><span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
+</pre></div>
+
+<p>Note: <strong>mul</strong> composes top-down, like VBox.</p>
+<div class="highlight"><pre><span></span><span class="n">Id</span> <span class="o">=</span> <span class="n">VWire</span>
+
+<span class="n">scale</span> <span class="o">=</span> <span class="mf">2.0</span>
+<span class="n">w</span> <span class="o">=</span> <span class="mf">1.5</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">h</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">s12</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+<span class="n">s23</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+
+<span class="n">lhs</span> <span class="o">=</span> <span class="n">s12</span><span class="p">()</span> <span class="o">*</span> <span class="n">s23</span><span class="p">()</span> <span class="o">*</span> <span class="n">s12</span><span class="p">()</span>
+<span class="c1">#lhs = lhs @ Braid()</span>
+<span class="n">rhs</span> <span class="o">=</span> <span class="n">s23</span><span class="p">()</span> <span class="o">*</span> <span class="n">s12</span><span class="p">()</span> <span class="o">*</span> <span class="n">s23</span><span class="p">()</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">([</span><span class="n">lhs</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rhs</span><span class="p">],</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
+
+<span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
+<span class="n">box</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
+<span class="c1">#cvs.writePDFfile(&quot;test_diagram.pdf&quot;)</span>
+</pre></div>
+
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">shuffle</span><span class="p">,</span> <span class="n">seed</span><span class="p">,</span> <span class="n">randint</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">matmul</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+
+<span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+
+<p>Note: <strong>mul</strong> composes top-down, like VBox.</p>
+<div class="highlight"><pre><span></span><span class="n">scale</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="n">w</span> <span class="o">=</span> <span class="mf">1.4</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">h</span> <span class="o">=</span> <span class="mf">1.8</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">Id</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">VWire</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">Swap</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">inverse</span> <span class="p">:</span> <span class="n">Braid</span><span class="p">(</span><span class="n">inverse</span><span class="o">=</span><span class="n">inverse</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+
+<span class="n">box</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span>
+<span class="n">k</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">m</span><span class="o">+</span><span class="n">n</span>
+<span class="k">for</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+    <span class="n">items</span> <span class="o">=</span> <span class="p">[</span><span class="n">Swap</span><span class="p">(</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="n">Id</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+    <span class="n">shuffle</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+    <span class="n">row</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">matmul</span><span class="p">,</span> <span class="n">items</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">box</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">box</span> <span class="o">=</span> <span class="n">row</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">row</span>
+
+<span class="c1">#box = Id() @ box</span>
+<span class="n">lhs</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">matmul</span><span class="p">,</span> <span class="p">[</span><span class="n">Id</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">)])</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">lhs</span> <span class="o">@</span> <span class="n">box</span>
+<span class="n">rels</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="o">-</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>
+<span class="c1">#rels = [(i, i+k) for i in range(k)]</span>
+<span class="n">rel</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="n">botbot</span><span class="o">=</span><span class="n">rels</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">200.0</span><span class="p">)</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">rel</span> <span class="o">*</span> <span class="n">box</span>
+<span class="n">rels</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="o">-</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>
+<span class="n">rel</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">toptop</span><span class="o">=</span><span class="n">rels</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">200.0</span><span class="p">)</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">rel</span>
+
+<span class="c1">#rect = RectBox(box, bg=color.rgb(0.9, 0.9, 0.3, 0.6))</span>
+
+<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
+<span class="c1">#cvs.append(trafo.rotate(pi/2))</span>
+
+<span class="n">system</span> <span class="o">=</span> <span class="n">box</span><span class="o">.</span><span class="n">layout</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">rectbox</span><span class="p">(</span><span class="n">box</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">llx</span><span class="p">]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">lly</span><span class="p">]</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">width</span><span class="p">]</span>
+    <span class="n">height</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">height</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span>
+
+<span class="k">def</span> <span class="nf">fillbox</span><span class="p">(</span><span class="n">box</span><span class="p">,</span> <span class="n">st</span><span class="p">):</span>
+    <span class="n">rect</span> <span class="o">=</span> <span class="n">rectbox</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">rect</span><span class="p">(</span><span class="o">*</span><span class="n">rect</span><span class="p">)</span>
+    <span class="n">cvs</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">st</span><span class="p">)</span>
+
+<span class="c1">#fillbox(box, [color.rgb(0.9, 0.8, 0.5)])</span>
+
+<span class="n">sub</span> <span class="o">=</span> <span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">conv</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">llx</span><span class="p">],</span> <span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">urx</span><span class="p">])</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">lly</span><span class="p">]</span>
+<span class="n">width</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">urx</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span>
+<span class="n">height</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">ury</span><span class="p">]</span> <span class="o">-</span> <span class="n">y</span>
+<span class="n">p</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">rect</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span>
+<span class="n">cvs</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="p">[</span><span class="n">color</span><span class="o">.</span><span class="n">rgb</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">)])</span>
+<span class="n">cvs</span><span class="o">.</span><span class="n">stroke</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="p">[</span><span class="n">style</span><span class="o">.</span><span class="n">linewidth</span><span class="o">.</span><span class="n">thick</span><span class="p">])</span>
+
+<span class="n">cvs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">style</span><span class="o">.</span><span class="n">linewidth</span><span class="o">.</span><span class="n">THICk</span><span class="p">)</span>
+<span class="c1">#cvs.append(color.rgb(0.2,0.5,0.2))</span>
+<span class="n">box</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
+
+<span class="n">cvs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">style</span><span class="o">.</span><span class="n">linewidth</span><span class="o">.</span><span class="n">thick</span><span class="p">)</span>
+<span class="n">cvs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">color</span><span class="o">.</span><span class="n">rgb</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span><span class="mf">0.9</span><span class="p">,</span><span class="mf">0.9</span><span class="p">))</span>
+<span class="n">box</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
+
+<span class="c1">#cvs.writePDFfile(&quot;test_diagram.pdf&quot;)</span>
+</pre></div>
+
 
 <hr>
 

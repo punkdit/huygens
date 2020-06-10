@@ -73,6 +73,7 @@ def main():
 
 def process(path, name, dummy=False):
 
+    print("mkdoc.proces(%r, %r)"%(path, name))
     fullname = os.path.join(path, name)
     code = open(fullname).read().split('\n')
 
@@ -85,12 +86,15 @@ def process(path, name, dummy=False):
 
 
     for test in run_tests.harvest(path, name, dummy=dummy):
-        snip = code[test.start : test.end]
+
+        end = test.end or find_dedent(code, test.start)
+        snip = code[test.start : end]
 
         for block in html_snip(snip):
             print(block, file=output)
 
-        print(html_img(test.name), file=output)
+        if test.img:
+            print(html_img(test.img), file=output)
 
     print(html_tail(), file=output)
     output.close()
@@ -142,6 +146,28 @@ def html_snip(lines):
         yield html_comment(comment)
 
 
+def get_indent(line):
+    i = 0
+    while line.startswith(' '*i):
+        i += 1
+    space = ' '*(i-1)
+    return space
+
+
+def find_dedent(lines, idx):
+
+    space = None
+    while idx < len(lines):
+        line = lines[idx]
+        if line.strip():
+            indent = get_indent(lines[idx])
+            if space is None:
+                space = indent
+            if len(indent) < len(space):
+                break
+        idx += 1
+    return idx
+
 
 def dedent(lines):
     indent = None
@@ -149,10 +175,7 @@ def dedent(lines):
     for line in lines:
         if not line.strip():
             continue
-        i = 0
-        while line.startswith(' '*i):
-            i += 1
-        space = ' '*(i-1)
+        space = get_indent(line)
         if indent is None or indent.startswith(space):
             indent = space
     assert indent is not None

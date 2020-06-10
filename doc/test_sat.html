@@ -92,6 +92,30 @@
 <body>
 <main>
 
+<div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">Variable</span><span class="p">(</span><span class="s1">&#39;z&#39;</span><span class="p">)</span>
+
+<span class="n">items</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">x</span><span class="o">+</span><span class="n">y</span> <span class="o">&gt;=</span> <span class="mf">1.</span><span class="p">,</span>
+    <span class="n">x</span><span class="o">+</span><span class="n">z</span> <span class="o">==</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="n">y</span> <span class="o">&gt;=</span> <span class="mf">3.</span>
+<span class="p">]</span>
+
+<span class="n">solver</span> <span class="o">=</span> <span class="n">Solver</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">solver</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+<span class="n">system</span> <span class="o">=</span> <span class="n">System</span><span class="p">()</span>
+<span class="n">v</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">get_var</span><span class="p">()</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">get_var</span><span class="p">()</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">get_var</span><span class="p">()</span>
+<span class="n">system</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v</span><span class="o">+</span><span class="n">u</span><span class="o">+</span><span class="n">w</span> <span class="o">==</span> <span class="mf">3.</span><span class="p">)</span>
+<span class="n">system</span><span class="o">.</span><span class="n">solve</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">+</span> <span class="n">system</span><span class="p">[</span><span class="n">u</span><span class="p">]</span> <span class="o">+</span> <span class="n">system</span><span class="p">[</span><span class="n">w</span><span class="p">])</span>
+</pre></div>
+
 
 <hr>
 

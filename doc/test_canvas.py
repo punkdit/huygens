@@ -4,7 +4,7 @@ from math import pi
 from bruhat.render.front import canvas, style, path, color, trafo
 
 
-def test():
+def test_canvas():
 
     cvs = canvas.canvas()
 

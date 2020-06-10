@@ -3,7 +3,7 @@
 from bruhat.render.sat import Variable, Solver, System
 
 
-def main():
+def test_variable():
     x = Variable('x')
     y = Variable('y')
     z = Variable('z')
@@ -30,7 +30,7 @@ def main():
 
 if __name__ == "__main__":
 
-    main()
+    test_variable()
     
 
 

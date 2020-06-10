@@ -8,11 +8,11 @@ from bruhat.render.front import Canvas, Scale
 
 
 class TestRun(object):
-    def __init__(self, func, start, end, name):
+    def __init__(self, func, start=None, end=None, img=None):
         self.func = func
         self.start = start
         self.end = end
-        self.name = name
+        self.img = img
 
 
 
@@ -22,6 +22,7 @@ def run_test(func, dummy=False):
     items = func()
 
     if items is None:
+        yield TestRun(func, func.__code__.co_firstlineno)
         return
 
     start = items.gi_frame.f_lineno # index
