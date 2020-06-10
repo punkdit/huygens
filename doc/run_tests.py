@@ -5,7 +5,7 @@ import collections
 
 import bruhat.render.doc
 from bruhat.render.front import Canvas, Scale
-from bruhat.render.boxs import Box
+from bruhat.render.box import Box
 
 
 class TestRun(object):

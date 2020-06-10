@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-def test_boxs():
+def test_box():
 
     # Layout with Boxs
     # ----------------
@@ -9,7 +9,7 @@ def test_boxs():
 
     from random import random, choice
     from bruhat.render.front import canvas
-    from bruhat.render.boxs import (Box, EmptyBox, TextBox, 
+    from bruhat.render.box import (Box, EmptyBox, TextBox, 
         HBox, VBox, OBox, TableBox, FillBox, MarginBox, AlignBox)
 
     # First we set a debug flag so we can see the shape of every box

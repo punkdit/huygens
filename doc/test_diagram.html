@@ -93,3 +93,86 @@
 <body>
 <main>
 
+
+<p><a href="index.html">&lt;&lt;&lt; table of contents</a></p>
+<hr />
+<h1>Diagrams</h1>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render</span> <span class="kn">import</span> <span class="n">canvas</span>
+<span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">HBox</span>
+<span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">HDia</span><span class="p">,</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">SIZE</span>
+
+<span class="n">top</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">VWire</span><span class="p">(),</span> <span class="n">Cap</span><span class="p">()])</span>
+<span class="n">bot</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">Cup</span><span class="p">(),</span> <span class="n">VWire</span><span class="p">()])</span>
+<span class="n">lsnake</span> <span class="o">=</span> <span class="n">VDia</span><span class="p">([</span><span class="n">top</span><span class="p">,</span> <span class="n">bot</span><span class="p">])</span>
+
+<span class="n">top</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">Cap</span><span class="p">(),</span> <span class="n">VWire</span><span class="p">()])</span>
+<span class="n">bot</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">VWire</span><span class="p">(),</span> <span class="n">Cup</span><span class="p">()])</span>
+<span class="n">rsnake</span> <span class="o">=</span> <span class="n">VDia</span><span class="p">([</span><span class="n">top</span><span class="p">,</span> <span class="n">bot</span><span class="p">])</span>
+
+<span class="n">boxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lsnake</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">VWire</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">SIZE</span><span class="p">),</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rsnake</span><span class="p">]</span>
+<span class="n">dia</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">(</span><span class="n">boxs</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
+
+<span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
+<span class="n">dia</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
+<span class="n">cvs</span><span class="o">.</span><span class="n">writeSVGfile</span><span class="p">(</span><span class="s2">&quot;output.svg&quot;</span><span class="p">)</span>
+</pre></div>
+
+<p><img src="images/output-6.svg" class="center"></p>
+
+
+<p>Instead of explicitly using <code>VDia</code> and <code>HDia</code>
+we can use the operators <code>*</code> and <code>@</code>, respectively.
+The <code>*</code> operator composes top-down, like <code>VBox</code>.
+The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span>
+<span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">Spider</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span>
+<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="n">box</span> <span class="o">=</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">()</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="p">(</span><span class="n">Spider</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">()</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
+<span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">Cap</span><span class="p">()</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">box</span>
+</pre></div>
+
+<p><img src="images/output-7.svg" class="center"></p>
+
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span>
+<span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">Spider</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">Relation</span>
+<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">topbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="p">(</span><span class="n">Cup</span><span class="p">()</span> <span class="o">@</span> <span class="n">Cup</span><span class="p">())</span>
+<span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">VWire</span><span class="p">()</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">())</span> <span class="o">*</span> <span class="n">box</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">Cap</span><span class="p">()</span> <span class="o">*</span> <span class="n">box</span>
+</pre></div>
+
+<p><img src="images/output-8.svg" class="center"></p>
+
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
+<span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Braid</span>
+<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="n">Id</span> <span class="o">=</span> <span class="n">VWire</span>
+
+<span class="n">scale</span> <span class="o">=</span> <span class="mf">2.0</span>
+<span class="n">w</span> <span class="o">=</span> <span class="mf">1.5</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">h</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">s12</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+<span class="n">s23</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+
+<span class="n">lhs</span> <span class="o">=</span> <span class="n">s12</span><span class="p">()</span> <span class="o">*</span> <span class="n">s23</span><span class="p">()</span> <span class="o">*</span> <span class="n">s12</span><span class="p">()</span>
+<span class="n">rhs</span> <span class="o">=</span> <span class="n">s23</span><span class="p">()</span> <span class="o">*</span> <span class="n">s12</span><span class="p">()</span> <span class="o">*</span> <span class="n">s23</span><span class="p">()</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">([</span><span class="n">lhs</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rhs</span><span class="p">],</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
+</pre></div>
+
+<p><img src="images/output-9.svg" class="center"></p>
+
+
+<hr>
+
+Copyright (c) 2018 - 2020.
+
+</main>
+
+</body>
+

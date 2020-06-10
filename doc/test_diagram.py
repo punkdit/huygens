@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 
-#from bruhat.render.box import *
-#from bruhat.render.diagram import *
-
 
 def test_snake():
 
+    #  
+    # [<<< table of contents](index.html)
+    #
+    #  ---
+    #
     # Diagrams
     # ========
-    #
     # 
-    #
+    #  
+    # 
 
+    from bruhat.render import canvas
     from bruhat.render.box import HBox
-    from bruhat.render.diagram import HDia, VDia
+    from bruhat.render.diagram import HDia, VDia, VWire, Cap, Cup, SIZE
 
     top = HDia([VWire(), Cap()])
     #mid = HDia([VWire(), VWire(), VWire()])
@@ -38,9 +41,10 @@ def test_spider():
 
     # Instead of explicitly using `VDia` and `HDia`
     # we can use the operators `*` and `@`, respectively.
-    # The `*` operator composes top-down, like VBox.
-    # The `@` operator composes left to right, like HBox.
+    # The `*` operator composes top-down, like `VBox`.
+    # The `@` operator composes left to right, like `HBox`.
 
+    from bruhat.render.box import Box
     from bruhat.render.diagram import Spider, VWire, Cap, Cup
     Box.DEBUG = True
 
@@ -58,6 +62,7 @@ def test_spider():
 
 def test_relation():
 
+    from bruhat.render.box import Box
     from bruhat.render.diagram import Spider, VWire, Cap, Cup, Relation
     Box.DEBUG = True
     box = Relation(3, 4, topbot=[(0, 0), (1, 0), (2, 1), (1, 2), (2, 3)])
@@ -70,7 +75,7 @@ def test_relation():
 
 def test_yang_baxter():
 
-    from bruhat.render.box import HBox
+    from bruhat.render.box import Box, HBox
     from bruhat.render.diagram import VWire, Braid
     Box.DEBUG = False
 
@@ -96,8 +101,6 @@ def XXXtest_braid():
     from functools import reduce
 
     seed(1)
-
-    # Note: `__mul__` composes top-down, like VBox.
 
     scale = 0.5
     w = 1.4*scale

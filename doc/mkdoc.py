@@ -11,7 +11,7 @@ from pygments.lexers import Python3Lexer
 from bruhat.argv import argv
 from bruhat.render.doc import run_tests
 from bruhat.render.front import Canvas, Scale
-from bruhat.render.boxs import Box
+from bruhat.render.box import Box
 
 
 def html_head(s):
@@ -141,6 +141,9 @@ def html_snip(lines):
             if code:
                 yield html_code(code)
                 code = []
+            comment.append(line)
+        elif line.startswith("#") and comment:
+            assert not code
             comment.append(line)
         elif line.startswith("#"):
             pass

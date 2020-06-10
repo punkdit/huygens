@@ -8,7 +8,7 @@ from math import pi
 
 from bruhat.render.base import Base
 from bruhat.render.front import canvas, path, trafo, style, color
-from bruhat.render.boxs import (Box, EmptyBox, HBox, VBox, AlignBox, 
+from bruhat.render.box import (Box, EmptyBox, HBox, VBox, AlignBox, 
     StrictVBox, StrictHBox, TextBox, RectBox)
 
 
