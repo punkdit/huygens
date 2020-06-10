@@ -169,53 +169,6 @@ class Turtle(object):
         return self
 
 
-def test():
-
-    cvs = canvas.canvas()
-    extra = [style.linewidth.THIck, color.rgb(0.2, 0.6, 0.2, 0.6),
-        style.linejoin.bevel]
-    turtle = Turtle(cvs=cvs, extra=extra)
-
-    n = 8
-    angle = 360. / n
-    R = 3.0
-    for i in range(n):
-        turtle.fwd(1.*R)
-        turtle.left((1./3)*angle)
-        turtle.back(0.5*R)
-        turtle.left((1./3)*angle)
-        turtle.back(0.7*R)
-        turtle.left((1./3)*angle)
-        turtle.stroke(extra)
-
-    #cvs.writePDFfile("test_turtle.pdf")
-
-    cvs = canvas.canvas()
-    turtle = Turtle(cvs=cvs, extra=extra)
-
-    if 0:
-        for i in range(24*2):
-            turtle.left(320, 0.6*R)
-            turtle.left(-60, 0.3*R)
-            turtle.right(90, 0.6*R)
-            turtle.stroke(extra)
-
-    for i in range(1):
-        turtle.fwd(2.)
-        turtle.right(300, 1.)
-    turtle.arrow(0.4)
-    turtle.stroke(extra)
-
-    cvs.writePDFfile("test_turtle.pdf")
-
-
-
-    print("OK")
-
-
-if __name__ == "__main__":
-
-    test()
 
 
 

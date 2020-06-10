@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 
-
-def test_build():
+def test_boxs():
 
     # bruhat.render.boxs
     # ------------------

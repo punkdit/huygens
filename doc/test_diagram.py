@@ -24,6 +24,8 @@ def test_snake():
     dia.render(cvs)
     #cvs.writePDFfile("test_snake.pdf")
 
+    yield cvs
+
 
 def test_spider():
 
@@ -45,8 +47,8 @@ def test_spider():
     #cvs.append(trafo.scale(1., -1.))
     #cvs.append(trafo.rotate(pi/4))
     #cvs.append(trafo.rotate(pi/2))
-    box.render(cvs)
-    #cvs.writePDFfile("test_diagram.pdf")
+
+    yield box
 
 
 def test_relation():
@@ -61,7 +63,8 @@ def test_relation():
 
     cvs = canvas.canvas()
     box.render(cvs)
-    #cvs.writePDFfile("test_diagram.pdf")
+
+    yield cvs
 
 
 def test_yang_baxter():
@@ -82,9 +85,7 @@ def test_yang_baxter():
     rhs = s23() * s12() * s23()
     box = HBox([lhs, "$=$", rhs], align="center")
 
-    cvs = canvas.canvas()
-    box.render(cvs)
-    #cvs.writePDFfile("test_diagram.pdf")
+    yield box
 
 
 def test_braid():
@@ -166,6 +167,8 @@ def test_braid():
     box.render(cvs)
 
     #cvs.writePDFfile("test_diagram.pdf")
+
+    yield cvs
 
 
 
