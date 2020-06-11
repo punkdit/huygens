@@ -51,6 +51,13 @@ class Bound(Base):
         self.urx = urx
         self.ury = ury
 
+    def scale_point_to_cm(self):
+        llx = self.llx / SCALE_CM_TO_POINT
+        lly = self.lly / SCALE_CM_TO_POINT
+        urx = self.urx / SCALE_CM_TO_POINT
+        ury = self.ury / SCALE_CM_TO_POINT
+        return Bound(llx, lly, urx, ury)
+
     def union(self, other):
         "union"
         llx = n_min(self.llx, other.llx)
@@ -318,6 +325,7 @@ class Compound(Item):
         return visitor.bound
 
     def get_bound_cairo(self):
+        # Not as tight as it could be.... ?
         import cairo
         surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
         cxt = cairo.Context(surface)
@@ -405,6 +413,15 @@ class Deco(Item):
     pass
 
 
+class CompoundDeco(Deco):
+    def __init__(self, decos):
+        self.decos = list(decos)
+
+    def process_cairo(self, cxt):
+        for deco in self.decos:
+            deco.process_cairo(cxt)
+
+
 class Stroke(Deco):
     def process_cairo(self, cxt):
         cxt.stroke()
@@ -426,6 +443,10 @@ class RGBA(Deco):
 
     def process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
+
+
+
+_defaultlinewidth = 0.02 # cm
 
 
 class LineWidth_Pt(Deco):
@@ -474,7 +495,33 @@ class LineJoin(Deco):
         cxt.set_line_join(cap)
 
 
-_defaultlinewidth = 0.02 # cm
+class LineDash_Pt(Deco):
+    def __init__(self, dashes, offset=0):
+        self.dashes = dashes
+        self.offset = offset
+
+    def process_cairo(self, cxt):
+        import cairo
+        cxt.set_dash(self.dashes, self.offset)
+
+
+#class LineDash(LineDash_Pt):
+#    def __init__(self, dashes, offset=0):
+#        dashes = [sz*SCALE_CM_TO_POINT for sz in dashes]
+#        LineDash_Pt.__init__(self, dashes, offset)
+
+
+class LineDash(Deco):
+    def __init__(self, dashes, offset=0):
+        self.dashes = dashes
+        self.offset = offset
+
+    def process_cairo(self, cxt):
+        import cairo
+        lw = cxt.get_line_width()
+        scale = lw / _defaultlinewidth / SCALE_CM_TO_POINT
+        dashes = [sz * scale for sz in self.dashes]
+        cxt.set_dash(dashes, self.offset)
 
 
 class TextSize(Deco):

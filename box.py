@@ -6,7 +6,7 @@ from math import pi
 
 
 from bruhat.render.sat import Expr, Variable, System
-from bruhat.render.front import RGBA, Canvas, Scale
+from bruhat.render.front import RGBA, Canvas, Scale, Compound, Translate
 from bruhat.render.front import path, style
 from bruhat.argv import argv
 
@@ -15,6 +15,9 @@ class Box(object):
 
     DEBUG = False
     did_layout = False
+
+    def __hash__(self):
+        return id(self)
 
     @classmethod
     def promote(cls, item, align=None):
@@ -29,62 +32,6 @@ class Box(object):
         if align is not None:
             box = AlignBox(box, align)
         return box
-
-    def on_layout(self, cvs, system):
-        #assert not self.did_layout, "already called on_layout"
-        if self.DEBUG:
-            print("%s.on_layout" % (self.__class__.__name__,))
-        for attr in 'x y left right top bot'.split():
-            if attr in self.__dict__:
-                continue
-            stem = self.__class__.__name__ + '.' + attr
-
-            # We don't try to minimize the absolute coordinate values.
-            weight = 1.0 if attr not in 'xy' else 0.0
-            vmin = None if attr in 'xy' else 0.
-            v = system.get_var(stem, weight, vmin=vmin)
-            setattr(self, attr, v)
-        self.did_layout = True
-
-    def assign_variables(self, system):
-        # set all our Variable attributes to actual solutions
-        attrs = list(self.__dict__.keys())
-        for attr in attrs:
-            value = getattr(self, attr)
-            if not isinstance(value, Expr):
-                continue
-            value = system[value]
-            setattr(self, attr, value)
-
-    def on_render(self, cvs, system):
-        if 1:
-            x = system[self.x]
-            y = system[self.y]
-            left = system[self.left]
-            right = system[self.right]
-            top = system[self.top]
-            bot = system[self.bot]
-
-        else:
-            self.assign_variables(system)
-            x = self.x
-            y = self.y
-            left = self.left
-            right = self.right
-            top = self.top
-            bot = self.bot
-
-        if not self.DEBUG:
-            return
-        #cvs.set_line_width(0.5)
-        cl = RGBA(1., 0., 0., 0.5)
-        r = 0.1
-        cvs.stroke(path.line(x-r, y-r, x+r, y+r), [cl]) #, style.linewidth.Thick])
-        cvs.stroke(path.line(x+r, y-r, x-r, y+r), [cl])
-        #bg = RGBA(0.5*random(), 0.5*random(), 0.5*random(), 0.5)
-        bg = RGBA(0.5, 0.5, 0., 0.1)
-        cvs.fill(path.rect(x-left, y-bot, left+right, top+bot), [bg])
-        cvs.stroke(path.rect(x-left, y-bot, left+right, top+bot), [cl])
 
     @property
     def width(self):
@@ -149,8 +96,67 @@ class Box(object):
     
         return x, y
 
+    def on_layout(self, cvs, system):
+        #assert not self.did_layout, "already called on_layout"
+        assert not self in system.memo, "duplicate box %s"%(self,)
+        system.memo.add(self)
+        if self.DEBUG:
+            print("%s.on_layout" % (self.__class__.__name__,))
+        for attr in 'x y left right top bot'.split():
+            if attr in self.__dict__:
+                continue
+            stem = self.__class__.__name__ + '.' + attr
+
+            # We don't try to minimize the absolute coordinate values.
+            weight = 1.0 if attr not in 'xy' else 0.0
+            vmin = None if attr in 'xy' else 0.
+            v = system.get_var(stem, weight, vmin=vmin)
+            setattr(self, attr, v)
+        self.did_layout = True
+
+    def assign_variables(self, system):
+        # set all our Variable attributes to actual solutions
+        attrs = list(self.__dict__.keys())
+        for attr in attrs:
+            value = getattr(self, attr)
+            if not isinstance(value, Expr):
+                continue
+            value = system[value]
+            setattr(self, attr, value)
+
+    def on_render(self, cvs, system):
+        if 1:
+            x = system[self.x]
+            y = system[self.y]
+            left = system[self.left]
+            right = system[self.right]
+            top = system[self.top]
+            bot = system[self.bot]
+
+        else:
+            self.assign_variables(system)
+            x = self.x
+            y = self.y
+            left = self.left
+            right = self.right
+            top = self.top
+            bot = self.bot
+
+        if not self.DEBUG:
+            return
+        #cvs.set_line_width(0.5)
+        cl = RGBA(1., 0., 0., 0.5)
+        r = 0.1
+        cvs.stroke(path.line(x-r, y-r, x+r, y+r), [cl]) #, style.linewidth.Thick])
+        cvs.stroke(path.line(x+r, y-r, x-r, y+r), [cl])
+        #bg = RGBA(0.5*random(), 0.5*random(), 0.5*random(), 0.5)
+        bg = RGBA(0.5, 0.5, 0., 0.1)
+        cvs.fill(path.rect(x-left, y-bot, left+right, top+bot), [bg])
+        cvs.stroke(path.rect(x-left, y-bot, left+right, top+bot), [cl])
+
     def layout(self, cvs, x=0, y=0):
         system = System()
+        system.memo = set() # hang this here
         self.on_layout(cvs, system)
         system.add(self.x == x)
         system.add(self.y == y)
@@ -187,6 +193,28 @@ class EmptyBox(Box):
         if right is not None:
             self.right = right
 
+
+class CanBox(Box):
+    def __init__(self, cvs):
+        bound = cvs.get_bound_cairo()
+        bound = bound.scale_point_to_cm()
+        self.top = 0.
+        self.left = 0.
+        self.right = bound.width
+        self.bot = bound.height
+        x0, y0 = bound.llx, bound.ury # this becomes our top-left
+        self.x0 = x0
+        self.y0 = y0
+        self.cvs = cvs
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        x = system[self.x]
+        y = system[self.y]
+        x0, y0 = self.x0, self.y0
+        dx, dy = x-x0, y-y0
+        item = Compound([Translate(dx, dy), self.cvs])
+        cvs.append(item)
 
     
 class StrokeBox(Box):

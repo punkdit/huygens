@@ -103,11 +103,13 @@ text = NS(
         bottom = TextAlign("bottom")))
 
 
-# TODO
-#linestyle.solid = linestyle(linecap.butt, dash([]))
-#linestyle.dashed = linestyle(linecap.butt, dash([2]))
-#linestyle.dotted = linestyle(linecap.round, dash([0, 2]))
-#linestyle.dashdotted = linestyle(linecap.round, dash([0, 2, 2, 2]))
+
+
+linestyle = NS(
+    solid = CompoundDeco([style.linecap.butt, LineDash([])]),
+    dashed = CompoundDeco([style.linecap.butt, LineDash([2])]),
+    dotted = CompoundDeco([style.linecap.round, LineDash([0, 2])]),
+    dashdotted = CompoundDeco([style.linecap.round, LineDash([0, 2, 2, 2])]))
 
 
 trafo = NS(translate = Translate, scale = Scale, rotate = Rotate)
@@ -153,18 +155,22 @@ class Canvas(Compound):
 
     def _write_cairo(self, method, name):
 
-        #self.dump()
-        #bound = self.get_bound()
-        #print("_write_cairo: self.get_bound()", bound)
+        if 0:
+            #self.dump()
+            #bound = self.get_bound()
+            #print("_write_cairo: self.get_bound()", bound)
+    
+            cxt = Flatten()
+            self.process_cairo(cxt)
+            item = Compound(cxt.paths)
+            #print("Flatten:")
+            #item.dump()
+            bound = item.get_bound()
+            #print("_write_cairo: item.get_bound()", bound)
+            assert not bound.is_empty()
 
-        cxt = Flatten()
-        self.process_cairo(cxt)
-        item = Compound(cxt.paths)
-        #print("Flatten:")
-        #item.dump()
-        bound = item.get_bound()
-        #print("_write_cairo: item.get_bound()", bound)
-        assert not bound.is_empty()
+        else:
+            bound = self.get_bound_cairo()
 
         import cairo
 

@@ -4,11 +4,11 @@ import os
 import collections
 
 import bruhat.render.doc
-from bruhat.render.front import Canvas, Scale
+from bruhat.render.front import Canvas, Scale, Base
 from bruhat.render.box import Box
 
 
-class TestRun(object):
+class TestRun(Base):
     def __init__(self, func, start=None, end=None, img=None, result=None):
         self.func = func
         self.start = start
@@ -42,8 +42,9 @@ def run_test(func, dummy=False):
         result = items.__next__()
 
         if isinstance(result, tuple):
-            box, name = result
-        elif isinstance(result, Box):
+            result, name = result
+
+        if isinstance(result, Box):
             box = result
         elif isinstance(result, Canvas):
             cvs = result

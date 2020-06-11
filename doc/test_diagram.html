@@ -102,7 +102,7 @@
 <hr />
 <h1>Diagrams</h1>
 <div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render</span> <span class="kn">import</span> <span class="n">canvas</span>
-<span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">HBox</span>
+<span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
 <span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">HDia</span><span class="p">,</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">SIZE</span>
 
 <span class="n">top</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">VWire</span><span class="p">(),</span> <span class="n">Cap</span><span class="p">()])</span>
@@ -124,6 +124,17 @@
 <p><img src="images/output-6.svg" class="center"></p>
 
 
+<p>If we do this again with DEBUG you can see how
+the underlying <code>Box</code>s are put together.</p>
+<div class="highlight"><pre><span></span><span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+
+<p>The anchor inside each <code>Dia</code> is not constrained and
+so is free to wander around inside the <code>Box</code>.</p>
+
+<p><img src="images/output-7.svg" class="center"></p>
+
+
 
 <hr />
 
@@ -143,7 +154,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">Cap</span><span class="p">()</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">box</span>
 </pre></div>
 
-<p><img src="images/output-7.svg" class="center"></p>
+<p><img src="images/output-8.svg" class="center"></p>
 
 
 
@@ -158,7 +169,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <span class="n">box</span> <span class="o">=</span> <span class="n">Cap</span><span class="p">()</span> <span class="o">*</span> <span class="n">box</span>
 </pre></div>
 
-<p><img src="images/output-8.svg" class="center"></p>
+<p><img src="images/output-9.svg" class="center"></p>
 
 
 
@@ -181,7 +192,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <span class="n">box</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">([</span><span class="n">lhs</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rhs</span><span class="p">],</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
 </pre></div>
 
-<p><img src="images/output-9.svg" class="center"></p>
+<p><img src="images/output-10.svg" class="center"></p>
 
 
 
@@ -218,7 +229,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 
 <p>This is what the <code>box</code> looks like now:</p>
 
-<p><img src="images/output-10.svg" class="center"></p>
+<p><img src="images/output-11.svg" class="center"></p>
 
 
 <p>Now we take the closure of this braid:</p>
@@ -232,7 +243,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">rel</span>
 </pre></div>
 
-<p><img src="images/output-11.svg" class="center"></p>
+<p><img src="images/output-12.svg" class="center"></p>
 
 
 <p>Draw this now with some more fancy tricks.</p>
@@ -257,7 +268,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <span class="n">box</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
 </pre></div>
 
-<p><img src="images/output-12.svg" class="center"></p>
+<p><img src="images/output-13.svg" class="center"></p>
 
 
 <hr>

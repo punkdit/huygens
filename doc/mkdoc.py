@@ -67,11 +67,13 @@ def html_img(name):
 
 def main():
     dummy = argv.dummy
+    select = argv.get("select", "")
     path = "."
     names = "test_canvas.py test_turtle.py test_sat.py test_box.py test_diagram.py"
     names = names.split()
     for name in names:
-        process(path, name, dummy)
+        if select in name:
+            process(path, name, dummy)
 
 
 def process(path, name, dummy=False):
@@ -88,13 +90,18 @@ def process(path, name, dummy=False):
     print(html_head(html_style(style)), file=output)
 
     func = None
+    test = None
     for test in run_tests.harvest(path, name, dummy=dummy):
 
         if test.func is not func:
             print("\n\n<hr />\n", file=output)
             func = test.func
 
+        print(test)
+
         end = test.end or find_dedent(code, test.start)
+
+        print("end =", end)
         snip = code[test.start : end]
 
         for block in html_snip(snip):
@@ -103,12 +110,13 @@ def process(path, name, dummy=False):
         if test.img:
             print(html_img(test.img), file=output)
 
-    start = end
-    end = find_dedent(code, start)
-    if end > start:
-        snip = code[start+1 : end]
-        for block in html_snip(snip):
-            print(block, file=output)
+    if test and test.end:
+        start = end
+        end = find_dedent(code, start)
+        if end > start:
+            snip = code[start+1 : end]
+            for block in html_snip(snip):
+                print(block, file=output)
 
     print(html_tail(), file=output)
     output.close()

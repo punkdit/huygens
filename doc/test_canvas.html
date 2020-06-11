@@ -123,18 +123,19 @@ upper right quadrant.</p>
 <p>Unlike PyX, angles are specified in
 radians in calls to <code>path.arc</code> and <code>trafo.rotate</code>.</p>
 <div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">pi</span>
-<span class="kn">from</span> <span class="nn">bruhat.render</span> <span class="kn">import</span> <span class="n">style</span><span class="p">,</span> <span class="n">trafo</span>
+<span class="kn">from</span> <span class="nn">bruhat.render</span> <span class="kn">import</span> <span class="n">style</span><span class="p">,</span> <span class="n">trafo</span><span class="p">,</span> <span class="n">linestyle</span>
 
 <span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
 
-<span class="n">cvs</span><span class="o">.</span><span class="n">stroke</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">),</span> <span class="p">[</span><span class="n">style</span><span class="o">.</span><span class="n">linewidth</span><span class="o">.</span><span class="n">thick</span><span class="p">,</span> <span class="n">color</span><span class="o">.</span><span class="n">rgb</span><span class="o">.</span><span class="n">blue</span><span class="p">])</span>
+<span class="n">cvs</span><span class="o">.</span><span class="n">stroke</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">),</span> 
+    <span class="p">[</span><span class="n">style</span><span class="o">.</span><span class="n">linewidth</span><span class="o">.</span><span class="n">thick</span><span class="p">,</span> <span class="n">color</span><span class="o">.</span><span class="n">rgb</span><span class="o">.</span><span class="n">blue</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">.</span><span class="n">dashed</span><span class="p">])</span>
 <span class="n">cvs</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="s2">&quot;hey there!&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">trafo</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">pi</span><span class="p">)])</span>
 </pre></div>
 
 <p><img src="images/output-1.svg" class="center"></p>
 
 
-<p>Composite paths are build using the <code>path.path</code> constructor:</p>
+<p>Composite paths are built using the <code>path.path</code> constructor:</p>
 <div class="highlight"><pre><span></span><span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
 <span class="n">p</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">path</span><span class="p">([</span> 
     <span class="n">path</span><span class="o">.</span><span class="n">moveto</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">),</span>

@@ -38,16 +38,17 @@ def test_canvas():
     # radians in calls to `path.arc` and `trafo.rotate`.
 
     from math import pi
-    from bruhat.render import style, trafo
+    from bruhat.render import style, trafo, linestyle
 
     cvs = canvas.canvas()
 
-    cvs.stroke(path.circle(0., 0., 1.), [style.linewidth.thick, color.rgb.blue])
+    cvs.stroke(path.circle(0., 0., 1.), 
+        [style.linewidth.thick, color.rgb.blue, linestyle.dashed])
     cvs.text(0., 0., "hey there!", [trafo.rotate(0.5*pi)])
 
     yield cvs
 
-    # Composite paths are build using the `path.path` constructor:
+    # Composite paths are built using the `path.path` constructor:
 
     cvs = canvas.canvas()
     p = path.path([ 

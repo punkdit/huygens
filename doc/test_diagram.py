@@ -15,7 +15,7 @@ def test_snake():
     # 
 
     from bruhat.render import canvas
-    from bruhat.render.box import HBox
+    from bruhat.render.box import Box, HBox
     from bruhat.render.diagram import HDia, VDia, VWire, Cap, Cup, SIZE
 
     top = HDia([VWire(), Cap()])
@@ -35,6 +35,17 @@ def test_snake():
     cvs.writeSVGfile("output.svg")
 
     yield cvs
+
+    # If we do this again with DEBUG you can see how
+    # the underlying `Box`s are put together.
+
+    Box.DEBUG = True
+
+    # The anchor inside each `Dia` is not constrained and
+    # so is free to wander around inside the `Box`.
+
+    yield dia
+    
 
 
 def test_spider():

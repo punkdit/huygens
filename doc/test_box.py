@@ -14,8 +14,8 @@ def test_box():
     # 
 
     from random import random, choice
-    from bruhat.render.front import canvas
-    from bruhat.render.box import (Box, EmptyBox, TextBox, 
+    from bruhat.render.front import canvas, path
+    from bruhat.render.box import (Box, EmptyBox, CanBox, TextBox, 
         HBox, VBox, OBox, TableBox, FillBox, MarginBox, AlignBox)
 
     # First we set a debug flag so we can see the shape of every box
@@ -37,14 +37,38 @@ def test_box():
     
     yield box, "empty"
 
+    #--------------------------------------------------
+
     box = TextBox("Hey there!")
     yield box, "text"
+
+    #--------------------------------------------------
+
+    cvs = canvas.canvas()
+    cvs.stroke(path.line(0., 0., 1., 1.))
+    cvs.text(0., 0., "hello everyone")
+    box = CanBox(cvs)
+    yield box, 'canbox'
+
+    #--------------------------------------------------
+
+    # You cannot use the same box more than once in a container Box:
+
+    box = TextBox("hello")
+    box = HBox([box, box]) # FAIL 
+    #yield box, "hbox-fail" # raises assert error
+
+    #--------------------------------------------------
 
     box = HBox("geghh xxde xyeey".split())
     yield box, "hbox-text"
 
+    #--------------------------------------------------
+
     box = VBox("geghh xxde xyeey".split())
     yield box, "vbox-text"
+
+    #--------------------------------------------------
 
     r = 1.0
     a = EmptyBox(top=r, bot=r)
@@ -53,6 +77,8 @@ def test_box():
     #box = StrictVBox([a, c])
     box = VBox([a, c])
     yield box, 'vbox-empty'
+
+    #--------------------------------------------------
 
     box = OBox([
         EmptyBox(.4, .1, 0., 2.2),
@@ -63,6 +89,8 @@ def test_box():
     yield box, "obox"
 
 
+    #--------------------------------------------------
+
     box = HBox([
         VBox([TextBox(text) for text in "xxx1 ggg2 xxx3 xx4".split()]),
         VBox([TextBox(text) for text in "123 xfdl sdal".split()]),
@@ -70,12 +98,16 @@ def test_box():
     yield box, "hbox-vbox"
 
 
+    #--------------------------------------------------
+
     box = TableBox([
         [EmptyBox(.4, .1, 0.2, 2.2), EmptyBox(.3, 1.2, .5, 2.5),],
         [EmptyBox(.8, .1, 0.4, 1.2), EmptyBox(.5, 0.4, .5, 1.5),]
     ])
     yield box, "table"
 
+
+    #--------------------------------------------------
 
     def rnd(a, b):
         return (b-a)*random() + a
@@ -93,6 +125,8 @@ def test_box():
     yield box, "table-2"
 
 
+    #--------------------------------------------------
+
     rows = []
     for i in range(3):
         row = []
@@ -106,6 +140,8 @@ def test_box():
     box = TableBox(rows)
     yield box, "table-3"
 
+
+    #--------------------------------------------------
 
     a, b = 0.2, 2.0
     rows = []
