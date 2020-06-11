@@ -11,9 +11,8 @@ from bruhat.render.front import path, style
 from bruhat.argv import argv
 
 
-class Box(object):
+class Magic(object):
 
-    DEBUG = False
     did_layout = False
 
     def __hash__(self):
@@ -28,6 +27,13 @@ class Box(object):
     def __getitem__(self, idx):
         raise IndexError
 
+
+
+
+class Box(Magic):
+
+    DEBUG = False
+
     @classmethod
     def promote(cls, item, align=None):
         if isinstance(item, Box):
@@ -36,6 +42,8 @@ class Box(object):
             box = TextBox(item)
         elif isinstance(item, (tuple, list)):
             box = HBox(item)
+        elif item is None:
+            box = EmptyBox()
         else:
             raise TypeError(repr(item))
         if align is not None:
@@ -173,14 +181,14 @@ class Box(object):
         self.system = system
         return system
 
-    def render(self, cvs, x=0, y=0, debug=None):
-        save = Box.DEBUG
-        if debug is not None:
-            Box.DEBUG = debug
+    def render(self, cvs, x=0, y=0):
+        #save = Box.DEBUG
+        #if debug is not None:
+        #    Box.DEBUG = debug
         if not self.did_layout:
             self.layout(cvs, x, y)
         self.on_render(cvs, self.system)
-        Box.DEBUG = save
+        #Box.DEBUG = save
 
 
 #class EmptyBox(Box):

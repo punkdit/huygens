@@ -197,7 +197,7 @@ def test_braid():
 
     # This is what the `box` looks like now:
 
-    yield box
+    yield box, "braid-strands"
 
     # Now we take the closure of this braid:
 

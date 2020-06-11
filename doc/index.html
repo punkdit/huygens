@@ -238,16 +238,28 @@ input[type=range]:focus::-ms-fill-upper {
 
 <main>
 
-<h1>bruhat.render documentation</h1>
-<h2>Table of contents</h2>
+<h1>bruhat.render</h1>
+<p><img src="images/braid-strands.svg" class="center"></p>
+<p>This is a python package for drawing diagrams.
+Intended to have multiple backends, currently the only
+backend implemented uses <a href="https://www.cairographics.org/">cairo</a>.
+Hopefully there will also be a <a href="https://pyx-project.org/">PyX</a> backend.</p>
+<p>It can also include text from <script type="math/tex">\TeX</script> via pdftex, pdflatex, xetex or xelatex.</p>
+<p>Diagrams are able to be composed in various ways, based 
+on a linear constraint solver. Therefore, this system becomes
+a declarative graphics layout package.</p>
+<p>This package is at an early stage of development, so expect
+things to change drastically and without warning.</p>
+<h2>User guide</h2>
 <p><strong><a href="test_canvas.html">bruhat.render</a></strong>
 Basic drawing functions. Lines, curves, text and so on.</p>
 <p><strong><a href="test_turtle.html">bruhat.render.turtle</a></strong>
 A simple Turtle class for sequentially building paths.
 Also fun.</p>
 <p><strong><a href="test_sat.html">bruhat.render.sat</a></strong>
-A convenient interface to the linear programming 
-constraint solver from scipy.</p>
+A convenient interface to a linear programming constraint solver. 
+Currently uses 
+<a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linprog.html">scipy.optimize.linprog</a></p>
 <p><strong><a href="test_box.html">bruhat.render.box</a></strong>
 Structure figures into rectangular <code>Box</code>s.
 Various ways of combining these: <code>HBox</code>, <code>VBox</code>, <code>TableBox</code>, etc.
@@ -255,6 +267,31 @@ The layout is determined by constraints, and so this uses
 the <code>bruhat.render.sat</code> module.</p>
 <p><strong><a href="test_diagram.html">bruhat.render.diagram</a></strong>
 Building on the <code>box</code> module to make string diagrams.</p>
+<h2>See also</h2>
+<p>Some related projects:</p>
+<p><a href="https://arxiv.org/abs/1908.10660">Foundations of brick diagrams</a>
+Describes horizontal and vertical composition of string diagrams.</p>
+<p><a href="https://archives.haskell.org/projects.haskell.org/diagrams/">diagrams</a>
+A declarative, domain-specific language written in Haskell.</p>
+<p><a href="https://github.com/GiovineItalia/Compose.jl">Compose.jl</a>
+A declarative vector graphics library for Julia.</p>
+<p><a href="https://www.anishathalye.com/2019/12/12/constraint-based-graphic-design/#case-studies">Experiments in Constraint-based Graphic Design</a> 
+Describes a DSL called "Basalt" written in Python, based on
+the logic of non-linear real arithmetic, which is an
+extension of linear programming. No code available.</p>
+<p><a href="http://penrose.ink">Penrose</a> 
+"Create beautiful diagrams just by typing mathematical notation in plain text."
+<a href="https://github.com/penrose/penrose">Source here</a>
+Written in Haskell.  Users not welcome (yet).</p>
+<p><a href="https://graphviz.org/">Graphviz</a>
+Declarative language for rendering heirarchical data structures.
+<a href="https://news.ycombinator.com/item?id=23477034">Apparently</a>
+"20 year old code that was basically a prototype that escaped from the lab".
+See also 
+<a href="https://ncona.com/2020/06/create-diagrams-with-code-using-graphviz/">this blog post.</a></p>
+<p><a href="https://ctan.org/pkg/pgf?lang=en">TikZ</a>
+Possibly the most widely used package for creating
+graphics for integration with latex documents.</p>
 
 <hr>
 
