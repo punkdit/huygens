@@ -13,7 +13,7 @@ def test_box():
     # ================
     # 
 
-    from random import random, choice
+    from random import random
     from bruhat.render.front import canvas, path
     from bruhat.render.box import (Box, EmptyBox, CanBox, TextBox, 
         HBox, VBox, OBox, TableBox, FillBox, MarginBox, AlignBox)
@@ -131,7 +131,7 @@ def test_box():
     for i in range(3):
         row = []
         for j in range(3):
-            box = TextBox(choice("xbcgef")*(i+1)*(j+1))
+            box = TextBox(("xbcgef"[i+j])*(i+1)*(j+1))
             box = MarginBox(box, 0.1)
             box = AlignBox(box, "north")
             row.append(box)

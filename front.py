@@ -135,17 +135,12 @@ class Canvas(Compound):
 
     def text_extents(self, text):
         item = Text(0., 0., text)
-        #item.dump()
         bound = item.get_bound()
-        #print("text_extents", text, bound)
-        #dx, dy = bound.urx, bound.ury
         llx, lly, urx, ury = bound
-        #return (0., dy/SCALE_CM_TO_POINT, dx/SCALE_CM_TO_POINT, dy/SCALE_CM_TO_POINT)
         llx /= SCALE_CM_TO_POINT
         lly /= SCALE_CM_TO_POINT
         urx /= SCALE_CM_TO_POINT
         ury /= SCALE_CM_TO_POINT
-        #print("text_extents", text, (0., ury, urx-llx, ury-lly))
         return (0., ury, urx-llx, ury-lly)
 
     def text(self, x, y, text, decos=[]):
@@ -203,7 +198,7 @@ class Canvas(Compound):
         surface.finish()
 
     def writePNGfile(self, name):
-        assert 0, "TODO"
+        assert 0, "XXX Not working very well XXX"
         assert name.endswith(".png")
         import cairo
         def method(name, W, H):

@@ -583,13 +583,28 @@ class Rotate(Deco):
 
 def text_extents_cairo(text):
     import cairo
-    surface = cairo.PDFSurface("/dev/null", 0, 0)
+    #surface = cairo.PDFSurface("/dev/null", 0, 0)
     # only in cairo 1.11.0:
-    #surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
+    surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
     cxt = cairo.Context(surface)
     ex = cxt.text_extents(text)
     surface.finish()
     return ex
+
+
+def text_extents_cairo(text):
+    import cairo
+    # only in cairo 1.11.0:
+    surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
+    cxt = cairo.Context(surface)
+    cxt.move_to(0., 0.)
+    cxt.show_text(text)
+    #extents = surface.ink_extents()
+    #(ulx, uly, width, height) = extents
+    #print("get_bound", extents) same as text_extents ...
+    ex = cxt.text_extents(text)
+    return ex
+
 
 
 class CairoText(Item):
@@ -600,8 +615,14 @@ class CairoText(Item):
 
     def get_bound(self):
         extents = text_extents_cairo(self.text)
-        (dx, dy, width, height, _, _) = extents
-        b = Bound(self.x, self.y, self.x+width, self.y+height) # XXX FIX FIX XXX
+        (dx, dy, width, height, x1, y1) = extents
+        print("CairoText.get_bound", repr(self.text), dx, dy, width, height, x1, y1)
+        assert dx>=0, "ummm..."
+        x, y = self.x, self.y
+        llx, lly = x, y-dy-height
+        urx, ury = llx+dx+width, lly+height
+        b = Bound(llx, lly, urx, ury)
+        print("CairoText.get_bound", b)
         return b
 
     def process_cairo(self, cxt):
@@ -611,7 +632,7 @@ class CairoText(Item):
         cxt.restore()
 
 
-class Text(Compound):
+class MkText(Compound):
 
     _baseline = None
     @classmethod
@@ -645,6 +666,7 @@ class Text(Compound):
     def get_bound(self):
         return self.bound
 
+Text = CairoText
 
 
 # ----------------------------------------------------------------------------

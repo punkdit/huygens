@@ -241,9 +241,9 @@ class FillBox(StrokeBox):
 
 
 class TextBox(Box):
-    def __init__(self, text, weight=2.0):
+    def __init__(self, text, weight=99.0):
         self.text = text
-        # Use weight=2.0, higher than the default weight of 1.0.
+        # Use weight higher than the default weight of 1.0.
         self.weight = weight
 
     def on_layout(self, cvs, system):
