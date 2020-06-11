@@ -2,7 +2,20 @@
 
 
 
-def test_variable():
+def test_sat():
+
+    #  
+    # [<<< table of contents](index.html)
+    #
+    #  ---
+    #
+    # Constraint satisfier
+    # ====================
+    # 
+    #  
+    # 
+
+
     from bruhat.render.sat import Variable, Solver, System
     
     x = Variable('x')

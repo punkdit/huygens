@@ -1,4 +1,7 @@
 
+bruhat.render documentation
+===========================
+
 Table of contents
 -----------------
 
@@ -7,6 +10,7 @@ Basic drawing functions. Lines, curves, text and so on.
 
 __[bruhat.render.turtle](test_turtle.html)__
 A simple Turtle class for sequentially building paths.
+Also fun.
 
 __[bruhat.render.sat](test_sat.html)__
 A convenient interface to the linear programming 

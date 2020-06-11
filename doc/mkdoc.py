@@ -87,7 +87,12 @@ def process(path, name, dummy=False):
     style = HtmlFormatter().get_style_defs('.highlight') 
     print(html_head(html_style(style)), file=output)
 
+    func = None
     for test in run_tests.harvest(path, name, dummy=dummy):
+
+        if test.func is not func:
+            print("\n\n<hr />\n", file=output)
+            func = test.func
 
         end = test.end or find_dedent(code, test.start)
         snip = code[test.start : end]

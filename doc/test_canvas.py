@@ -6,6 +6,11 @@
 
 def test_canvas():
 
+    #  
+    # [<<< table of contents](index.html)
+    #
+    #  ---
+    #
     # Canvas
     # ======
     #

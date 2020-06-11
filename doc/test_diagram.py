@@ -95,6 +95,84 @@ def test_yang_baxter():
     yield box
 
 
+
+def test_braid():
+
+    from random import shuffle, seed, randint
+    from operator import matmul
+    from functools import reduce
+
+    from bruhat.render import canvas, color, style, path
+    from bruhat.render.box import Box, HBox
+    from bruhat.render.diagram import VWire, Braid, Relation
+
+    seed(1)
+
+    scale = 0.3
+    w = 1.4*scale
+    h = 1.8*scale
+    Id = lambda : VWire(min_height=scale, min_width=scale)
+    Swap = lambda inverse : Braid(inverse=inverse, min_width=w, min_height=h, space=0.5)
+
+    box = None
+    m, n = 3, 3
+    k = 2*m+n
+    for count in range(3):
+        items = [Swap(randint(0,1)) for k in range(m)] + [Id() for k in range(n)]
+        shuffle(items)
+        row = reduce(matmul, items)
+        if box is None:
+            box = row
+        else:
+            box = box * row
+
+    # This is what the `box` looks like now:
+
+    yield box
+
+    # Now we take the closure of this braid:
+
+    #box = Id() @ box
+    lhs = reduce(matmul, [Id() for i in range(k)])
+    box = lhs @ box
+    rels = [(i, 2*k-i-1) for i in range(k)]
+    #rels = [(i, i+k) for i in range(k)]
+    rel = Relation(0, 2*k, botbot=rels, weight=200.0)
+    box = rel * box
+    rels = [(i, 2*k-i-1) for i in range(k)]
+    rel = Relation(2*k, 0, toptop=rels, weight=200.0)
+    box = box * rel
+
+    yield box
+
+    # Draw this now with some more fancy tricks.
+
+    cvs = canvas.canvas()
+
+    system = box.layout(cvs)
+
+    sub = box[0][1][1]
+    x = 0.5*(system[box.llx] + system[box.urx])
+    y = system[sub.lly]
+    width = system[box.urx] - x
+    height = system[sub.ury] - y
+    p = path.rect(x, y, width, height)
+    cvs.fill(p, [color.rgb(0.9, 0.9, 0.6)])
+    cvs.stroke(p, [style.linewidth.thick])
+
+    cvs.append(style.linewidth.THICk)
+    #cvs.append(color.rgb(0.2,0.5,0.2))
+    box.render(cvs)
+
+    cvs.append(style.linewidth.thick)
+    cvs.append(color.rgb(0.9,0.0,0.0))
+    box.render(cvs)
+
+    #cvs.writePDFfile("test_diagram.pdf")
+
+    yield cvs
+
+
 def XXXtest_braid():
     from random import shuffle, seed, randint
     from operator import matmul
@@ -155,7 +233,7 @@ def XXXtest_braid():
     #fillbox(box, [color.rgb(0.9, 0.8, 0.5)])
 
     sub = box[0][1][1]
-    x = conv(system[box.llx], system[box.urx])
+    x = 0.5*(system[box.llx] + system[box.urx])
     y = system[sub.lly]
     width = system[box.urx] - x
     height = system[sub.ury] - y

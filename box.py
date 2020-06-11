@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from random import random, choice, seed
-
+from copy import deepcopy
 from math import pi
 
 
@@ -31,7 +31,7 @@ class Box(object):
         return box
 
     def on_layout(self, cvs, system):
-        assert not self.did_layout, "already called on_layout"
+        #assert not self.did_layout, "already called on_layout"
         if self.DEBUG:
             print("%s.on_layout" % (self.__class__.__name__,))
         for attr in 'x y left right top bot'.split():
