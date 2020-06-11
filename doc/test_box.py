@@ -9,8 +9,8 @@ def test_box():
     #
     #  ---
     #
-    # Layout with Boxs
-    # ================
+    # Layout with Box's
+    # =================
     # 
 
     from random import random

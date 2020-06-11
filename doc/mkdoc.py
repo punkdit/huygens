@@ -59,6 +59,9 @@ def html_style(body):
 def html_p(body):
     return "<p>%s</p>\n"%body
 
+def html_pre(body):
+    return "<pre>%s</pre>\n"%body
+
 def html_img(name):
     return '<p><img src="%s" class="center"></p>\n'%name
 
@@ -91,32 +94,53 @@ def process(path, name, dummy=False):
 
     func = None
     test = None
-    for test in run_tests.harvest(path, name, dummy=dummy):
+    start = None
+
+    try:
+      for test in run_tests.harvest(path, name, dummy=dummy):
+
+        if func is None:
+            # first func in test script
+            func = test.func
 
         if test.func is not func:
+            end = find_dedent(code, start)
+            #print(html_p(str((start, end))), file=output) # DEBUG
+            snip = code[start+1: end]
+            for block in html_snip(snip):
+                print(block, file=output)
             print("\n\n<hr />\n", file=output)
             func = test.func
 
-        print(test)
+        #print(html_pre(test), file=output)
 
         end = test.end or find_dedent(code, test.start)
 
-        print("end =", end)
+        # DEBUG
+        #print(html_p("start=%s, end=%s" % (test.start, end)), file=output)
         snip = code[test.start : end]
-
         for block in html_snip(snip):
             print(block, file=output)
 
         if test.img:
             print(html_img(test.img), file=output)
 
-    if test and test.end:
+        start = end
+      if test and test.end:
         start = end
         end = find_dedent(code, start)
         if end > start:
             snip = code[start+1 : end]
             for block in html_snip(snip):
                 print(block, file=output)
+      #print(html_p("end of func"), file=output)
+
+    except Exception:
+        import traceback
+        print("\n<pre>", file=output)
+        traceback.print_exc(file=output)
+        print("</pre>", file=output)
+        traceback.print_exc()
 
     print(html_tail(), file=output)
     output.close()

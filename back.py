@@ -587,27 +587,22 @@ def text_extents_cairo(text):
     # only in cairo 1.11.0:
     surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
     cxt = cairo.Context(surface)
-    ex = cxt.text_extents(text)
-    surface.finish()
-    return ex
-
-
-def text_extents_cairo(text):
-    import cairo
-    # only in cairo 1.11.0:
-    surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
-    cxt = cairo.Context(surface)
-    cxt.move_to(0., 0.)
-    cxt.show_text(text)
+    #cxt.move_to(0., 0.)
+    #cxt.show_text(text)
     #extents = surface.ink_extents()
     #(ulx, uly, width, height) = extents
-    #print("get_bound", extents) same as text_extents ...
+    #print("get_bound", extents) # same as text_extents ...
     ex = cxt.text_extents(text)
     return ex
 
 
+class Text(object):
+    def __new__(cls, x, y, text):
+        ob = object.__new__(the_text_cls)
+        return ob
 
-class CairoText(Item):
+
+class CairoText(Item, Text):
     def __init__(self, x, y, text):
         self.x = SCALE_CM_TO_POINT*x
         self.y = SCALE_CM_TO_POINT*y
@@ -616,13 +611,13 @@ class CairoText(Item):
     def get_bound(self):
         extents = text_extents_cairo(self.text)
         (dx, dy, width, height, x1, y1) = extents
-        print("CairoText.get_bound", repr(self.text), dx, dy, width, height, x1, y1)
+        #print("CairoText.get_bound", repr(self.text), dx, dy, width, height, x1, y1)
         assert dx>=0, "ummm..."
         x, y = self.x, self.y
         llx, lly = x, y-dy-height
         urx, ury = llx+dx+width, lly+height
         b = Bound(llx, lly, urx, ury)
-        print("CairoText.get_bound", b)
+        #print("CairoText.get_bound", b)
         return b
 
     def process_cairo(self, cxt):
@@ -632,7 +627,9 @@ class CairoText(Item):
         cxt.restore()
 
 
-class MkText(Compound):
+class MkText(Compound, Text):
+
+    tex_engine = "pdftex"
 
     _baseline = None
     @classmethod
@@ -649,7 +646,7 @@ class MkText(Compound):
         self.x = x = SCALE_CM_TO_POINT*x
         self.y = y = SCALE_CM_TO_POINT*y
         self.text = text
-        item = make_text(text)
+        item = make_text(text, self.tex_engine)
         bound = item.get_bound()
         assert not bound.is_empty(), bound
         llx, lly = bound.llx, bound.lly
@@ -666,7 +663,12 @@ class MkText(Compound):
     def get_bound(self):
         return self.bound
 
-Text = CairoText
+
+the_text_cls = CairoText
+
+#def Text(*args, **kw):
+#    return the_text_cls(*args, **kw)
+
 
 
 # ----------------------------------------------------------------------------

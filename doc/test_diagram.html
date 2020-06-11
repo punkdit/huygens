@@ -94,16 +94,60 @@
 <main>
 
 
-
-<hr />
-
-
 <p><a href="index.html">&lt;&lt;&lt; table of contents</a></p>
 <hr />
 <h1>Diagrams</h1>
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render</span> <span class="kn">import</span> <span class="n">canvas</span>
+<p>Diagrams are built from <code>Box</code>'s with some extra variables
+that describe "input-output ports" on each of the four
+edges: top, bot, left and right.</p>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span>
+<span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">Relation</span>
+<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">topbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span> <span class="n">botbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)])</span>
+</pre></div>
+
+<p><img src="images/output-6.svg" class="center"></p>
+
+
+<p>This diagram has two ports on the top edge, and three
+along the bot edge.</p>
+<p>Just like <code>Box</code>'s, we can compose diagrams vertically
+and horizontally, as long as the number of ports agree
+along the connecting edge.</p>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">HDia</span>
+
+<span class="n">a_box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">botbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)])</span>
+<span class="n">b_box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">topbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span> <span class="n">botbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)])</span>
+<span class="n">c_box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">toptop</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)])</span>
+
+<span class="n">box</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">a_box</span><span class="p">,</span> <span class="n">b_box</span><span class="p">,</span> <span class="n">c_box</span><span class="p">])</span>
+</pre></div>
+
+<p><img src="images/output-7.svg" class="center"></p>
+
+<div class="highlight"><pre><span></span><span class="n">box</span> <span class="o">=</span> <span class="n">VDia</span><span class="p">([</span><span class="n">a_box</span><span class="p">,</span> <span class="n">b_box</span><span class="p">,</span> <span class="n">c_box</span><span class="p">])</span>
+</pre></div>
+
+<p><img src="images/output-8.svg" class="center"></p>
+
+
+<p>Each shared edge between two diagrams produces new 
+constraints specifying that the position of the ports agree.</p>
+
+
+
+<hr />
+
+
+<h2>Composing diagrams and box's</h2>
+<p>The base class for a diagram is <code>Dia</code>. Diagrams are
+also <code>Box</code>'s so we can stick them anywhere we can use a <code>Box</code>.</p>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render</span> <span class="kn">import</span> <span class="n">config</span><span class="p">,</span> <span class="n">canvas</span>
 <span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
 <span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">HDia</span><span class="p">,</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">SIZE</span>
+<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="n">config</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;pdftex&quot;</span><span class="p">)</span>
 
 <span class="n">top</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">VWire</span><span class="p">(),</span> <span class="n">Cap</span><span class="p">()])</span>
 <span class="n">bot</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">Cup</span><span class="p">(),</span> <span class="n">VWire</span><span class="p">()])</span>
@@ -115,13 +159,9 @@
 
 <span class="n">boxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lsnake</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">VWire</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">SIZE</span><span class="p">),</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rsnake</span><span class="p">]</span>
 <span class="n">dia</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">(</span><span class="n">boxs</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
-
-<span class="n">cvs</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">canvas</span><span class="p">()</span>
-<span class="n">dia</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
-<span class="n">cvs</span><span class="o">.</span><span class="n">writeSVGfile</span><span class="p">(</span><span class="s2">&quot;output.svg&quot;</span><span class="p">)</span>
 </pre></div>
 
-<p><img src="images/output-6.svg" class="center"></p>
+<p><img src="images/output-9.svg" class="center"></p>
 
 
 <p>If we do this again with DEBUG you can see how
@@ -129,10 +169,21 @@ the underlying <code>Box</code>s are put together.</p>
 <div class="highlight"><pre><span></span><span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
 </pre></div>
 
-<p>The anchor inside each <code>Dia</code> is not constrained and
-so is free to wander around inside the <code>Box</code>.</p>
+<p>Currently, the anchor inside each <code>Dia</code> is not constrained and
+so is free to wander around inside the <code>Box</code>.
+Maybe this will change in the future.</p>
 
-<p><img src="images/output-7.svg" class="center"></p>
+<p><img src="images/output-10.svg" class="center"></p>
+
+
+<p>If we use a <code>StrictHBox</code> it will stretch the <code>VWire()</code>
+but then we need to put the text in a <code>SlackBox</code>.</p>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">SlackBox</span><span class="p">,</span> <span class="n">StrictHBox</span>
+<span class="n">boxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lsnake</span><span class="p">,</span> <span class="n">SlackBox</span><span class="p">(</span><span class="s2">&quot;$=$&quot;</span><span class="p">),</span> <span class="n">VWire</span><span class="p">(),</span> <span class="n">SlackBox</span><span class="p">(</span><span class="s2">&quot;$=$&quot;</span><span class="p">),</span> <span class="n">rsnake</span><span class="p">]</span>
+<span class="n">dia</span> <span class="o">=</span> <span class="n">StrictHBox</span><span class="p">(</span><span class="n">boxs</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
+</pre></div>
+
+<p><img src="images/hbox-slack-dia.svg" class="center"></p>
 
 
 
@@ -145,31 +196,41 @@ The <code>*</code> operator composes top-down, like <code>VBox</code>.
 The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span>
 <span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">Spider</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span>
-<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
 
-<span class="n">box</span> <span class="o">=</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">()</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 <span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="p">(</span><span class="n">Spider</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">()</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">box</span>
 <span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>
-<span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">Cap</span><span class="p">()</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">box</span>
 </pre></div>
 
-<p><img src="images/output-8.svg" class="center"></p>
+<p><img src="images/output-11.svg" class="center"></p>
 
 
-
-<hr />
-
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span>
-<span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">Spider</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">Relation</span>
-<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
-<span class="n">box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">topbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span>
-<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="p">(</span><span class="n">Cup</span><span class="p">()</span> <span class="o">@</span> <span class="n">Cup</span><span class="p">())</span>
-<span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">VWire</span><span class="p">()</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">VWire</span><span class="p">())</span> <span class="o">*</span> <span class="n">box</span>
-<span class="n">box</span> <span class="o">=</span> <span class="n">Cap</span><span class="p">()</span> <span class="o">*</span> <span class="n">box</span>
+<p>Notice we used <code>weight=0.9</code> for the spider at the bottom,
+which is less than the default weight of 1.0.
+Otherwise this spider starts to push the rest of the
+diagram around:</p>
+<div class="highlight"><pre><span></span><span class="n">box</span> <span class="o">=</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="p">(</span><span class="n">Spider</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">box</span> <span class="o">=</span> <span class="p">(</span><span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">box</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 </pre></div>
 
-<p><img src="images/output-9.svg" class="center"></p>
+<p><img src="images/output-12.svg" class="center"></p>
+
+
+<p>The reason becomes clearer whith DEBUG switched on.</p>
+<div class="highlight"><pre><span></span><span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+
+<p><img src="images/output-13.svg" class="center"></p>
+
+
+<p>The pushy spider is just trying to space its legs evenly
+inside its large box.</p>
 
 
 
@@ -192,7 +253,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <span class="n">box</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">([</span><span class="n">lhs</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rhs</span><span class="p">],</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
 </pre></div>
 
-<p><img src="images/output-10.svg" class="center"></p>
+<p><img src="images/output-14.svg" class="center"></p>
 
 
 
@@ -229,7 +290,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 
 <p>This is what the <code>box</code> looks like now:</p>
 
-<p><img src="images/output-11.svg" class="center"></p>
+<p><img src="images/output-15.svg" class="center"></p>
 
 
 <p>Now we take the closure of this braid:</p>
@@ -243,7 +304,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">rel</span>
 </pre></div>
 
-<p><img src="images/output-12.svg" class="center"></p>
+<p><img src="images/output-16.svg" class="center"></p>
 
 
 <p>Draw this now with some more fancy tricks.</p>
@@ -268,7 +329,7 @@ The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
 <span class="n">box</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
 </pre></div>
 
-<p><img src="images/output-13.svg" class="center"></p>
+<p><img src="images/output-17.svg" class="center"></p>
 
 
 <hr>

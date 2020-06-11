@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-def test_snake():
+def test_relation():
 
     #  
     # [<<< table of contents](index.html)
@@ -11,12 +11,57 @@ def test_snake():
     # Diagrams
     # ========
     # 
-    #  
-    # 
+    # Diagrams are built from `Box`'s with some extra variables
+    # that describe "input-output ports" on each of the four
+    # edges: top, bot, left and right.
 
-    from bruhat.render import canvas
+    from bruhat.render.box import Box
+    #from bruhat.render.diagram import Spider, VWire, Cap, Cup, Relation
+    from bruhat.render.diagram import Relation
+    Box.DEBUG = True
+    box = Relation(2, 4, topbot=[(0, 2), (1, 3)], botbot=[(0, 1)])
+
+    yield box
+
+    # This diagram has two ports on the top edge, and three
+    # along the bot edge.
+    #
+    # Just like `Box`'s, we can compose diagrams vertically
+    # and horizontally, as long as the number of ports agree
+    # along the connecting edge.
+
+    from bruhat.render.diagram import VDia, HDia
+
+    a_box = Relation(0, 2, botbot=[(0, 1)])
+    b_box = Relation(2, 4, topbot=[(0, 2), (1, 3)], botbot=[(0, 1)])
+    c_box = Relation(4, 0, toptop=[(0, 3), (1, 2)])
+
+    box = HDia([a_box, b_box, c_box])
+
+    yield box
+
+    box = VDia([a_box, b_box, c_box])
+
+    yield box
+
+    # Each shared edge between two diagrams produces new 
+    # constraints specifying that the position of the ports agree.
+
+
+def test_snake():
+
+    # Composing diagrams and box's
+    # -----------------------------
+    #
+    # The base class for a diagram is `Dia`. Diagrams are
+    # also `Box`'s so we can stick them anywhere we can use a `Box`.
+
+    from bruhat.render import config, canvas
     from bruhat.render.box import Box, HBox
     from bruhat.render.diagram import HDia, VDia, VWire, Cap, Cup, SIZE
+    Box.DEBUG = False
+
+    config(text="pdftex")
 
     top = HDia([VWire(), Cap()])
     #mid = HDia([VWire(), VWire(), VWire()])
@@ -30,22 +75,27 @@ def test_snake():
     boxs = [lsnake, "$=$", VWire(min_height=SIZE), "$=$", rsnake]
     dia = HBox(boxs, align="center")
 
-    cvs = canvas.canvas()
-    dia.render(cvs)
-    cvs.writeSVGfile("output.svg")
-
-    yield cvs
+    yield dia
 
     # If we do this again with DEBUG you can see how
     # the underlying `Box`s are put together.
 
     Box.DEBUG = True
 
-    # The anchor inside each `Dia` is not constrained and
+    # Currently, the anchor inside each `Dia` is not constrained and
     # so is free to wander around inside the `Box`.
+    # Maybe this will change in the future.
 
     yield dia
     
+    # If we use a `StrictHBox` it will stretch the `VWire()`
+    # but then we need to put the text in a `SlackBox`.
+
+    from bruhat.render.box import SlackBox, StrictHBox
+    boxs = [lsnake, SlackBox("$=$"), VWire(), SlackBox("$=$"), rsnake]
+    dia = StrictHBox(boxs, align="center")
+
+    yield dia, "hbox-slack-dia"
 
 
 def test_spider():
@@ -57,31 +107,39 @@ def test_spider():
 
     from bruhat.render.box import Box
     from bruhat.render.diagram import Spider, VWire, Cap, Cup
-    Box.DEBUG = True
+    Box.DEBUG = False
 
-    box = Spider(2, 2) @ VWire()
+    box = Spider(2, 2) @ Spider(1, 1)
     #box = box * (VWire() @ Spider(2, 2))
     box = box * (Spider(3, 1))
-    box = box @ VWire()
+    box = box @ Spider(1, 1)
     #box = box * Cup()
-    box = box * Spider(2, 0, weight=0.9)
     #box = (Cap() @ Cap()) * box
-    box = (Cap() @ Spider(0, 1) @ Spider(0, 1)) * box
+    box = (Spider(0, 2) @ Spider(0, 1) @ Spider(0, 1)) * box
+    box = box * Spider(2, 0, weight=0.9)
 
     yield box
 
+    # Notice we used `weight=0.9` for the spider at the bottom,
+    # which is less than the default weight of 1.0.
+    # Otherwise this spider starts to push the rest of the
+    # diagram around:
 
-def test_relation():
+    box = Spider(2, 2) @ Spider(1, 1)
+    box = box * (Spider(3, 1))
+    box = box @ Spider(1, 1)
+    box = (Spider(0, 2) @ Spider(0, 1) @ Spider(0, 1)) * box
+    box = box * Spider(2, 0)
 
-    from bruhat.render.box import Box
-    from bruhat.render.diagram import Spider, VWire, Cap, Cup, Relation
+    yield box
+
+    # The reason becomes clearer whith DEBUG switched on.
+
     Box.DEBUG = True
-    box = Relation(3, 4, topbot=[(0, 0), (1, 0), (2, 1), (1, 2), (2, 3)])
-    box = box * (Cup() @ Cup())
-    box = (VWire() @ Spider(0, 1) @ VWire()) * box
-    box = Cap() * box
-
     yield box
+   
+    # The pushy spider is just trying to space its legs evenly
+    # inside its large box.
 
 
 def test_yang_baxter():

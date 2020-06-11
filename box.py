@@ -19,6 +19,15 @@ class Box(object):
     def __hash__(self):
         return id(self)
 
+    # Are we like a dict, or a list ??
+    # Not sure...
+
+    def __len__(self):
+        return 0
+
+    def __getitem__(self, idx):
+        raise IndexError
+
     @classmethod
     def promote(cls, item, align=None):
         if isinstance(item, Box):
@@ -264,8 +273,15 @@ class TextBox(Box):
 
 
 class ChildBox(Box):
+    "Has one child box"
     def __init__(self, child):
         self.child = Box.promote(child)
+
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, idx):
+        return [self.child][idx]
 
     def on_render(self, cvs, system):
         Box.on_render(self, cvs, system)
@@ -337,6 +353,23 @@ class AlignBox(ChildBox):
         self.bot = y - child.lly
         self.top = child.ury - y
         Box.on_layout(self, cvs, system)
+
+
+class SlackBox(ChildBox):
+    def __init__(self, child):
+        ChildBox.__init__(self, child)
+
+    def on_layout(self, cvs, system):
+        child = self.child
+        child.on_layout(cvs, system)
+        # child anchor for self
+        self.x = child.x
+        self.y = child.y
+        Box.on_layout(self, cvs, system)
+        system.add(self.top >= child.top)
+        system.add(self.bot >= child.bot)
+        system.add(self.left >= child.left)
+        system.add(self.right >= child.right)
 
 
 class CompoundBox(Box):
