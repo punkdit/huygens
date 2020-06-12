@@ -612,7 +612,7 @@ class CairoText(Item, Text):
         extents = text_extents_cairo(self.text)
         (dx, dy, width, height, x1, y1) = extents
         #print("CairoText.get_bound", repr(self.text), dx, dy, width, height, x1, y1)
-        assert dx>=0, "ummm..."
+        #assert dx>=0, dx
         x, y = self.x, self.y
         llx, lly = x, y-dy-height
         urx, ury = llx+dx+width, lly+height

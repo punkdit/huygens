@@ -352,6 +352,16 @@ class System(object):
         else:
             assert 0
 
+    def minimize(self, expr, weight=1.0):
+        assert isinstance(expr, Expr)
+        v = self.get_var("minimize", weight)
+        self.add(v == expr)
+
+    def maximize(self, expr, weight=1.0):
+        assert isinstance(expr, Expr)
+        v = self.get_var("maximize", -weight)
+        self.add(v == expr)
+
     def solve(self):
         assert self.lookup is None, "already called solve!"
         solver = Solver(self.items)

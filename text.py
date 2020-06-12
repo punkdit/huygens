@@ -28,7 +28,7 @@ def command(cmd):
     ret = p.wait()
     assert ret == 0, "%r failed with return value %d"%(cmd, ret)
 
-#command = verbose_command
+command = verbose_command
 
 
 def tex_output(text):

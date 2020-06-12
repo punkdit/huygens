@@ -5,7 +5,7 @@ copied from arrowtheory repo
 
 import sys
 
-from math import sin, cos, pi, asin, acos
+from math import sin, cos, pi, asin, acos, atan
 from bruhat.render.front import *
 
 
@@ -90,8 +90,13 @@ class Turtle(object):
         dx = x-self.x        
         dy = y-self.y        
         r = (dx**2 + dy**2)**0.5
-        assert r > 1e-8, "can't lookat self"
-        theta = asin(dx/r)
+        #assert r > 1e-8, "can't lookat self"
+        if r < 1e-8:
+            return self
+        if dy >= 0.:
+            theta = atan(dx/dy)
+        else:
+            theta = atan(dx/dy) + pi
         self.theta = theta
         return self
 
@@ -104,6 +109,7 @@ class Turtle(object):
 
     def moveto(self, x=None, y=None, angle=None):
         if x is not None and y is not None:
+            self.lookat(x, y)
             self.ps.append((x, y))
             self.x = x
             self.y = y
@@ -140,21 +146,53 @@ class Turtle(object):
         self.right(-angle, -r)
         return self
 
-    def arrow(t, r, angle=30.):
-        t.penup()
-        t.fwd(0.2*r)
-        t.right(angle)
-        t.back(r)
-        t.pendown()
-        t.fwd(r)
-        t.left(2*angle)
-        t.back(r)
+    def flat_arrow(self, size=0.15, angle=30.):
+        self.penup()
+        #self.fwd(0.2*size)
+        self.right(angle)
+        self.back(size)
+        self.pendown()
+        self.fwd(size)
+        self.left(2*angle)
+        self.back(size)
+        self.penup()
+        self.fwd(size)
+        self.right(angle)
+        self.pendown()
+        return self
+        
+    def curve_arrow(self, size=0.15, angle=30.):
+        a = 0.8*angle
+        b = 0.9*a
+        self.save()
+        self.pendown()
+        self.left(180)
+        self.right(b)
+        self.right(2*a, size)
+        self.penup()
+        self.restore()
+
+        self.save()
+        self.pendown()
+        self.left(180)
+        self.left(b)
+        self.left(2*a, size)
+        self.penup()
+        self.restore()
+        return self
+
+    def arrow(self, size=0.1, angle=30., style="flat"):
+        meth = getattr(self, style+"_arrow", None)
+        assert meth is not None, "style %r not found"%style
+        meth(size, angle)
+        return self
         
     def _render(self, attrs=None, closepath=False, cvs=None, name="stroke"):
         if attrs is None:
             attrs = self.attrs
         if cvs is None:
             cvs = self.cvs
+        assert cvs is not None
         if self.pen:
             self.paths.append(self.ps)
         for ps in self.paths:
@@ -164,23 +202,24 @@ class Turtle(object):
                 method(p, attrs)
         if not name.endswith("_preserve"):
             self.paths = []
-            self.ps = self.ps[-1:]
+            if self.ps is not None:
+                self.ps = self.ps[-1:]
         return self
 
-    def stroke(self, *args, **kw):
+    def stroke(self, **kw):
         kw["name"] = "stroke"
-        self._render(*args, **kw)
+        self._render(**kw)
 
-    def fill(self, *args, **kw):
+    def fill(self, **kw):
         kw["name"] = "fill"
-        self._render(*args, **kw)
+        self._render(**kw)
 
-    def stroke_preserve(self, *args, **kw):
-        kw["name"] = "stroke"
-        self._render(*args, **kw)
+    def stroke_preserve(self, **kw):
+        kw["name"] = "stroke" # TODO
+        self._render(**kw)
 
-    def fill_preserve(self, *args, **kw):
-        kw["name"] = "fill"
-        self._render(*args, **kw)
+    def fill_preserve(self, **kw):
+        kw["name"] = "fill" # TODO
+        self._render(**kw)
 
 

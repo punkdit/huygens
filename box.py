@@ -7,7 +7,8 @@ from math import pi
 
 from bruhat.render.sat import Expr, Variable, System
 from bruhat.render.front import RGBA, Canvas, Scale, Compound, Translate
-from bruhat.render.front import path, style
+from bruhat.render.front import path, style, canvas
+from bruhat.render.turtle import Turtle
 from bruhat.argv import argv
 
 
@@ -83,23 +84,35 @@ class Box(Magic):
         return self.urx, self.ury
 
     @property
+    def midx(self):
+        return 0.5*(self.llx + self.urx)
+
+    @property
+    def midy(self):
+        return 0.5*(self.lly + self.ury)
+
+    @property
+    def mid(self):
+        return (self.midx, self.midy)
+
+    @property
     def bound(self):
         return self.llx, self.lly, self.urx, self.ury
 
     def get_align(self, align):
         llx, lly, urx, ury = self.bound
-        xmid = 0.5*(llx + urx)
-        ymid = 0.5*(lly + ury)
+        midx = 0.5*(llx + urx)
+        midy = 0.5*(lly + ury)
         if align == "center":
-            x, y = xmid, ymid
+            x, y = midx, midy
         elif align == "north":
-            x, y = xmid, ury
+            x, y = midx, ury
         elif align == "south":
-            x, y = xmid, lly
+            x, y = midx, lly
         elif align == "east":
-            x, y = urx, ymid
+            x, y = urx, midy
         elif align == "west":
-            x, y = llx, ymid
+            x, y = llx, midy
         elif align == "northeast":
             x, y = urx, ury
         elif align == "northwest":
@@ -112,6 +125,12 @@ class Box(Magic):
             assert 0, "alignment %r not understood" % align
     
         return x, y
+
+    def contain(self, x, y, system, weight=None):
+        system.add(x <= self.urx, weight)
+        system.add(x >= self.llx, weight)
+        system.add(y <= self.ury, weight)
+        system.add(y >= self.lly, weight)
 
     def on_layout(self, cvs, system):
         #assert not self.did_layout, "already called on_layout"
@@ -209,6 +228,21 @@ class EmptyBox(Box):
             self.left = left
         if right is not None:
             self.right = right
+
+
+class MinBox(Box):
+    def __init__(self, min_top=0., min_bot=0., min_left=0., min_right=0.):
+        self.min_top = min_top
+        self.min_bot = min_bot
+        self.min_left = min_left
+        self.min_right = min_right
+
+    def on_layout(self, cvs, system):
+        Box.on_layout(self, cvs, system)
+        system.add(self.top >= self.min_top)
+        system.add(self.bot >= self.min_bot)
+        system.add(self.left >= self.min_left)
+        system.add(self.right >= self.min_right)
 
 
 class CanBox(Box):
@@ -403,6 +437,14 @@ class CompoundBox(Box):
             box.on_render(cvs, system)
 
 
+class MultiBox(CompoundBox):
+    def on_render(self, cvs, system):
+        # Don't call Box.on_render because I have no shape
+        for box in self.boxs:
+            box.on_render(cvs, system)
+    
+
+
 class OBox(CompoundBox):
     "Overlay boxes on top of each other, with matching anchors"
     strict = False
@@ -475,17 +517,41 @@ class StrictVBox(VBox):
 
 
 class TableBox(CompoundBox):
-    def __init__(self, rows, grid=False):
-        boxs = []
+    def __init__(self, rows, hspace=0., vspace=0., grid=False):
+        assert len(rows), "no rows"
+        assert len(rows[0]), "no cols"
+
+        rows = [list(row) for row in rows] # copy
+        assert hspace >= 0.
+        assert vspace >= 0.
+
+        # Get original shape
         m = len(rows) # rows
         n = len(rows[0]) # cols
-        assert n>0
+
+        row = []
+        for i in range(n):
+            space = hspace if i+1<n else 0.
+            row.append(MinBox(0., 0., 0., space))
+        row.append(MinBox(0., 0., 0., 0.))
+        rows.append(row)
+
+        for i in range(m):
+            space = vspace if i+1<m else 0.
+            rows[i].append(MinBox(0., space, 0., 0.))
+
+        # Get new shape
+        m = len(rows) # rows
+        n = len(rows[0]) # cols
+
+        boxs = []
         for row in rows:
             assert len(row) == n
             for box in row:
                 box = Box.promote(box)
                 boxs.append(box)
-        self.rows = [list(row) for row in rows]
+
+        self.rows = rows
         self.shape = m, n
         # anchor is top left
         self.top = 0.
@@ -562,9 +628,118 @@ class TableBox(CompoundBox):
         cvs.stroke(path.rect(x, y-height, width, height))
 
 
+class ArrowBox(Box):
+
+    #default_style = "flat"
+    default_style = "curve"
+    default_size = 0.15
+    default_attrs = [style.linewidth.thin, style.linecap.round,
+        style.linejoin.round]
+
+    def __init__(self, src, tgt, label=None, pos=None,
+            style=None, size=None, attrs=None, weight=0.1):
+        assert isinstance(src, Box)
+        assert isinstance(tgt, Box)
+        self.src = src
+        self.tgt = tgt
+        assert src is not tgt, "self-arrow not implemented"
+        if label is not None:
+            label = Box.promote(label)
+        self.label = label
+        self.pos = pos
+        if style is None:
+            style = ArrowBox.default_style
+        self.style = style
+        if size is None:
+            size = ArrowBox.default_size
+        self.size = size
+        if attrs is None:
+            attrs = ArrowBox.default_attrs
+        self.attrs = attrs
+        self.size = size
+        self.weight = weight
+
+    def on_layout(self, cvs, system):
+        Box.on_layout(self, cvs, system)
+        self.x1 = x1 = system.get_var("ArrowBox.x1", weight=0.)
+        self.y1 = y1 = system.get_var("ArrowBox.y1", weight=0.)
+        x0, y0 = self.x, self.y 
+        src = self.src
+        tgt = self.tgt
+        src.contain(x0, y0, system)
+        tgt.contain(x1, y1, system)
+        self.contain(x1, y1, system)
+
+        # With a lower weight, try to stay in the middle
+        weight = self.weight
+        system.add(x0 == src.midx, weight)
+        system.add(y0 == src.midy, weight)
+        system.add(x1 == tgt.midx, weight)
+        system.add(y1 == tgt.midy, weight)
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        x0 = system[self.x]
+        y0 = system[self.y]
+        x1 = system[self.x1]
+        y1 = system[self.y1]
+        turtle = Turtle(x0, y0)
+        turtle.moveto(x1, y1)
+        turtle.arrow(size=self.size, style=self.style)
+        turtle.stroke(attrs=self.attrs, cvs=cvs)
+
+        print(self.label)
+        label = self.label
+        pos = self.pos
+        if label is None:
+            return
+
+        x = 0.5*(x0+x1)
+        y = 0.5*(y0+y1)
+        #cvs.text(x, y, "%s"%label)
+        label.render(cvs, x, y)
+
+        print(label)
+
+
+
+def test():
+
+    from bruhat.render import config
+    config(text="pdftex")
+
+    Box.DEBUG = False
+
+    tbox = lambda t: MarginBox(TextBox(t), 0.05)
+    rows = [
+        [r"A", r"B", r"C\to D"],
+        [r"A", r"B D", r"C\to D"],
+        [r"A", r"B", r"C\to D"],
+    ]
+    boxs = [[tbox("$%s$"%c) for c in row] for row in rows]
+
+    arrows = []
+    for di in [-1, 0, 1]:
+      for dj in [-1, 0, 1]:
+        if di==0 and dj==0:
+            continue
+        a = ArrowBox(boxs[1][1], boxs[1+di][1+dj], label=r"$f$")
+        arrows.append(a)
+
+    r = 1.
+    table = TableBox(boxs, hspace=r, vspace=0.8*r)
+    box = MultiBox([table]+arrows)
+
+    cvs = canvas.canvas()
+    box.render(cvs)
+
+    cvs.writePDFfile("output.pdf")
+
+
 
 if __name__ == "__main__":
 
+    test()
 
     print("OK\n")
 
