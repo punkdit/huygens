@@ -7,7 +7,7 @@ from math import pi
 
 from bruhat.render.sat import Expr, Variable, System
 from bruhat.render.front import RGBA, Canvas, Scale, Compound, Translate
-from bruhat.render.front import path, style, canvas
+from bruhat.render.front import path, style, canvas, color
 from bruhat.render.turtle import Turtle
 from bruhat.argv import argv
 
@@ -29,6 +29,7 @@ class Magic(object):
         raise IndexError
 
 
+EPSILON = 1e-6
 
 
 class Box(Magic):
@@ -381,7 +382,7 @@ class AlignBox(ChildBox):
     def __init__(self, child, align):
         ChildBox.__init__(self, child)
         self.align = align
-        assert align in ("center north south east west northeast"+
+        assert align in ("center north south east west northeast "+
             "northwest southeast southwest").split(), "align %r not understood"%align
 
     def on_layout(self, cvs, system):
@@ -525,21 +526,25 @@ class TableBox(CompoundBox):
         assert hspace >= 0.
         assert vspace >= 0.
 
-        # Get original shape
-        m = len(rows) # rows
-        n = len(rows[0]) # cols
+#        if 0:
+#            # Get original shape
+#            m = len(rows) # rows
+#            n = len(rows[0]) # cols
+#    
+#            row = []
+#            for i in range(n):
+#                space = hspace if i+1<n else 0.
+#                row.append(MinBox(0., 0., 0., space))
+#            row.append(MinBox(0., 0., 0., 0.))
+#            rows.append(row)
+#    
+#            for i in range(m):
+#                space = vspace if i+1<m else 0.
+#                rows[i].append(MinBox(0., space, 0., 0.))
 
-        row = []
-        for i in range(n):
-            space = hspace if i+1<n else 0.
-            row.append(MinBox(0., 0., 0., space))
-        row.append(MinBox(0., 0., 0., 0.))
-        rows.append(row)
-
-        for i in range(m):
-            space = vspace if i+1<m else 0.
-            rows[i].append(MinBox(0., space, 0., 0.))
-
+        self.hspace = hspace
+        self.vspace = vspace
+    
         # Get new shape
         m = len(rows) # rows
         n = len(rows[0]) # cols
@@ -583,6 +588,7 @@ class TableBox(CompoundBox):
                 system.add(box.y == ys[i]) # align
                 system.add(box.x == xs[j]) # align
 
+        hspace = self.hspace
         for i in range(m): # rows
             x = self.x
             for j in range(n): # cols
@@ -590,9 +596,10 @@ class TableBox(CompoundBox):
                 system.add(box.x - box.left >= x)
                 width = ws[j] # width of this col
                 x += width
-                system.add(box.x + box.right <= x)
+                system.add(box.x + box.right + hspace <= x)
             system.add(self.x + self.width >= x)
 
+        vspace = self.vspace
         for j in range(n): # cols
             y = self.y
             for i in range(m): # rows
@@ -600,7 +607,7 @@ class TableBox(CompoundBox):
                 system.add(box.y + box.top <= y)
                 height = hs[i]
                 y -= height
-                system.add(box.y - box.bot >= y)
+                system.add(box.y - box.bot - vspace >= y)
             system.add(self.y - self.height <= y)
         self.vs = xs, ys, ws, hs
 
@@ -636,17 +643,17 @@ class ArrowBox(Box):
     default_attrs = [style.linewidth.thin, style.linecap.round,
         style.linejoin.round]
 
-    def __init__(self, src, tgt, label=None, pos=None,
+    def __init__(self, src, tgt, label=None, label_align=None,
             style=None, size=None, attrs=None, weight=0.1):
         assert isinstance(src, Box)
         assert isinstance(tgt, Box)
         self.src = src
         self.tgt = tgt
         assert src is not tgt, "self-arrow not implemented"
-        if label is not None:
-            label = Box.promote(label)
+        #if label is not None:
+        #    label = Box.promote(label)
         self.label = label
-        self.pos = pos
+        self.label_align = label_align
         if style is None:
             style = ArrowBox.default_style
         self.style = style
@@ -688,19 +695,37 @@ class ArrowBox(Box):
         turtle.arrow(size=self.size, style=self.style)
         turtle.stroke(attrs=self.attrs, cvs=cvs)
 
-        print(self.label)
         label = self.label
-        pos = self.pos
+        align = self.label_align
         if label is None:
             return
 
+        dx = x1-x0
+        dy = y1-y0
+        PIP = 0.04 # <------- MAGIC CONSTANT TODO
+        if align is not None:
+            pass
+        elif abs(dy)<EPSILON:
+            align = "south"
+        elif abs(dx)<EPSILON:
+            align = "west"
+        elif dx*dy > 0.:
+            align = "northwest"
+            PIP = 0.02
+        else:
+            align = "southwest"
+            PIP = 0.02
+
+        if isinstance(label, Box):
+            pass
+        else:
+            label = MarginBox(label, PIP)
+            label = AlignBox(label, align)
+
         x = 0.5*(x0+x1)
         y = 0.5*(y0+y1)
-        #cvs.text(x, y, "%s"%label)
         label.render(cvs, x, y)
-
-        print(label)
-
+        #cvs.stroke(path.circle(x, y, 0.02), [color.rgb.red])
 
 
 def test():
@@ -712,9 +737,9 @@ def test():
 
     tbox = lambda t: MarginBox(TextBox(t), 0.05)
     rows = [
-        [r"A", r"B", r"C\to D"],
-        [r"A", r"B D", r"C\to D"],
-        [r"A", r"B", r"C\to D"],
+        [r"A", r"B", r"C"],
+        [r"D", r"E", r"F"],
+        [r"G", r"H", r"I"],
     ]
     boxs = [[tbox("$%s$"%c) for c in row] for row in rows]
 
@@ -723,10 +748,11 @@ def test():
       for dj in [-1, 0, 1]:
         if di==0 and dj==0:
             continue
-        a = ArrowBox(boxs[1][1], boxs[1+di][1+dj], label=r"$f$")
+        label = r"$x$"
+        a = ArrowBox(boxs[1][1], boxs[1+di][1+dj], label=label)
         arrows.append(a)
 
-    r = 1.
+    r = 1.1
     table = TableBox(boxs, hspace=r, vspace=0.8*r)
     box = MultiBox([table]+arrows)
 
