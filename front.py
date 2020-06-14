@@ -184,14 +184,14 @@ class Canvas(Compound):
         return surface
 
     def writePDFfile(self, name):
-        assert name.endswith(".pdf")
+        assert name.endswith(".pdf") or name=="/dev/null" 
         import cairo
         method = cairo.PDFSurface
         surface = self._write_cairo(method, name)
         surface.finish()
 
     def writeSVGfile(self, name):
-        assert name.endswith(".svg")
+        assert name.endswith(".svg") or name=="/dev/null" 
         import cairo
         method = cairo.SVGSurface
         surface = self._write_cairo(method, name)
@@ -199,7 +199,7 @@ class Canvas(Compound):
 
     def writePNGfile(self, name):
         assert 0, "XXX Not working very well XXX"
-        assert name.endswith(".png")
+        assert name.endswith(".png") or name=="/dev/null" 
         import cairo
         def method(name, W, H):
             W = int(round(W))

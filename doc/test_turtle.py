@@ -63,7 +63,7 @@ def test_turtle():
         turtle.left(320, 0.6*R)
         turtle.left(-60, 0.3*R)
         turtle.right(90, 0.6*R)
-        turtle.stroke(attrs)
+        turtle.stroke(attrs=attrs)
 
     yield cvs
 

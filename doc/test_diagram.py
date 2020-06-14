@@ -229,6 +229,8 @@ def test_braid():
     cvs.fill(p, [color.rgb(0.9, 0.9, 0.6)])
     cvs.stroke(p, [style.linewidth.thick])
 
+    system.refresh() # refresh for a new render
+
     cvs.append(style.linewidth.THICk)
     #cvs.append(color.rgb(0.2,0.5,0.2))
     box.render(cvs)

@@ -5,14 +5,14 @@ from copy import deepcopy
 from math import pi
 
 
-from bruhat.render.sat import Expr, Variable, System
-from bruhat.render.front import RGBA, Canvas, Scale, Compound, Translate
+from bruhat.render.sat import Expr, System, Listener
+from bruhat.render.front import RGBA, Compound, Translate
 from bruhat.render.front import path, style, canvas, color
 from bruhat.render.turtle import Turtle
 from bruhat.argv import argv
 
 
-class Magic(object):
+class Magic(Listener):
 
     did_layout = False
 
@@ -27,6 +27,7 @@ class Magic(object):
 
     def __getitem__(self, idx):
         raise IndexError
+
 
 
 EPSILON = 1e-6
@@ -140,15 +141,22 @@ class Box(Magic):
         if self.DEBUG:
             print("%s.on_layout" % (self.__class__.__name__,))
         for attr in 'x y left right top bot'.split():
-            if attr in self.__dict__:
-                continue
             stem = self.__class__.__name__ + '.' + attr
+            expr = getattr(self, attr, None)
+            if isinstance(expr, Expr):
+                system.listen_expr(self, attr, expr)
 
-            # We don't try to minimize the absolute coordinate values.
-            weight = 1.0 if attr not in 'xy' else 0.0
-            vmin = None if attr in 'xy' else 0.
-            v = system.get_var(stem, weight, vmin=vmin)
-            setattr(self, attr, v)
+            elif attr in self.__dict__:
+                pass
+
+            else:
+                # We don't try to minimize the absolute coordinate values.
+                weight = 1.0 if attr not in 'xy' else 0.0
+                vmin = None if attr in 'xy' else 0.
+                #v = system.get_var(stem, weight, vmin=vmin)
+                v = system.listen_var(self, attr, stem, weight, vmin=vmin)
+                setattr(self, attr, v)
+
         self.did_layout = True
 
     def assign_variables(self, system):
@@ -163,6 +171,13 @@ class Box(Magic):
 
     def on_render(self, cvs, system):
         if 1:
+            x = self.x
+            y = self.y
+            left = self.left
+            right = self.right
+            top = self.top
+            bot = self.bot
+        elif 0:
             x = system[self.x]
             y = system[self.y]
             left = system[self.left]
@@ -181,6 +196,7 @@ class Box(Magic):
 
         if not self.DEBUG:
             return
+        assert type(x) is float, str(self)
         #cvs.set_line_width(0.5)
         cl = RGBA(1., 0., 0., 0.5)
         r = 0.1
@@ -191,24 +207,23 @@ class Box(Magic):
         cvs.fill(path.rect(x-left, y-bot, left+right, top+bot), [bg])
         cvs.stroke(path.rect(x-left, y-bot, left+right, top+bot), [cl])
 
+    system = None
     def layout(self, cvs, x=0, y=0):
-        system = System()
+        if self.system is None:
+            self.system = System()
+        system = self.system
         system.memo = set() # hang this here
         self.on_layout(cvs, system)
         system.add(self.x == x)
         system.add(self.y == y)
         system.solve()
-        self.system = system
         return system
 
     def render(self, cvs, x=0, y=0):
-        #save = Box.DEBUG
-        #if debug is not None:
-        #    Box.DEBUG = debug
-        if not self.did_layout:
-            self.layout(cvs, x, y)
+        #if not self.did_layout:
+        self.layout(cvs, x, y)
         self.on_render(cvs, self.system)
-        #Box.DEBUG = save
+        self.system.refresh()
 
 
 #class EmptyBox(Box):

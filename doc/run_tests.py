@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+"""
+Note: use mkdoc.py to rebuild all docs & images.
+"""
+
 import os
 import collections
 
@@ -67,7 +71,8 @@ def run_test(func, dummy=False):
         start = end+1
 
         if dummy:
-            continue
+            svgname = "/dev/null"
+            pdfname = "/dev/null"
 
         try:
             print("run_tests: rendering", name, func)
@@ -82,7 +87,8 @@ def run_test(func, dummy=False):
             cvs.writePDFfile(pdfname)
             print()
         except:
-            print("run_tests: render failed for", name, func)
+            print("run_tests: render failed for", 
+                name, func.__name__, "line", end)
             raise
 
       except StopIteration:
@@ -118,7 +124,7 @@ def run():
     names.sort()
 
     for name in names:
-        for test in harvest(path, name):
+        for test in harvest(path, name, True):
             yield test
 
 

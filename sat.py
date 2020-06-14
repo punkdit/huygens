@@ -319,21 +319,58 @@ class Solver(object):
         return vs
 
 
+class Listener(object):
+
+    def __hash__(self):
+        return id(self)
+
+    def on_update(self, name, value):
+        #print(self.__class__.__name__, "on_update", name, value)
+        setattr(self, name, value)
+
+    def on_refresh(self, name):
+        #print(self.__class__.__name__, "on_refresh", name)
+        if name in self.__dict__:
+            delattr(self, name)
+
+
+
 class System(object):
 
     def __init__(self):
         self.stems = {}
         self.items = []
         self.lookup = None
+        #self.listeners = {}
+        self.all_vars = set()
 
     def get_var(self, stem="v", weight=1.0, vmin=None, vmax=None):
         idx = self.stems.get(stem, -1) + 1
         v = Variable('%s_%d'%(stem, idx), weight, vmin=vmin, vmax=vmax)
+        v.listeners = [] # hang this here...
         self.stems[stem] = idx
+        self.all_vars.add(v)
         return v
 
+    def listen_var(self, listener, name, *args, **kw):
+        assert isinstance(listener, Listener)
+        assert hash(name) is not None, "need hashable name"
+        v = self.get_var(*args, **kw)
+        #self.listeners[v] = (listener, name)
+        v.listeners.append((listener, name, v))
+        return v
+
+    def listen_expr(self, listener, name, expr):
+        assert isinstance(listener, Listener)
+        assert isinstance(expr, Expr)
+        assert hash(name) is not None, "need hashable name"
+        for v in expr.get_leaves():
+            v.listeners.append((listener, name, expr))
+            assert v in self.all_vars # sanity check
+
     def add(self, item, weight=None):
-        assert isinstance(item, Term)
+        "add a constraint term"
+        assert isinstance(item, Term), "%r expected Term" % item
         if weight is None:
             # strict
             self.items.append(item)
@@ -342,15 +379,15 @@ class System(object):
             assert weight > 0., "??"
             c = self.get_var("eq_slack", weight)
             a, b = item.lhs, item.rhs
-            self.add(c >= b-a)
-            self.add(c >= a-b)
+            self.add(c >= b-a) # recurse
+            self.add(c >= a-b) # recurse
         elif isinstance(item, Le):
             # allow inequality violation at a cost == weight
             c = self.get_var("le_slack", weight, 0.)
             a, b = item.lhs, item.rhs
-            self.add(c >= a-b)
+            self.add(c >= a-b) # recurse
         else:
-            assert 0
+            assert 0, "item %r not understood" % (item,)
 
     def minimize(self, expr, weight=1.0):
         assert isinstance(expr, Expr)
@@ -362,10 +399,26 @@ class System(object):
         v = self.get_var("maximize", -weight)
         self.add(v == expr)
 
+    def refresh(self):
+        #print("System.refresh")
+        for v in self.all_vars:
+          for listener, name, expr in v.listeners:
+            #value = self[expr]
+            #listener.on_update(name, expr)
+            listener.on_refresh(name)
+        self.__init__()
+
     def solve(self):
+        #print("System.solve")
         assert self.lookup is None, "already called solve!"
         solver = Solver(self.items)
         self.lookup = solver.solve()
+
+        # notify the listeners
+        for v in self.all_vars:
+          for listener, name, expr in v.listeners:
+            value = self[expr]
+            listener.on_update(name, value)
 
     def __getitem__(self, v):
         if isinstance(v, (int, float)):
