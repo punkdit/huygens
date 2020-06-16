@@ -161,7 +161,31 @@ def test_yang_baxter():
     rhs = s23() * s12() * s23()
     box = HBox([lhs, "$=$", rhs], align="center")
 
-    yield box
+    yield box, "yang-baxter"
+
+
+def test_braid_3():
+    from bruhat.render.box import Box, HBox
+    from bruhat.render.diagram import VWire, Braid
+    Box.DEBUG = False
+
+    Id = VWire
+
+    scale = 1.0
+    w = 0.8*scale
+    h = 0.5*scale
+    s1 = lambda : Braid(min_width=w, min_height=h) @ Id(min_height=h, min_width=h)
+    s2 = lambda : Id(min_height=h, min_width=h) @ Braid(min_width=w, min_height=h)
+
+    from operator import mul
+    from functools import reduce
+
+    word = [[s1, s2][i%2]() for i in range(6)]
+    box = reduce(mul, word)
+
+    box = HBox(["$Z =$", box], align="center")
+
+    yield box, "braid-Z"
 
 
 
@@ -221,10 +245,10 @@ def test_braid():
     system = box.layout(cvs)
 
     sub = box[0][1][1]
-    x = 0.5*(system[box.llx] + system[box.urx])
-    y = system[sub.lly]
-    width = system[box.urx] - x
-    height = system[sub.ury] - y
+    x = 0.5*(box.llx + box.urx)
+    y = sub.lly
+    width = box.urx - x
+    height = sub.ury - y
     p = path.rect(x, y, width, height)
     cvs.fill(p, [color.rgb(0.9, 0.9, 0.6)])
     cvs.stroke(p, [style.linewidth.thick])
@@ -242,6 +266,8 @@ def test_braid():
     #cvs.writePDFfile("test_diagram.pdf")
 
     yield cvs
+
+
 
 
 def XXXtest_braid():

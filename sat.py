@@ -34,9 +34,22 @@ class Expr(object):
         other = Expr.promote(other)
         return Add([self, -other])
 
-    def __rmul__(self, r):
-        assert isinstance(r, (int, float))
-        return Scale(self, r)
+    def __rmul__(self, other):
+        if isinstance(other, (int, float)):
+            pass
+        elif isinstance(other, Expr):
+            raise TypeError("non-linear operation not implemented (for good reasons.)")
+        else:
+            raise TypeError()
+        return Scale(self, other)
+
+    def __mul__(self, other):
+        if isinstance(r, (int, float)):
+            return self.__rmul__(other)
+        if isinstance(other, Expr):
+            raise TypeError("non-linear operation not implemented (for good reasons.)")
+        else:
+            raise TypeError()
 
     def __truediv__(self, r):
         return self.__rmul__(1./r)

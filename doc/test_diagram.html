@@ -253,7 +253,34 @@ inside its large box.</p>
 <span class="n">box</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">([</span><span class="n">lhs</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rhs</span><span class="p">],</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
 </pre></div>
 
-<p><img src="images/output-14.svg" class="center"></p>
+<p><img src="images/yang-baxter.svg" class="center"></p>
+
+
+
+<hr />
+
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bruhat.render.box</span> <span class="kn">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
+<span class="kn">from</span> <span class="nn">bruhat.render.diagram</span> <span class="kn">import</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Braid</span>
+<span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="n">Id</span> <span class="o">=</span> <span class="n">VWire</span>
+
+<span class="n">scale</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">w</span> <span class="o">=</span> <span class="mf">0.8</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">h</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">s1</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+<span class="n">s2</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">mul</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+
+<span class="n">word</span> <span class="o">=</span> <span class="p">[[</span><span class="n">s1</span><span class="p">,</span> <span class="n">s2</span><span class="p">][</span><span class="n">i</span><span class="o">%</span><span class="mi">2</span><span class="p">]()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">mul</span><span class="p">,</span> <span class="n">word</span><span class="p">)</span>
+
+<span class="n">box</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">([</span><span class="s2">&quot;$Z =$&quot;</span><span class="p">,</span> <span class="n">box</span><span class="p">],</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
+</pre></div>
+
+<p><img src="images/braid-Z.svg" class="center"></p>
 
 
 
@@ -304,7 +331,7 @@ inside its large box.</p>
 <span class="n">box</span> <span class="o">=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">rel</span>
 </pre></div>
 
-<p><img src="images/output-15.svg" class="center"></p>
+<p><img src="images/output-14.svg" class="center"></p>
 
 
 <p>Draw this now with some more fancy tricks.</p>
@@ -313,10 +340,10 @@ inside its large box.</p>
 <span class="n">system</span> <span class="o">=</span> <span class="n">box</span><span class="o">.</span><span class="n">layout</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
 
 <span class="n">sub</span> <span class="o">=</span> <span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
-<span class="n">x</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">llx</span><span class="p">]</span> <span class="o">+</span> <span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">urx</span><span class="p">])</span>
-<span class="n">y</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">lly</span><span class="p">]</span>
-<span class="n">width</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">box</span><span class="o">.</span><span class="n">urx</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span>
-<span class="n">height</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="n">sub</span><span class="o">.</span><span class="n">ury</span><span class="p">]</span> <span class="o">-</span> <span class="n">y</span>
+<span class="n">x</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">box</span><span class="o">.</span><span class="n">llx</span> <span class="o">+</span> <span class="n">box</span><span class="o">.</span><span class="n">urx</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">lly</span>
+<span class="n">width</span> <span class="o">=</span> <span class="n">box</span><span class="o">.</span><span class="n">urx</span> <span class="o">-</span> <span class="n">x</span>
+<span class="n">height</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">ury</span> <span class="o">-</span> <span class="n">y</span>
 <span class="n">p</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">rect</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span>
 <span class="n">cvs</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="p">[</span><span class="n">color</span><span class="o">.</span><span class="n">rgb</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">)])</span>
 <span class="n">cvs</span><span class="o">.</span><span class="n">stroke</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="p">[</span><span class="n">style</span><span class="o">.</span><span class="n">linewidth</span><span class="o">.</span><span class="n">thick</span><span class="p">])</span>
@@ -331,7 +358,7 @@ inside its large box.</p>
 <span class="n">box</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">cvs</span><span class="p">)</span>
 </pre></div>
 
-<p><img src="images/output-16.svg" class="center"></p>
+<p><img src="images/output-15.svg" class="center"></p>
 
 
 <hr>

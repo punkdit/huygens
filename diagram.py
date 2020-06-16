@@ -417,7 +417,7 @@ class Relation(Multi):
 
 
 class Braid(Multi):
-    def __init__(self, inverse=False, space=0.8, weight=1.0, 
+    def __init__(self, inverse=False, space=0.5, weight=1.0, 
             min_width=SIZE, min_height=0.5*SIZE):
         Multi.__init__(self, 2, 2, weight, min_width=min_width, min_height=min_height)
         self.inverse = inverse
