@@ -659,7 +659,8 @@ class ArrowBox(Box):
         style.linejoin.round]
 
     def __init__(self, src, tgt, label=None, label_align=None,
-            style=None, size=None, attrs=None, weight=0.1):
+            style=None, size=None, pad_head=0.04, pad_tail=0.04,
+            attrs=None, weight=0.1):
         assert isinstance(src, Box)
         assert isinstance(tgt, Box)
         self.src = src
@@ -678,7 +679,6 @@ class ArrowBox(Box):
         if attrs is None:
             attrs = ArrowBox.default_attrs
         self.attrs = attrs
-        self.size = size
         self.weight = weight
 
     def on_layout(self, cvs, system):
@@ -737,6 +737,7 @@ class ArrowBox(Box):
             label = MarginBox(label, PIP)
             label = AlignBox(label, align)
 
+        # TODO pad_head, pad_tail XXX
         x = 0.5*(x0+x1)
         y = 0.5*(y0+y1)
         label.render(cvs, x, y)
