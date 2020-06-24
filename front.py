@@ -43,6 +43,7 @@ RGB.red = RGB(1., 0., 0.)
 RGB.green = RGB(0., 1., 0.)
 RGB.blue = RGB(0., 0., 1.)
 RGB.white = RGB(1., 1., 1.)
+RGB.grey = RGB.gray = RGB(0.8, 0.8, 0.8)
 RGB.black = RGB(0., 0., 0.)
 
 color = NS(rgb=RGBA)
@@ -198,7 +199,6 @@ class Canvas(Compound):
         surface.finish()
 
     def writePNGfile(self, name):
-        assert 0, "XXX Not working very well XXX"
         assert name.endswith(".png") or name=="/dev/null" 
         import cairo
         def method(name, W, H):
