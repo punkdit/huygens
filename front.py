@@ -129,6 +129,10 @@ class Canvas(Compound):
         item = Compound(decos, path, Fill())
         self.append(item)
 
+    def clip(self, path):
+        self.append(path)
+        self.append(Clip())
+
 #    def text_extents(self, text):
 #        dx, dy, width, height, _, _ = text_extents_cairo(text)
 #        return (dx/SCALE_CM_TO_POINT, -dy/SCALE_CM_TO_POINT,  # <-- sign flip

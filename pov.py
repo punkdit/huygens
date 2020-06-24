@@ -3,6 +3,8 @@
 """
 Duplicate OpenGL coordinate system...
 
+See:
+https://gamedev.stackexchange.com/questions/153078/what-can-i-do-with-the-4th-component-of-gl-position
 """
 
 import sys
@@ -90,6 +92,32 @@ class Mat(object):
         elif self.shape[1] == 1:
             idx = (idx, 0)
         self.A[idx] = value
+
+    @classmethod
+    def frustum(cls, left, right, bottom, top, nearval, farval):
+        # mesa/src/mesa/math/m_matrix.c
+        """
+       GLfloat x, y, a, b, c, d;
+       GLfloat m[16];
+    
+       x = (2.0F*nearval) / (right-left);
+       y = (2.0F*nearval) / (top-bottom);
+       a = (right+left) / (right-left);
+       b = (top+bottom) / (top-bottom);
+       c = -(farval+nearval) / ( farval-nearval);
+       d = -(2.0F*farval*nearval) / (farval-nearval);  /* error? */
+    
+    #define M(row,col)  m[col*4+row]
+       M(0,0) = x;     M(0,1) = 0.0F;  M(0,2) = a;      M(0,3) = 0.0F;
+       M(1,0) = 0.0F;  M(1,1) = y;     M(1,2) = b;      M(1,3) = 0.0F;
+       M(2,0) = 0.0F;  M(2,1) = 0.0F;  M(2,2) = c;      M(2,3) = d;
+       M(3,0) = 0.0F;  M(3,1) = 0.0F;  M(3,2) = -1.0F;  M(3,3) = 0.0F;
+    #undef M
+    
+       matrix_multf( mat, m, MAT_FLAG_PERSPECTIVE );
+        """
+        pass # TODO
+
 
     @classmethod
     def translate(cls, *args):
@@ -186,13 +214,13 @@ proj = Mat.identity(4)
 M = Mat.perspective(45., width/height, 0.1, 100.)
 proj = M * proj
 
-print(proj)
-if 0:
-    assert proj == Mat([
-        [ 1.8106601,  0.,         0.,         0.,       ],
-        [ 0.,         2.4142137,  0.,         0.,       ],
-        [ 0.,         0.,        -1.002002,  -1.,       ],
-        [ 0.,         0.,        -0.2002002,  0.,       ]])
+#print(proj)
+#if 0:
+#    assert proj == Mat([
+#        [ 1.8106601,  0.,         0.,         0.,       ],
+#        [ 0.,         2.4142137,  0.,         0.,       ],
+#        [ 0.,         0.,        -1.002002,  -1.,       ],
+#        [ 0.,         0.,        -0.2002002,  0.,       ]])
 
 
 assert proj == Mat([
@@ -238,9 +266,10 @@ def mkpath(pts, closepath=True):
     return p
 
 
-def mk_poly(pts):
+def mk_poly(pts, deco=[]):
     pts = [get(*p) for p in pts]
     p = mkpath(pts)
+    cvs.fill(p, deco)
     cvs.stroke(p)
 
 
@@ -248,6 +277,10 @@ def main():
 
     global cvs
     cvs = canvas.canvas()
+
+    p = mkpath([(0., 0.), (width, 0.), (width, height), (0., height)])
+    cvs.fill(p, [color.rgb.black])
+    cvs.clip(p)
 
     # eye, center, up
     lookat( [5., 5., 5.], [0., 0, 0], [0, 1, 0])
@@ -257,11 +290,6 @@ def main():
     #lookat( [0., 0., 0.], [0., 1, -1], [0, 1, 0]) # OK
     #lookat( [1., 1., 1.], [0., 0, 0], [0, 1, 0]) # OK
 
-    print()
-    print(model)
-
-    #return
-
     translate(-1.5, 0.0, -6.0)
 
     #glColor(1., 1., 0.)
@@ -269,14 +297,15 @@ def main():
     mk_poly( [
         (0.0, 1.0, -1.0),   
         (1.0, -1.0, -1.0),     
-        (-1.0, -1.0, -1.0)]    )
+        (-1.0, -1.0, -1.0)], [color.rgb(1., 1., 0)])
 
     #glColor(1., 1., 1.)
 
+    c = color.rgb(1., 1., 1.)
     mk_poly( [
         (0.0, 1.0, 0.0),       
         (1.0, -1.0, 0.0),      
-        (-1.0, -1.0, 0.0)]     )
+        (-1.0, -1.0, 0.0)], [c])
 
     translate(3.0, 0.0, 0.0)
 
@@ -284,8 +313,7 @@ def main():
         (-1.0, 1.0, 0.0),      
         (1.0, 1.0, 0.0),       
         (1.0, -1.0, 0.0),      
-        (-1.0, -1.0, 0.0)]     )
-
+        (-1.0, -1.0, 0.0)], [c])
 
     #cvs.dump()
     cvs.writePDFfile("output.pdf")

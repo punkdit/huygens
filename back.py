@@ -437,6 +437,11 @@ class FillPreserve(Deco):
         cxt.fill_preserve()
 
 
+class Clip(Deco):
+    def process_cairo(self, cxt):
+        cxt.clip()
+
+
 class RGBA(Deco):
     def __init__(self, r, g, b, a=1.0):
         self.cl = (r, g, b, a)
