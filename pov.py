@@ -8,11 +8,9 @@ https://gamedev.stackexchange.com/questions/153078/what-can-i-do-with-the-4th-co
 """
 
 import sys
-from math import sin, cos
+from math import sin, cos, pi
 
 import numpy
-
-from bruhat.render.front import *
 
 scalar = numpy.float64
 EPSILON = 1e-6
@@ -77,6 +75,10 @@ class Mat(object):
         other = Mat.promote(other)
         assert self.shape[1] == other.shape[0]
         A = numpy.dot(self.A, other.A)
+        return Mat(A)
+
+    def __rmul__(self, r):
+        A = r*self.A
         return Mat(A)
 
     def __getitem__(self, idx):
@@ -204,34 +206,36 @@ class Mat(object):
         return M
 
 
-width, height = 640, 480
-scale = 0.05
-width, height = scale*width, scale*height
-viewport = (0., 0., width, height)
+# ----------------------------------------------------------------------
 
-proj = Mat.identity(4)
+def test_perspective():
+    width, height = 640, 480
+    proj = Mat.identity(4)
+    
+    M = Mat.perspective(45., width/height, 0.1, 100.)
+    proj = M * proj
+    
+    assert proj == Mat([
+        [ 1.8106601,  0.,         0.,         0.,       ],
+        [ 0.,         2.4142137,  0.,         0.,       ],
+        [ 0.,         0.,        -1.002002,  -0.2002002,  ],
+        [ 0.,         0.,        -1., 0.,       ]])
 
-M = Mat.perspective(45., width/height, 0.1, 100.)
-proj = M * proj
-
-#print(proj)
-#if 0:
-#    assert proj == Mat([
-#        [ 1.8106601,  0.,         0.,         0.,       ],
-#        [ 0.,         2.4142137,  0.,         0.,       ],
-#        [ 0.,         0.,        -1.002002,  -1.,       ],
-#        [ 0.,         0.,        -0.2002002,  0.,       ]])
-
-
-assert proj == Mat([
-    [ 1.8106601,  0.,         0.,         0.,       ],
-    [ 0.,         2.4142137,  0.,         0.,       ],
-    [ 0.,         0.,        -1.002002,  -0.2002002,  ],
-    [ 0.,         0.,        -1., 0.,       ]])
+test_perspective()
 
 
-model = Mat.identity(4)
+def init(_width=640, _height=480):
+    global width, height, viewport, proj, model
+    scale = 0.05
+    width, height = scale*_width, scale*_height
+    viewport = (0., 0., width, height)
+    proj = Mat.identity(4)
+    model = Mat.identity(4)
 
+def perspective():
+    global proj
+    M = Mat.perspective(45., width/height, 0.1, 100.)
+    proj = M * proj
 
 def translate(x, y, z):
     global model
@@ -242,6 +246,14 @@ def lookat(eye, center, up):
     global model
     M = Mat.lookat(eye, center, up)
     model = model*M
+
+
+def transform(x, y, z):
+    v = [x, y, z, 1.]
+    v = model * v
+    v = proj * v
+    x, y, z, w = v
+    return x, y, z
 
 
 def get(x, y, z):
@@ -258,6 +270,10 @@ def get(x, y, z):
     return x, y
 
 
+# ----------------------------------------------------------------------
+
+from bruhat.render.front import *
+
 def mkpath(pts, closepath=True):
     pts = [path.moveto(*pts[0])]+[path.lineto(*p) for p in pts[1:]]
     if closepath:
@@ -273,7 +289,7 @@ def mk_poly(pts, deco=[]):
     cvs.stroke(p)
 
 
-def main():
+def test():
 
     global cvs
     cvs = canvas.canvas()
@@ -320,6 +336,118 @@ def main():
 
     print("OK")
     
+
+frame = 0
+def save():
+    global frame
+    cvs.writePNGfile("frames/%.4d.png"%frame)
+    cvs.writePDFfile("frames/%.4d.pdf"%frame)
+    frame += 1
+
+
+def depth(face):
+    v = face[0]
+    #print(v)
+    for v1 in face[1:]:
+        v = v + v1
+    v = (1./len(face))*v
+    x, y, z = transform(*tuple(v))
+    return -z
+
+
+class Polygon(Item):
+    def __init__(self, pts, stroke=None, fill=None):
+        Item.__init__(self)
+        assert len(pts)>1
+        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT)
+            for (x, y) in pts]
+        self.stroke = stroke
+        self.fill = fill
+
+    def process_cairo(self, cxt):
+        pts = self.pts
+        cxt.save() # <--------- save
+        cxt.set_line_width(0.5)
+
+        fill = self.fill or (0., 0., 0., 1.)
+        cxt.set_source_rgba(*fill)
+        x, y = pts[0]
+        cxt.move_to(x, -y)
+        for (x, y) in pts[1:]:
+            cxt.line_to(x, -y)
+        cxt.close_path()
+        cxt.fill()
+
+        stroke = self.stroke or (1., 1., 1., 1.)
+        cxt.set_source_rgba(*stroke)
+        x, y = pts[0]
+        cxt.move_to(x, -y)
+        for (x, y) in pts[1:]:
+            cxt.line_to(x, -y)
+        cxt.close_path()
+        cxt.stroke()
+
+        cxt.restore() # <------- restore
+
+
+
+def main():
+
+    global cvs
+
+    from bruhat import platonic
+    faces = platonic.make_octahedron()
+    faces = platonic.make_icosahedron()
+    faces = platonic.make_cube()
+    faces = platonic.make_dodecahedron()
+    #faces = [ [(0.0, 1.0, -1.0), (1.0, -1.0, -1.0), (-1.0, -1.0, -1.0)], ]
+    faces = [[Mat(list(v)) for v in face] for face in faces]
+    #for face in faces:
+    #    for v in face:
+    #        print(list(v))
+    #    print()
+
+    stroke = (0.8, 0.4, 0.0, 1.)
+    fill = (1.0, 0.7, 0., 0.8)
+
+    R = 5.0
+    theta = 0.
+    for frame in range(400):
+
+        init()
+        perspective()
+        theta += 0.01*pi
+        x, z = R*sin(theta), R*cos(theta)
+        R += 0.1
+        lookat([x, 1., z], [0., 0, 0], [0, 1, 0]) # eye, center, up
+
+        cvs = canvas.canvas()
+    
+        p = mkpath([(0., 0.), (width, 0.), (width, height), (0., height)])
+        cvs.fill(p, [color.rgb.black])
+        cvs.clip(p)
+
+        #cvs.append(trafo.scale(10., 10.))
+        cvs.append(style.linejoin.bevel)
+        #cvs.fill(path.rect(-2, -2, 4, 4), [color.rgb.gray])
+
+        #translate(-3, 0, 0)
+        for i in range(3):
+            fs = list(faces)
+            fs.sort(key = depth)
+            for face in fs:
+                pts = [get(*tuple(v)) for v in face]
+                cvs.append(Polygon(pts, stroke, fill))
+            translate(3., 0., 1.)
+            break
+
+        save()
+        print(".", end="", flush=True)
+
+
+    print("OK")
+
+
 
 
 
