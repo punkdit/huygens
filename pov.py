@@ -8,7 +8,7 @@ https://gamedev.stackexchange.com/questions/153078/what-can-i-do-with-the-4th-co
 """
 
 import sys
-from math import sin, cos, pi
+from math import sin, cos, pi, sqrt
 
 import numpy
 
@@ -130,6 +130,50 @@ class Mat(object):
         """
         pass # TODO
 
+    @classmethod
+    def rotate(cls, angle, x, y, z):
+        # angle in degrees
+        s = sin(angle * pi / 180.0)
+        c = cos(angle * pi / 180.0)
+        M = cls.identity(4)
+        r = sqrt(x*x + y*y + z*z)
+        if r < EPSILON:
+            return
+        x /= r
+        y /= r
+        z /= r
+        xx = x * x
+        yy = y * y
+        zz = z * z
+        xy = x * y
+        yz = y * z
+        zx = z * x
+        xs = x * s
+        ys = y * s
+        zs = z * s
+        one_c = 1.0 - c
+        
+        M[0,0] = (one_c * xx) + c
+        M[0,1] = (one_c * xy) - zs
+        M[0,2] = (one_c * zx) + ys
+        M[0,3] = 0.0
+        
+        M[1,0] = (one_c * xy) + zs
+        M[1,1] = (one_c * yy) + c
+        M[1,2] = (one_c * yz) - xs
+        M[1,3] = 0.0
+        
+        M[2,0] = (one_c * zx) - ys
+        M[2,1] = (one_c * yz) + xs
+        M[2,2] = (one_c * zz) + c
+        M[2,3] = 0.0
+        
+        
+        M[3,0] = 0.0
+        M[3,1] = 0.0
+        M[3,2] = 0.0
+        M[3,3] = 1.0
+        return M
 
     @classmethod
     def translate(cls, *args):
@@ -303,6 +347,10 @@ class View(object):
     def lookat(self, eye, center, up):
         #global model
         M = Mat.lookat(eye, center, up)
+        self.model = self.model*M
+
+    def rotate(self, angle, x, y, z):
+        M = Mat.rotate(angle, x, y, z)
         self.model = self.model*M
 
     # ------------------------------------------------
@@ -488,14 +536,17 @@ def main():
         #for pts in polygon:
         #    view.add_flat(pts, fill, stroke)
 
-        if 1:
-            view.translate(-2, 0, 0)
-            for pts in polygon:
-                view.add_flat(pts, fill, stroke)
-            view.translate(+4, 0, 0)
-            fill = (0.2, 0.2, 0.4, 0.8)
-            for pts in polygon:
-                view.add_flat(pts, fill, stroke)
+        view.translate(-2, 0, 0)
+
+        for pts in polygon:
+            view.add_flat(pts, fill, stroke)
+
+        view.translate(+4, 0, 0)
+
+        view.rotate(-frame*3, 0, 1, 0)
+        fill = (0.2, 0.2, 0.4, 0.8)
+        for pts in polygon:
+            view.add_flat(pts, fill, stroke)
 
         cvs = view.render()
         cvs.writePNGfile("frames/%.4d.png"%frame)
