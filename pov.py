@@ -50,6 +50,10 @@ class Mat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def copy(self):
+        A = self.A.copy()
+        return Mat(A)
+
     @classmethod
     def promote(cls, item):
         if isinstance(item, Mat):
@@ -330,6 +334,7 @@ class View(object):
         self.viewport = (0., 0., width, height)
         self.proj = Mat.identity(4) # Projection matrix
         self.model = Mat.identity(4) # ModelView matrix
+        self.stack = []
         self.gitems = []
         self.lights = []
     
@@ -352,6 +357,15 @@ class View(object):
     def rotate(self, angle, x, y, z):
         M = Mat.rotate(angle, x, y, z)
         self.model = self.model*M
+
+    def save(self):
+        model = self.model
+        self.stack.append(model.copy())
+
+    def restore(self):
+        if not self.stack:
+            return
+        self.model = self.stack.pop()
 
     # ------------------------------------------------
     
@@ -461,7 +475,7 @@ class View(object):
         x = v.dot(gitem.normal)
         #print(x)
         assert x <= 1+EPSILON
-        x = max(0.1, x)
+        x = max(0.3, x)
         r, g, b, a = gitem.fill
         fill = (x*r, x*g, x*b, a)
         r, g, b, a = gitem.stroke
@@ -499,21 +513,21 @@ def main():
     global cvs
 
     from bruhat import platonic
-    polygon = platonic.make_octahedron()
-    polygon = platonic.make_icosahedron()
-    polygon = platonic.make_dodecahedron()
-    #polygon = platonic.make_cube()
-    #polygon = [ [(0.0, 1.0, -1.0), (1.0, -1.0, -1.0), (-1.0, -1.0, -1.0)], ]
-    polygon = [[Mat(list(v)) for v in face] for face in polygon]
-    #for face in polygon:
-    #    for v in face:
-    #        print(list(v))
-    #    print()
+    polygons = [
+        platonic.make_tetrahedron(),
+        platonic.make_cube(),
+        platonic.make_octahedron(),
+        platonic.make_dodecahedron(),
+        platonic.make_icosahedron()]
+
+    polygons = [
+        [[Mat(list(v)) for v in face] for face in polygon]
+        for polygon in polygons]
 
     from bruhat.argv import argv
     frames = argv.get("frames", 1)
 
-    R = 6.0
+    R = 8.0
     y = 2.
     theta = 0.
     for frame in range(frames):
@@ -531,22 +545,32 @@ def main():
         view.add_light(point, (1., 1., 1., 1.))
 
         stroke = (0.4, 0.4, 0.4, 1.)
-        fill = (0.9, 0.8, 0., 0.8)
+
+        fills = [
+            (0.9, 0.8, 0., 0.8),
+            (0.6, 0.2, 0.4, 0.8),
+            (0.2, 0.2, 0.4, 0.8),
+            (0.8, 0.6, 0.4, 0.8),
+            (0.0, 0.6, 0.4, 0.8),
+        ]
 
         #for pts in polygon:
         #    view.add_flat(pts, fill, stroke)
 
-        view.translate(-2, 0, 0)
+        view.translate(-4., 0, 2)
 
-        for pts in polygon:
-            view.add_flat(pts, fill, stroke)
+        for idx, polygon in enumerate(polygons):
+            fill = fills[idx]
 
-        view.translate(+4, 0, 0)
+            view.save()
+            view.rotate(-frame*(idx+1), 1, 1, 0)
+            for pts in polygon:
+                view.add_flat(pts, fill, stroke)
+            view.restore()
 
-        view.rotate(-frame*3, 0, 1, 0)
-        fill = (0.2, 0.2, 0.4, 0.8)
-        for pts in polygon:
-            view.add_flat(pts, fill, stroke)
+            view.translate(+5, 0, 0)
+    
+            view.rotate(360./5, 0, 1, 0)
 
         cvs = view.render()
         cvs.writePNGfile("frames/%.4d.png"%frame)
