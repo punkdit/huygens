@@ -25,7 +25,14 @@ class Mat(object):
         self.A = A
         self.shape = A.shape
 
+    def strvec(self):
+        v = self.A[:, 0]
+        s = str(list(v))
+        return s
+
     def __str__(self):
+        if self.shape[1] == 1:
+            return self.strvec()
         A = self.A
         rows = [', '.join(["%.6f"%x for x in row]) for row in A]
         rows = ["[%s]"%row for row in rows]
@@ -83,7 +90,10 @@ class Mat(object):
 
     def __getitem__(self, idx):
         if type(idx) is tuple:
-            return self.A[idx]
+            return self.A[idx] # <------ return
+        elif type(idx) is slice:
+            A = self.A[idx]
+            return Mat(A) # <----- return
         if self.shape[1] == 1:
             idx = (idx, 0)
         return self.A[idx]
@@ -169,8 +179,13 @@ class Mat(object):
             self[0]*other[1] - self[1]*other[0]]
         return Mat(cs)
 
+    def dot(self, other):
+        assert self.shape == (3, 1)
+        assert other.shape == (3, 1)
+        r = (self.A*other.A).sum()
+        return r
+
     @classmethod
-    #def lookat(cls, eyex, eyey, eyez, centerx, centery, centerz, upx, upy, upz):
     def lookat(cls, eye, center, up):
         "modelled after gluLookAt"
         eye = cls.promote(eye)
@@ -235,11 +250,32 @@ class GItem(object):
 
 class Flat(GItem):
     def __init__(self, pts, fill=None, stroke=None):
+        assert len(pts) >= 3
         self.pts = pts
         self.fill = fill
         self.stroke = stroke
 
+        v0 = pts[0]
+        for v in pts[1:]:
+            v0 = v0 + v
+        self.center = (1./len(pts))*v0
 
+#        # XXX just drop the homogeneous coordinate ??
+#        v0, v1, v2 = [p[:3] for p in pts[:3]]
+        v0, v1, v2 = pts[:3]
+        a = v1-v0
+        b = v2-v0
+        ab = a.cross(b)
+        self.normal = ab.normalized()
+        
+        
+
+
+class Light(object):
+    def __init__(self, position, color):
+        assert position.shape == (3, 1)
+        self.position = position
+        self.color = color
 
 
 class View(object):
@@ -251,6 +287,7 @@ class View(object):
         self.proj = Mat.identity(4) # Projection matrix
         self.model = Mat.identity(4) # ModelView matrix
         self.gitems = []
+        self.lights = []
     
     def perspective(self):
         #global proj
@@ -282,16 +319,26 @@ class View(object):
         x, y, z = point
         v = [x, y, z, 1.]
         v = self.model * v
+        assert abs(v[3]-1.) < EPSILON, "model matrix should not do this.."
+        v = v[:3]
         return v
 
+#    def trafo_camera(self, point):
+#        assert point.shape == (4, 1)
+#        v = self.proj * point
+#        x, y, z, w = v
+#        return x, y, z
+
     def trafo_camera(self, point):
-        assert point.shape == (4, 1)
-        v = self.proj * point
+        assert point.shape == (3, 1)
+        x, y, z = point
+        v = self.proj * [x, y, z, 1.]
         x, y, z, w = v
         return x, y, z
 
     def trafo_canvas(self, point):
-        v = self.proj * point
+        x, y, z = point
+        v = self.proj * [x, y, z, 1.]
         x, y, z, w = v
         x, y = x/w, y/w
     
@@ -314,26 +361,37 @@ class View(object):
 #        y = y0 + h2 + y*h2
 #        return x, y
 
+#    def depth(self, gitem):
+#        pts = gitem.pts
+#        v = pts[0]
+#        #print(v)
+#        for v1 in pts[1:]:
+#            v = v + v1
+#        v = (1./len(pts))*v
+#        x, y, z = self.trafo_camera(v)
+#        return -z
+
     def depth(self, gitem):
-        pts = gitem.pts
-        v = pts[0]
-        #print(v)
-        for v1 in pts[1:]:
-            v = v + v1
-        v = (1./len(pts))*v
+        v = gitem.center
         x, y, z = self.trafo_camera(v)
         return -z
 
     # -----------------------------------------
     # class Scene ?
 
-    def append(self, face):
+    def add_gitem(self, face):
         self.gitems.append(face)
 
-    def make_flat(self, pts, fill, stroke):
+    def add_flat(self, pts, fill, stroke):
         pts = [self.trafo_view(p) for p in pts]
         gitem = Flat(pts, fill, stroke)
-        self.append(gitem)
+        self.add_gitem(gitem)
+
+    def add_light(self, position, color):
+        position = Mat.promote(position)
+        position = self.trafo_view(position)
+        light = Light(position, color)
+        self.lights.append(light)
 
     def prepare_canvas(self, clip=True):
         cvs = canvas.canvas()
@@ -348,14 +406,30 @@ class View(object):
         cvs.append(style.linejoin.bevel)
         return cvs
 
+    def illuminate(self, gitem):
+        light = self.lights[0]
+        v = (light.position - gitem.center).normalized()
+        #v = Mat([0., 0., 1.]).normalized()
+        x = v.dot(gitem.normal)
+        #print(x)
+        assert x <= 1+EPSILON
+        x = max(0.1, x)
+        r, g, b, a = gitem.fill
+        fill = (x*r, x*g, x*b, a)
+        r, g, b, a = gitem.stroke
+        stroke = (x*r, x*g, x*b, a)
+        return fill, stroke
+
     def render(self):
         cvs = self.prepare_canvas()
 
         gitems = list(self.gitems)
         gitems.sort(key = self.depth)
         for gitem in gitems:
+            #print(gitem.pts)
+            fill, stroke = self.illuminate(gitem)
             pts = [self.trafo_canvas(v) for v in gitem.pts]
-            cvs.append(Polygon(pts, gitem.fill, gitem.stroke))
+            cvs.append(Polygon(pts, fill, stroke))
         return cvs
 
 
@@ -379,8 +453,8 @@ def main():
     from bruhat import platonic
     polygon = platonic.make_octahedron()
     polygon = platonic.make_icosahedron()
-    polygon = platonic.make_cube()
     polygon = platonic.make_dodecahedron()
+    #polygon = platonic.make_cube()
     #polygon = [ [(0.0, 1.0, -1.0), (1.0, -1.0, -1.0), (-1.0, -1.0, -1.0)], ]
     polygon = [[Mat(list(v)) for v in face] for face in polygon]
     #for face in polygon:
@@ -388,27 +462,40 @@ def main():
     #        print(list(v))
     #    print()
 
+    from bruhat.argv import argv
+    frames = argv.get("frames", 1)
+
     R = 6.0
+    y = 2.
     theta = 0.
-    for frame in range(600):
+    for frame in range(frames):
 
         view = View()
         view.perspective()
         theta += 0.004*pi
         x, z = R*sin(theta), R*cos(theta)
-        R += 0.01
-        view.lookat([x, 1., z], [0., 0, 0], [0, 1, 0]) # eye, center, up
+        #R -= 0.01
+        #y += 0.01
+        view.lookat([x, y, z], [0., 0, 0], [0, 1, 0]) # eye, center, up
+        #view.lookat([x, 0., z], [0., 0, 0], [0, 1, 0]) # eye, center, up
+
+        point = [x, y, z]
+        view.add_light(point, (1., 1., 1., 1.))
 
         stroke = (0.4, 0.4, 0.4, 1.)
         fill = (0.9, 0.8, 0., 0.8)
 
-        view.translate(-2, 0, 0)
-        for pts in polygon:
-            view.make_flat(pts, fill, stroke)
-        view.translate(+4, 0, 0)
-        fill = (0.2, 0.2, 0.4, 0.8)
-        for pts in polygon:
-            view.make_flat(pts, fill, stroke)
+        #for pts in polygon:
+        #    view.add_flat(pts, fill, stroke)
+
+        if 1:
+            view.translate(-2, 0, 0)
+            for pts in polygon:
+                view.add_flat(pts, fill, stroke)
+            view.translate(+4, 0, 0)
+            fill = (0.2, 0.2, 0.4, 0.8)
+            for pts in polygon:
+                view.add_flat(pts, fill, stroke)
 
         cvs = view.render()
         cvs.writePNGfile("frames/%.4d.png"%frame)
