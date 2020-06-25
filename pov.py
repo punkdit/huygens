@@ -223,51 +223,76 @@ def test_perspective():
 
 test_perspective()
 
+from bruhat.render.base import SCALE_CM_TO_POINT
 
-def init(_width=640, _height=480):
-    global width, height, viewport, proj, model
-    scale = 0.05
-    width, height = scale*_width, scale*_height
-    viewport = (0., 0., width, height)
-    proj = Mat.identity(4)
-    model = Mat.identity(4)
+class View(object):
+    def __init__(self, _width=640, _height=480):
+        #global width, height, viewport, proj, model
+        scale = 0.05 # XXX 1./SCALE_CM_TO_POINT
+        width, height = scale*_width, scale*_height
+        self.viewport = (0., 0., width, height)
+        self.proj = Mat.identity(4) # Projection matrix
+        self.model = Mat.identity(4) # ModelView matrix
+    
+    def perspective(self):
+        #global proj
+        width, height = self.viewport[2:]
+        M = Mat.perspective(45., width/height, 0.1, 100.)
+        self.proj = M * self.proj
+    
+    def translate(self, x, y, z): # XXX use Mat
+        #global model
+        M = Mat.translate(x, y, z)
+        self.model = self.model*M
+    
+    def lookat(self, eye, center, up):
+        #global model
+        M = Mat.lookat(eye, center, up)
+        self.model = self.model*M
+    
+    
+    def transform(self, x, y, z): # XXX use Mat
+        v = [x, y, z, 1.]
+        v = self.model * v
+        v = self.proj * v
+        x, y, z, w = v
+        return x, y, z
+    
+    def get(self, x, y, z): # XXX use Mat
+        v = [x, y, z, 1.]
+        v = self.model * v
+        v = self.proj * v
+        x, y, z, w = v
+        x, y = x/w, y/w
+    
+        x0, y0, width, height = self.viewport
+        w2, h2 = width/2, height/2
+        x = x0 + w2 + x*w2
+        y = y0 + h2 + y*h2
+        return x, y
 
-def perspective():
-    global proj
-    M = Mat.perspective(45., width/height, 0.1, 100.)
-    proj = M * proj
+    def depth(self, face):
+        v = face[0]
+        #print(v)
+        for v1 in face[1:]:
+            v = v + v1
+        v = (1./len(face))*v
+        x, y, z = self.transform(*tuple(v))
+        return -z
 
-def translate(x, y, z):
-    global model
-    M = Mat.translate(x, y, z)
-    model = model*M
+    def prepare_canvas(self):
+        cvs = canvas.canvas()
+        cvs.append(style.linewidth.THick)
+    
+        x0, y0, width, height = self.viewport
+        p = mkpath([(x0, y0), (x0+width, y0), (x0+width, y0+height), (x0, y0+height)])
+        cvs.fill(p, [color.rgb.black])
+        cvs.clip(p)
 
-def lookat(eye, center, up):
-    global model
-    M = Mat.lookat(eye, center, up)
-    model = model*M
-
-
-def transform(x, y, z):
-    v = [x, y, z, 1.]
-    v = model * v
-    v = proj * v
-    x, y, z, w = v
-    return x, y, z
-
-
-def get(x, y, z):
-    v = [x, y, z, 1.]
-    v = model * v
-    v = proj * v
-    x, y, z, w = v
-    x, y = x/w, y/w
-
-    x0, y0, width, height = viewport
-    w2, h2 = width/2, height/2
-    x = x0 + w2 + x*w2
-    y = y0 + h2 + y*h2
-    return x, y
+        #cvs.append(trafo.scale(10., 10.))
+        cvs.append(style.linejoin.bevel)
+        #cvs.fill(path.rect(-2, -2, 4, 4), [color.rgb.gray])
+        return cvs
 
 
 # ----------------------------------------------------------------------
@@ -282,77 +307,12 @@ def mkpath(pts, closepath=True):
     return p
 
 
-def mk_poly(pts, deco=[]):
-    pts = [get(*p) for p in pts]
-    p = mkpath(pts)
-    cvs.fill(p, deco)
-    cvs.stroke(p)
-
-
-def test():
-
-    global cvs
-    cvs = canvas.canvas()
-
-    p = mkpath([(0., 0.), (width, 0.), (width, height), (0., height)])
-    cvs.fill(p, [color.rgb.black])
-    cvs.clip(p)
-
-    # eye, center, up
-    lookat( [5., 5., 5.], [0., 0, 0], [0, 1, 0])
-    #lookat( [0., 0., 0.], [0., 0, -1], [0, 1, 0]) # OK
-    #lookat( [0., 0., 0.], [0., 1, -1], [0, 1, 0]) # OK
-    #lookat( [0., 0., 1.], [0., 0, 0], [0, 1, 0]) # OK
-    #lookat( [0., 0., 0.], [0., 1, -1], [0, 1, 0]) # OK
-    #lookat( [1., 1., 1.], [0., 0, 0], [0, 1, 0]) # OK
-
-    translate(-1.5, 0.0, -6.0)
-
-    #glColor(1., 1., 0.)
-
-    mk_poly( [
-        (0.0, 1.0, -1.0),   
-        (1.0, -1.0, -1.0),     
-        (-1.0, -1.0, -1.0)], [color.rgb(1., 1., 0)])
-
-    #glColor(1., 1., 1.)
-
-    c = color.rgb(1., 1., 1.)
-    mk_poly( [
-        (0.0, 1.0, 0.0),       
-        (1.0, -1.0, 0.0),      
-        (-1.0, -1.0, 0.0)], [c])
-
-    translate(3.0, 0.0, 0.0)
-
-    mk_poly( [
-        (-1.0, 1.0, 0.0),      
-        (1.0, 1.0, 0.0),       
-        (1.0, -1.0, 0.0),      
-        (-1.0, -1.0, 0.0)], [c])
-
-    #cvs.dump()
-    cvs.writePDFfile("output.pdf")
-
-    print("OK")
-    
-
 frame = 0
 def save():
     global frame
     cvs.writePNGfile("frames/%.4d.png"%frame)
     cvs.writePDFfile("frames/%.4d.pdf"%frame)
     frame += 1
-
-
-def depth(face):
-    v = face[0]
-    #print(v)
-    for v1 in face[1:]:
-        v = v + v1
-    v = (1./len(face))*v
-    x, y, z = transform(*tuple(v))
-    return -z
 
 
 class Polygon(Item):
@@ -367,7 +327,7 @@ class Polygon(Item):
     def process_cairo(self, cxt):
         pts = self.pts
         cxt.save() # <--------- save
-        cxt.set_line_width(0.5)
+        cxt.set_line_width(2.0)
 
         fill = self.fill or (0., 0., 0., 1.)
         cxt.set_source_rgba(*fill)
@@ -407,38 +367,30 @@ def main():
     #        print(list(v))
     #    print()
 
-    stroke = (0.8, 0.4, 0.0, 1.)
-    fill = (1.0, 0.7, 0., 0.8)
+    stroke = (0.4, 0.4, 0.4, 1.)
+    fill = (0.9, 0.8, 0., 0.8)
 
-    R = 5.0
+    R = 4.0
     theta = 0.
     for frame in range(400):
 
-        init()
-        perspective()
-        theta += 0.01*pi
+        view = View()
+        view.perspective()
+        theta += 0.004*pi
         x, z = R*sin(theta), R*cos(theta)
-        R += 0.1
-        lookat([x, 1., z], [0., 0, 0], [0, 1, 0]) # eye, center, up
+        R += 0.01
+        view.lookat([x, 1., z], [0., 0, 0], [0, 1, 0]) # eye, center, up
 
-        cvs = canvas.canvas()
-    
-        p = mkpath([(0., 0.), (width, 0.), (width, height), (0., height)])
-        cvs.fill(p, [color.rgb.black])
-        cvs.clip(p)
-
-        #cvs.append(trafo.scale(10., 10.))
-        cvs.append(style.linejoin.bevel)
-        #cvs.fill(path.rect(-2, -2, 4, 4), [color.rgb.gray])
+        cvs = view.prepare_canvas()
 
         #translate(-3, 0, 0)
         for i in range(3):
             fs = list(faces)
-            fs.sort(key = depth)
+            fs.sort(key = view.depth)
             for face in fs:
-                pts = [get(*tuple(v)) for v in face]
+                pts = [view.get(*tuple(v)) for v in face]
                 cvs.append(Polygon(pts, stroke, fill))
-            translate(3., 0., 1.)
+            view.translate(3., 0., 1.)
             break
 
         save()
