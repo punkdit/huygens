@@ -223,7 +223,24 @@ def test_perspective():
 
 test_perspective()
 
+
+# ----------------------------------------------------------------------
+
+
 from bruhat.render.base import SCALE_CM_TO_POINT
+
+class GItem(object):
+    pass
+
+
+class Flat(GItem):
+    def __init__(self, pts, fill=None, stroke=None):
+        self.pts = pts
+        self.fill = fill
+        self.stroke = stroke
+
+
+
 
 class View(object):
     def __init__(self, _width=640, _height=480):
@@ -233,6 +250,7 @@ class View(object):
         self.viewport = (0., 0., width, height)
         self.proj = Mat.identity(4) # Projection matrix
         self.model = Mat.identity(4) # ModelView matrix
+        self.gitems = []
     
     def perspective(self):
         #global proj
@@ -249,19 +267,31 @@ class View(object):
         #global model
         M = Mat.lookat(eye, center, up)
         self.model = self.model*M
+
+    # ------------------------------------------------
     
-    
-    def transform(self, x, y, z): # XXX use Mat
+#    def XXtransform(self, x, y, z): # XXX use Mat
+#        v = [x, y, z, 1.]
+#        v = self.model * v
+#        v = self.proj * v
+#        x, y, z, w = v
+#        return x, y, z
+
+    def trafo_view(self, point):
+        assert point.shape == (3, 1)
+        x, y, z = point
         v = [x, y, z, 1.]
         v = self.model * v
-        v = self.proj * v
+        return v
+
+    def trafo_camera(self, point):
+        assert point.shape == (4, 1)
+        v = self.proj * point
         x, y, z, w = v
         return x, y, z
-    
-    def get(self, x, y, z): # XXX use Mat
-        v = [x, y, z, 1.]
-        v = self.model * v
-        v = self.proj * v
+
+    def trafo_canvas(self, point):
+        v = self.proj * point
         x, y, z, w = v
         x, y = x/w, y/w
     
@@ -270,29 +300,64 @@ class View(object):
         x = x0 + w2 + x*w2
         y = y0 + h2 + y*h2
         return x, y
+    
+#    def XXget(self, x, y, z): # XXX use Mat
+#        v = [x, y, z, 1.]
+#        v = self.model * v
+#        v = self.proj * v
+#        x, y, z, w = v
+#        x, y = x/w, y/w
+#    
+#        x0, y0, width, height = self.viewport
+#        w2, h2 = width/2, height/2
+#        x = x0 + w2 + x*w2
+#        y = y0 + h2 + y*h2
+#        return x, y
 
-    def depth(self, face):
-        v = face[0]
+    def depth(self, gitem):
+        pts = gitem.pts
+        v = pts[0]
         #print(v)
-        for v1 in face[1:]:
+        for v1 in pts[1:]:
             v = v + v1
-        v = (1./len(face))*v
-        x, y, z = self.transform(*tuple(v))
+        v = (1./len(pts))*v
+        x, y, z = self.trafo_camera(v)
         return -z
 
-    def prepare_canvas(self):
+    # -----------------------------------------
+    # class Scene ?
+
+    def append(self, face):
+        self.gitems.append(face)
+
+    def make_flat(self, pts, fill, stroke):
+        pts = [self.trafo_view(p) for p in pts]
+        gitem = Flat(pts, fill, stroke)
+        self.append(gitem)
+
+    def prepare_canvas(self, clip=True):
         cvs = canvas.canvas()
         cvs.append(style.linewidth.THick)
     
         x0, y0, width, height = self.viewport
         p = mkpath([(x0, y0), (x0+width, y0), (x0+width, y0+height), (x0, y0+height)])
         cvs.fill(p, [color.rgb.black])
-        cvs.clip(p)
+        if clip:
+            cvs.clip(p)
 
-        #cvs.append(trafo.scale(10., 10.))
         cvs.append(style.linejoin.bevel)
-        #cvs.fill(path.rect(-2, -2, 4, 4), [color.rgb.gray])
         return cvs
+
+    def render(self):
+        cvs = self.prepare_canvas()
+
+        gitems = list(self.gitems)
+        gitems.sort(key = self.depth)
+        for gitem in gitems:
+            pts = [self.trafo_canvas(v) for v in gitem.pts]
+            cvs.append(Polygon(pts, gitem.fill, gitem.stroke))
+        return cvs
+
 
 
 # ----------------------------------------------------------------------
@@ -307,72 +372,25 @@ def mkpath(pts, closepath=True):
     return p
 
 
-frame = 0
-def save():
-    global frame
-    cvs.writePNGfile("frames/%.4d.png"%frame)
-    cvs.writePDFfile("frames/%.4d.pdf"%frame)
-    frame += 1
-
-
-class Polygon(Item):
-    def __init__(self, pts, stroke=None, fill=None):
-        Item.__init__(self)
-        assert len(pts)>1
-        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT)
-            for (x, y) in pts]
-        self.stroke = stroke
-        self.fill = fill
-
-    def process_cairo(self, cxt):
-        pts = self.pts
-        cxt.save() # <--------- save
-        cxt.set_line_width(2.0)
-
-        fill = self.fill or (0., 0., 0., 1.)
-        cxt.set_source_rgba(*fill)
-        x, y = pts[0]
-        cxt.move_to(x, -y)
-        for (x, y) in pts[1:]:
-            cxt.line_to(x, -y)
-        cxt.close_path()
-        cxt.fill()
-
-        stroke = self.stroke or (1., 1., 1., 1.)
-        cxt.set_source_rgba(*stroke)
-        x, y = pts[0]
-        cxt.move_to(x, -y)
-        for (x, y) in pts[1:]:
-            cxt.line_to(x, -y)
-        cxt.close_path()
-        cxt.stroke()
-
-        cxt.restore() # <------- restore
-
-
-
 def main():
 
     global cvs
 
     from bruhat import platonic
-    faces = platonic.make_octahedron()
-    faces = platonic.make_icosahedron()
-    faces = platonic.make_cube()
-    faces = platonic.make_dodecahedron()
-    #faces = [ [(0.0, 1.0, -1.0), (1.0, -1.0, -1.0), (-1.0, -1.0, -1.0)], ]
-    faces = [[Mat(list(v)) for v in face] for face in faces]
-    #for face in faces:
+    polygon = platonic.make_octahedron()
+    polygon = platonic.make_icosahedron()
+    polygon = platonic.make_cube()
+    polygon = platonic.make_dodecahedron()
+    #polygon = [ [(0.0, 1.0, -1.0), (1.0, -1.0, -1.0), (-1.0, -1.0, -1.0)], ]
+    polygon = [[Mat(list(v)) for v in face] for face in polygon]
+    #for face in polygon:
     #    for v in face:
     #        print(list(v))
     #    print()
 
-    stroke = (0.4, 0.4, 0.4, 1.)
-    fill = (0.9, 0.8, 0., 0.8)
-
-    R = 4.0
+    R = 6.0
     theta = 0.
-    for frame in range(400):
+    for frame in range(600):
 
         view = View()
         view.perspective()
@@ -381,19 +399,22 @@ def main():
         R += 0.01
         view.lookat([x, 1., z], [0., 0, 0], [0, 1, 0]) # eye, center, up
 
-        cvs = view.prepare_canvas()
+        stroke = (0.4, 0.4, 0.4, 1.)
+        fill = (0.9, 0.8, 0., 0.8)
 
-        #translate(-3, 0, 0)
-        for i in range(3):
-            fs = list(faces)
-            fs.sort(key = view.depth)
-            for face in fs:
-                pts = [view.get(*tuple(v)) for v in face]
-                cvs.append(Polygon(pts, stroke, fill))
-            view.translate(3., 0., 1.)
-            break
+        view.translate(-2, 0, 0)
+        for pts in polygon:
+            view.make_flat(pts, fill, stroke)
+        view.translate(+4, 0, 0)
+        fill = (0.2, 0.2, 0.4, 0.8)
+        for pts in polygon:
+            view.make_flat(pts, fill, stroke)
 
-        save()
+        cvs = view.render()
+        cvs.writePNGfile("frames/%.4d.png"%frame)
+        if frame == 0:
+            cvs.writePDFfile("frames/%.4d.pdf"%frame)
+
         print(".", end="", flush=True)
 
 

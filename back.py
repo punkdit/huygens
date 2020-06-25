@@ -292,6 +292,78 @@ class Arcn_Pt(Arc_Pt, _ArcnMixin):
 
 
 # ----------------------------------------------------------------------------
+# 
+#
+
+class Polygon(Item):
+    def __init__(self, pts, fill=None, stroke=None):
+        Item.__init__(self)
+        assert len(pts)>1
+        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT)
+            for (x, y) in pts]
+        self.fill = fill
+        self.stroke = stroke
+
+    def process_cairo(self, cxt):
+        pts = self.pts
+        cxt.save() # <--------- save
+        cxt.set_line_width(2.0)
+
+        fill = self.fill or (0., 0., 0., 1.)
+        cxt.set_source_rgba(*fill)
+        x, y = pts[0]
+        cxt.move_to(x, -y)
+        for (x, y) in pts[1:]:
+            cxt.line_to(x, -y)
+        cxt.close_path()
+        cxt.fill()
+
+        stroke = self.stroke or (1., 1., 1., 1.)
+        cxt.set_source_rgba(*stroke)
+        x, y = pts[0]
+        cxt.move_to(x, -y)
+        for (x, y) in pts[1:]:
+            cxt.line_to(x, -y)
+        cxt.close_path()
+        cxt.stroke()
+
+        cxt.restore() # <------- restore
+
+
+class Ball(Item):
+    def __init__(self, x, y, radius, rgb0=None, rgb1=None):
+        Item.__init__(self)
+        self.x = x*SCALE_CM_TO_POINT
+        self.y = y*SCALE_CM_TO_POINT
+        self.radius = radius*SCALE_CM_TO_POINT
+        self.rgb0 = rgb0
+        self.rgb1 = rgb1
+
+    def process_cairo(self, cxt):
+        x, y, radius = self.x, -self.y, self.radius
+        cxt.save()
+        cxt.set_line_width(0.5)
+        cxt.arc(x, y, radius, 0., pi*2)
+        cxt.stroke()
+        cx0, cy0 = cx1, cy1 = x+0.8*radius, y+0.8*radius
+        radius0 = 0.2*radius
+        radius1 = 2.0*radius
+        p = cairo.RadialGradient(cx0, cy0, radius0, cx1, cy1, radius1)
+        if self.rgb0 is not None:
+            p.add_color_stop_rgba(0, *self.rgb0)
+        else:
+            p.add_color_stop_rgba(0, 0.9, 0.9, 0.9, 1)
+        if self.rgb1 is not None:
+            p.add_color_stop_rgba(1, *self.rgb1)
+        else:
+            p.add_color_stop_rgba(1, 0.6, 0.6, 0.6, 1.)
+        cxt.set_source(p)
+        cxt.arc(x, y, radius, 0., pi*2)
+        cxt.fill()
+        cxt.restore()
+
+
+# ----------------------------------------------------------------------------
 #
 #
 
