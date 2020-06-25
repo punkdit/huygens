@@ -192,13 +192,13 @@ class Mat(object):
     @classmethod
     def perspective(cls, fovy, aspect, z_near, z_far):
         "modelled after gluPerspective"
-        radians = fovy / 2 * pi / 180
+        theta = fovy / 2 * pi / 180
     
         delta_z = z_far - z_near
-        sine = sin(radians)
+        sine = sin(theta)
         if (delta_z == 0) or (sine == 0) or (aspect == 0):
             return
-        cotangent = cos(radians) / sine
+        cotangent = cos(theta) / sine
     
         A = numpy.identity(4)
         A[0,0] = cotangent / aspect
@@ -291,32 +291,54 @@ test_perspective()
 
 
 from bruhat.render.base import SCALE_CM_TO_POINT
+from bruhat.render.front import *
+
 
 class GItem(object):
-    pass
-
-
-class Flat(GItem):
-    def __init__(self, pts, fill=None, stroke=None):
+    def __init__(self, pts, epsilon=1e-4):
         assert len(pts) >= 3
-        self.pts = pts
-        self.fill = fill
-        self.stroke = stroke
-
         v0 = pts[0]
         for v in pts[1:]:
             v0 = v0 + v
-        self.center = (1./len(pts))*v0
+        center = (1./len(pts))*v0
 
-#        # XXX just drop the homogeneous coordinate ??
-#        v0, v1, v2 = [p[:3] for p in pts[:3]]
+        if epsilon is not None and len(pts)>1:
+            # try to cover up the seams. 
+            # does not look good with alpha blending
+            pts = [p + epsilon*(p-center).normalized() for p in pts]
+        self.pts = pts
+        self.center = center
+
+    def render(self, cvs):
+        pass
+
+
+class GFlat(GItem):
+    def __init__(self, pts, fill=None, stroke=None, epsilon=1e-2):
+        GItem.__init__(self, pts, epsilon)
+        self.fill = fill
+        self.stroke = stroke
+
         v0, v1, v2 = pts[:3]
         a = v1-v0
         b = v2-v0
         ab = a.cross(b)
         self.normal = ab.normalized()
+
+    def render(self, view, cvs):
+        GItem.render(self, cvs)
+        fill, stroke = view.illuminate(self)
+        pts = [view.trafo_canvas(v) for v in self.pts]
+        cvs.append(Polygon(pts, fill, stroke))
         
+
+class GBall(GItem):
+    def __init__(self, point, radius):
+        GItem.__init__(self, [point])
+        self.radius = radius
         
+    def render(self, cvs):
+        GItem.render(self, cvs)
 
 
 class Light(object):
@@ -369,15 +391,9 @@ class View(object):
 
     # ------------------------------------------------
     
-#    def XXtransform(self, x, y, z): # XXX use Mat
-#        v = [x, y, z, 1.]
-#        v = self.model * v
-#        v = self.proj * v
-#        x, y, z, w = v
-#        return x, y, z
-
     def trafo_view(self, point):
-        assert point.shape == (3, 1)
+        assert isinstance(point, Mat), type(point)
+        assert point.shape == (3, 1), repr(point)
         x, y, z = point
         v = [x, y, z, 1.]
         v = self.model * v
@@ -385,17 +401,12 @@ class View(object):
         v = v[:3]
         return v
 
-#    def trafo_camera(self, point):
-#        assert point.shape == (4, 1)
-#        v = self.proj * point
-#        x, y, z, w = v
-#        return x, y, z
-
     def trafo_camera(self, point):
         assert point.shape == (3, 1)
         x, y, z = point
         v = self.proj * [x, y, z, 1.]
         x, y, z, w = v
+        #return x/w, y/w, z/w
         return x, y, z
 
     def trafo_canvas(self, point):
@@ -410,30 +421,7 @@ class View(object):
         y = y0 + h2 + y*h2
         return x, y
     
-#    def XXget(self, x, y, z): # XXX use Mat
-#        v = [x, y, z, 1.]
-#        v = self.model * v
-#        v = self.proj * v
-#        x, y, z, w = v
-#        x, y = x/w, y/w
-#    
-#        x0, y0, width, height = self.viewport
-#        w2, h2 = width/2, height/2
-#        x = x0 + w2 + x*w2
-#        y = y0 + h2 + y*h2
-#        return x, y
-
-#    def depth(self, gitem):
-#        pts = gitem.pts
-#        v = pts[0]
-#        #print(v)
-#        for v1 in pts[1:]:
-#            v = v + v1
-#        v = (1./len(pts))*v
-#        x, y, z = self.trafo_camera(v)
-#        return -z
-
-    def depth(self, gitem):
+    def get_depth(self, gitem):
         v = gitem.center
         x, y, z = self.trafo_camera(v)
         return -z
@@ -444,9 +432,14 @@ class View(object):
     def add_gitem(self, face):
         self.gitems.append(face)
 
-    def add_flat(self, pts, fill, stroke):
+    def add_flat(self, pts, *args, **kw):
         pts = [self.trafo_view(p) for p in pts]
-        gitem = Flat(pts, fill, stroke)
+        gitem = GFlat(pts, *args, **kw)
+        self.add_gitem(gitem)
+
+    def add_ball(self, point, radius, *args, **kw):
+        point = self.trafo_view(point)
+        gitem = Ball(point, radius, *args, **kw)
         self.add_gitem(gitem)
 
     def add_light(self, position, color):
@@ -455,13 +448,13 @@ class View(object):
         light = Light(position, color)
         self.lights.append(light)
 
-    def prepare_canvas(self, clip=True):
+    def prepare_canvas(self, bg=color.rgb.black, clip=True):
         cvs = canvas.canvas()
         cvs.append(style.linewidth.THick)
     
         x0, y0, width, height = self.viewport
         p = mkpath([(x0, y0), (x0+width, y0), (x0+width, y0+height), (x0, y0+height)])
-        cvs.fill(p, [color.rgb.black])
+        cvs.fill(p, [bg])
         if clip:
             cvs.clip(p)
 
@@ -474,31 +467,35 @@ class View(object):
         #v = Mat([0., 0., 1.]).normalized()
         x = v.dot(gitem.normal)
         #print(x)
-        assert x <= 1+EPSILON
+        assert x <= 1+EPSILON, x
         x = max(0.3, x)
-        r, g, b, a = gitem.fill
-        fill = (x*r, x*g, x*b, a)
-        r, g, b, a = gitem.stroke
-        stroke = (x*r, x*g, x*b, a)
+        fill = gitem.fill
+        stroke = gitem.stroke
+        if fill is not None:
+            r, g, b, a = fill
+            fill = (x*r, x*g, x*b, a)
+        if stroke is not None:
+            r, g, b, a = stroke
+            stroke = (x*r, x*g, x*b, a)
         return fill, stroke
 
     def render(self):
         cvs = self.prepare_canvas()
 
         gitems = list(self.gitems)
-        gitems.sort(key = self.depth)
+
+        # XXX sorting by depth does not always work...
+        # XXX try subdividing your GItem's ?
+        gitems.sort(key = self.get_depth)
+
         for gitem in gitems:
-            #print(gitem.pts)
-            fill, stroke = self.illuminate(gitem)
-            pts = [self.trafo_canvas(v) for v in gitem.pts]
-            cvs.append(Polygon(pts, fill, stroke))
+            gitem.render(self, cvs)
+
         return cvs
 
 
 
 # ----------------------------------------------------------------------
-
-from bruhat.render.front import *
 
 def mkpath(pts, closepath=True):
     pts = [path.moveto(*pts[0])]+[path.lineto(*p) for p in pts[1:]]
@@ -508,21 +505,90 @@ def mkpath(pts, closepath=True):
     return p
 
 
+def make_sphere(radius, slices=8, stacks=8):
+    z = -radius
+    dz = 2*radius / stacks
+    dtheta = 2*pi/slices
+    dphi = pi/stacks
+
+    polys = []
+    for i in range(stacks):
+        phi0 = dphi*i
+        phi1 = dphi*(i+1)
+        r0 = radius*sin(phi0)
+        r1 = radius*sin(phi1)
+        z0 = -radius*cos(phi0)
+        z1 = -radius*cos(phi1)
+        for j in range(slices):
+            theta0 = j * dtheta
+            theta1 = (j+1) * dtheta
+            x0, y0 = r0*cos(theta0), r0*sin(theta0)
+            x1, y1 = r1*cos(theta0), r1*sin(theta0)
+            x2, y2 = r1*cos(theta1), r1*sin(theta1)
+            x3, y3 = r0*cos(theta1), r0*sin(theta1)
+            poly = [
+                Mat([x3, y3, z0]),
+                Mat([x2, y2, z1]),
+                Mat([x1, y1, z1]),
+                Mat([x0, y0, z0]),
+            ]
+            if i==0:
+                poly.pop(0)
+            elif i==stacks-1:
+                poly.pop(1)
+            #print(poly)
+            polys.append(poly)
+    return polys
+
+
+def make_torus(inner, outer, slices=16, stacks=16):
+
+    dphi = 2*pi/stacks
+    dtheta = 2*pi/slices
+
+    polys = []
+    for i in range(stacks):
+        phi0 = dphi*i
+        phi1 = dphi*(i+1)
+
+        u0 = Mat([cos(phi0), sin(phi0), 0.])
+        v0 = Mat([0., 0., 1.])
+        u1 = Mat([cos(phi1), sin(phi1), 0.])
+        v1 = Mat([0., 0., 1.])
+
+        for j in range(slices):
+            theta0 = dtheta*j
+            theta1 = dtheta*(j+1)
+
+            x0 = outer*u0 + inner*(sin(theta0)*u0 + cos(theta0)*v0)
+            x1 = outer*u1 + inner*(sin(theta0)*u1 + cos(theta0)*v1)
+            x2 = outer*u1 + inner*(sin(theta1)*u1 + cos(theta1)*v1)
+            x3 = outer*u0 + inner*(sin(theta1)*u0 + cos(theta1)*v0)
+            poly = [x3, x2, x1, x0]
+            polys.append(poly)
+    return polys
+
+
 def main():
 
     global cvs
 
     from bruhat import platonic
-    polygons = [
+    polytopes = [
         platonic.make_tetrahedron(),
         platonic.make_cube(),
         platonic.make_octahedron(),
         platonic.make_dodecahedron(),
         platonic.make_icosahedron()]
 
-    polygons = [
+    polytopes = [
         [[Mat(list(v)) for v in face] for face in polygon]
-        for polygon in polygons]
+        for polygon in polytopes]
+
+    polytopes = [
+        #make_torus(0.5, 2., 32, 32),
+        make_sphere(1., 16, 12),
+    ]
 
     from bruhat.argv import argv
     frames = argv.get("frames", 1)
@@ -544,9 +610,11 @@ def main():
         point = [x, y, z]
         view.add_light(point, (1., 1., 1., 1.))
 
-        stroke = (0.4, 0.4, 0.4, 1.)
+        #stroke = (0.4, 0.4, 0.4, 1.)
+        stroke = None
 
         fills = [
+            (0.9, 0.8, 0., 1.0),
             (0.9, 0.8, 0., 0.8),
             (0.6, 0.2, 0.4, 0.8),
             (0.2, 0.2, 0.4, 0.8),
@@ -554,24 +622,28 @@ def main():
             (0.0, 0.6, 0.4, 0.8),
         ]
 
-        #for pts in polygon:
-        #    view.add_flat(pts, fill, stroke)
+        if 0:
+            view.rotate(-frame, 1, 1, 0)
+            for pts in polytopes[0]:
+                view.add_flat(pts, fills[0], stroke)
 
-        view.translate(-4., 0, 2)
-
-        for idx, polygon in enumerate(polygons):
-            fill = fills[idx]
-
-            view.save()
-            view.rotate(-frame*(idx+1), 1, 1, 0)
-            for pts in polygon:
-                view.add_flat(pts, fill, stroke)
-            view.restore()
-
-            view.translate(+5, 0, 0)
+        if 1:
+            view.translate(-4., 0, 2)
     
-            view.rotate(360./5, 0, 1, 0)
-
+            for idx, polygon in enumerate(polytopes):
+                fill = fills[idx]
+    
+                view.save()
+                view.rotate(-frame*(idx+1), 1, 1, 0)
+                for pts in polygon:
+                    view.add_flat(pts, fill, stroke)
+                view.restore()
+    
+                view.translate(+5, 0, 0)
+        
+                view.rotate(360./5, 0, 1, 0)
+                break
+    
         cvs = view.render()
         cvs.writePNGfile("frames/%.4d.png"%frame)
         if frame == 0:

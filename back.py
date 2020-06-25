@@ -309,23 +309,25 @@ class Polygon(Item):
         cxt.save() # <--------- save
         cxt.set_line_width(2.0)
 
-        fill = self.fill or (0., 0., 0., 1.)
-        cxt.set_source_rgba(*fill)
-        x, y = pts[0]
-        cxt.move_to(x, -y)
-        for (x, y) in pts[1:]:
-            cxt.line_to(x, -y)
-        cxt.close_path()
-        cxt.fill()
-
-        stroke = self.stroke or (1., 1., 1., 1.)
-        cxt.set_source_rgba(*stroke)
-        x, y = pts[0]
-        cxt.move_to(x, -y)
-        for (x, y) in pts[1:]:
-            cxt.line_to(x, -y)
-        cxt.close_path()
-        cxt.stroke()
+        fill = self.fill #or (0., 0., 0., 1.)
+        if fill is not None:
+            cxt.set_source_rgba(*fill)
+            x, y = pts[0]
+            cxt.move_to(x, -y)
+            for (x, y) in pts[1:]:
+                cxt.line_to(x, -y)
+            cxt.close_path()
+            cxt.fill()
+    
+        stroke = self.stroke # or (1., 1., 1., 1.)
+        if stroke is not None:
+            cxt.set_source_rgba(*stroke)
+            x, y = pts[0]
+            cxt.move_to(x, -y)
+            for (x, y) in pts[1:]:
+                cxt.line_to(x, -y)
+            cxt.close_path()
+            cxt.stroke()
 
         cxt.restore() # <------- restore
 
