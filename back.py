@@ -299,15 +299,14 @@ class Polygon(Item):
     def __init__(self, pts, fill=None, stroke=None):
         Item.__init__(self)
         assert len(pts)>1
-        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT)
-            for (x, y) in pts]
+        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
         self.fill = fill
         self.stroke = stroke
 
     def process_cairo(self, cxt):
         pts = self.pts
         cxt.save() # <--------- save
-        cxt.set_line_width(2.0)
+        #cxt.set_line_width(2.0)
 
         fill = self.fill #or (0., 0., 0., 1.)
         if fill is not None:
@@ -328,6 +327,46 @@ class Polygon(Item):
                 cxt.line_to(x, -y)
             cxt.close_path()
             cxt.stroke()
+
+        cxt.restore() # <------- restore
+
+
+class Polymesh(Item):
+    def __init__(self, pts, fills):
+        Item.__init__(self)
+        assert len(pts)>=3
+        assert len(pts) == len(fills)
+        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
+        self.fills = fills
+
+    def process_cairo(self, cxt):
+        import cairo
+        pts = self.pts
+        fills = self.fills
+        cxt.save() # <--------- save
+
+        pts = list(self.pts)
+        if len(pts)==3:
+            pts.append(pts[-1])
+            fills.append(fills[-1])
+        assert len(pts)==4, len(pts)
+        m = cairo.MeshPattern()
+        m.begin_patch()
+        x, y = pts[0]
+        m.move_to(x, -y)
+        for (x,y) in pts[1:]:
+            m.line_to(x, -y)
+        for i in range(4):
+            m.set_corner_color_rgba(i, *fills[i])
+        m.end_patch()
+
+        cxt.set_source(m)
+        x, y = pts[0]
+        cxt.move_to(x, -y)
+        for (x, y) in pts[1:]:
+            cxt.line_to(x, -y)
+        cxt.close_path()
+        cxt.fill()
 
         cxt.restore() # <------- restore
 
@@ -522,7 +561,6 @@ class RGBA(Deco):
 
     def process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
-
 
 
 _defaultlinewidth = 0.02 # cm

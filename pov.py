@@ -28,7 +28,7 @@ class Mat(object):
     def strvec(self):
         v = self.A[:, 0]
         s = str(list(v))
-        return s
+        return "Mat(%s)"%(s,)
 
     def __str__(self):
         if self.shape[1] == 1:
@@ -190,6 +190,16 @@ class Mat(object):
         return M
 
     @classmethod
+    def scale(cls, sx, sy, sz):
+        "modelled after glScale"
+        A = numpy.identity(4)
+        A[0, 0] = sx
+        A[1, 1] = sy
+        A[2, 2] = sz
+        M = cls(A)
+        return M
+
+    @classmethod
     def perspective(cls, fovy, aspect, z_near, z_far):
         "modelled after gluPerspective"
         theta = fovy / 2 * pi / 180
@@ -213,10 +223,16 @@ class Mat(object):
         M = Mat(A)
         return M
 
-    def normalized(self):
+    def norm(self):
         A = self.A
         r = (A*A).sum()**0.5
-        return Mat(A/r)
+        return r
+
+    def normalized(self):
+        r = self.norm()
+        assert r>EPSILON
+        A = self.A / r
+        return Mat(A)
 
     def cross(self, other):
         assert self.shape == (3, 1)
@@ -294,51 +310,93 @@ from bruhat.render.base import SCALE_CM_TO_POINT
 from bruhat.render.front import *
 
 
-class GItem(object):
-    def __init__(self, pts, epsilon=1e-4):
-        assert len(pts) >= 3
-        v0 = pts[0]
-        for v in pts[1:]:
-            v0 = v0 + v
-        center = (1./len(pts))*v0
+def mkpath(pts, closepath=True):
+    pts = [path.moveto(*pts[0])]+[path.lineto(*p) for p in pts[1:]]
+    if closepath:
+        pts.append(path.closepath())
+    p = path.path(*pts)
+    return p
 
-        if epsilon is not None and len(pts)>1:
+
+class GItem(object):
+    def __init__(self, verts, epsilon=1e-4):
+        assert len(verts) >= 3
+        v0 = verts[0]
+        for v in verts[1:]:
+            v0 = v0 + v
+        center = (1./len(verts))*v0
+
+        if epsilon is not None and len(verts)>1:
             # try to cover up the seams. 
             # does not look good with alpha blending
-            pts = [p + epsilon*(p-center).normalized() for p in pts]
-        self.pts = pts
+            verts = [p + epsilon*(p-center).normalized() for p in verts]
+        self.verts = verts
         self.center = center
 
     def render(self, cvs):
         pass
 
 
-class GFlat(GItem):
-    def __init__(self, pts, fill=None, stroke=None, epsilon=1e-2):
-        GItem.__init__(self, pts, epsilon)
+class GPoly(GItem):
+    def __init__(self, verts, fill=None, stroke=None, epsilon=1e-2):
+        GItem.__init__(self, verts, epsilon)
         self.fill = fill
         self.stroke = stroke
 
-        v0, v1, v2 = pts[:3]
+        v0, v1, v2 = verts[:3]
         a = v1-v0
         b = v2-v0
         ab = a.cross(b)
+        assert ab.norm() > EPSILON
         self.normal = ab.normalized()
 
     def render(self, view, cvs):
         GItem.render(self, cvs)
-        fill, stroke = view.illuminate(self)
-        pts = [view.trafo_canvas(v) for v in self.pts]
-        cvs.append(Polygon(pts, fill, stroke))
+        #fill, stroke = view.illuminate(self)
+        fill = self.fill
+        stroke = self.stroke
+        verts = [view.trafo_canvas(v) for v in self.verts]
+        v = self.center
+        n = self.normal
+        if fill is not None:
+            fill = view.illuminate(v, n, fill)
+        if stroke is not None:
+            stroke = view.illuminate(v, n, stroke)
+        cvs.append(Polygon(verts, fill, stroke))
         
 
-class GBall(GItem):
-    def __init__(self, point, radius):
-        GItem.__init__(self, [point])
-        self.radius = radius
-        
-    def render(self, cvs):
+class GMesh(GItem):
+    def __init__(self, verts, normals, fill, epsilon=1e-2):
+        GItem.__init__(self, verts, epsilon)
+
+        assert len(verts) >= 3
+        assert len(verts) == len(normals)
+        v0, v1, v2 = verts[:3]
+        a = v1-v0
+        b = v2-v0
+        ab = a.cross(b)
+        normal = ab.normalized()
+        self.normals = normals
+        for n in normals:
+            assert normal.dot(n) > 0.
+        self.fill = fill
+
+    def render(self, view, cvs):
         GItem.render(self, cvs)
+        verts = [view.trafo_canvas(v) for v in self.verts]
+        fill = self.fill
+        fills = [view.illuminate(v, n, fill) 
+            for (v,n) in zip(self.verts, self.normals)]
+        cvs.append(Polymesh(verts, fills))
+        
+
+#class GBall(GItem):
+#    def __init__(self, point, radius):
+#        GItem.__init__(self, [point])
+#        self.radius = radius
+#        
+#    def render(self, cvs):
+#        GItem.render(self, cvs)
 
 
 class Light(object):
@@ -380,6 +438,10 @@ class View(object):
         M = Mat.rotate(angle, x, y, z)
         self.model = self.model*M
 
+    def scale(self, sx, sy, sz):
+        M = Mat.scale(sx, sy, sz)
+        self.model = self.model*M
+
     def save(self):
         model = self.model
         self.stack.append(model.copy())
@@ -398,6 +460,15 @@ class View(object):
         v = [x, y, z, 1.]
         v = self.model * v
         assert abs(v[3]-1.) < EPSILON, "model matrix should not do this.."
+        v = v[:3]
+        return v
+
+    def trafo_view_distance(self, point):
+        assert isinstance(point, Mat), type(point)
+        assert point.shape == (3, 1), repr(point)
+        x, y, z = point
+        v = [x, y, z, 0.]
+        v = self.model * v
         v = v[:3]
         return v
 
@@ -432,9 +503,15 @@ class View(object):
     def add_gitem(self, face):
         self.gitems.append(face)
 
-    def add_flat(self, pts, *args, **kw):
-        pts = [self.trafo_view(p) for p in pts]
-        gitem = GFlat(pts, *args, **kw)
+    def add_poly(self, verts, *args, **kw):
+        verts = [self.trafo_view(v) for v in verts]
+        gitem = GPoly(verts, *args, **kw)
+        self.add_gitem(gitem)
+
+    def add_mesh(self, verts, normals, *args, **kw):
+        verts = [self.trafo_view(v) for v in verts]
+        normals = [self.trafo_view_distance(n) for n in normals]
+        gitem = GMesh(verts, normals, *args, **kw)
         self.add_gitem(gitem)
 
     def add_ball(self, point, radius, *args, **kw):
@@ -461,26 +538,36 @@ class View(object):
         cvs.append(style.linejoin.bevel)
         return cvs
 
-    def illuminate(self, gitem):
-        light = self.lights[0]
-        v = (light.position - gitem.center).normalized()
-        #v = Mat([0., 0., 1.]).normalized()
-        x = v.dot(gitem.normal)
-        #print(x)
-        assert x <= 1+EPSILON, x
-        x = max(0.3, x)
-        fill = gitem.fill
-        stroke = gitem.stroke
-        if fill is not None:
-            r, g, b, a = fill
-            fill = (x*r, x*g, x*b, a)
-        if stroke is not None:
-            r, g, b, a = stroke
-            stroke = (x*r, x*g, x*b, a)
-        return fill, stroke
+#    def XXXilluminate(self, gitem):
+#        light = self.lights[0]
+#        v = (light.position - gitem.center).normalized()
+#        #v = Mat([0., 0., 1.]).normalized()
+#        x = v.dot(gitem.normal)
+#        #print(x)
+#        assert x <= 1+EPSILON, x
+#        x = max(0.3, x)
+#        fill = gitem.fill
+#        stroke = gitem.stroke
+#        if fill is not None:
+#            r, g, b, a = fill
+#            fill = (x*r, x*g, x*b, a)
+#        if stroke is not None:
+#            r, g, b, a = stroke
+#            stroke = (x*r, x*g, x*b, a)
+#        return fill, stroke
 
-    def render(self):
-        cvs = self.prepare_canvas()
+    def illuminate(self, vert, normal, color):
+        light = self.lights[0]
+        v = (light.position - vert).normalized()
+        x = v.dot(normal)
+        assert x <= 1+EPSILON, x
+        x = max(0.3, x) # XXX diffuse
+        r, g, b, a = color
+        color = (x*r, x*g, x*b, a)
+        return color
+
+    def render(self, *args, **kw):
+        cvs = self.prepare_canvas(*args, **kw)
 
         gitems = list(self.gitems)
 
@@ -494,24 +581,15 @@ class View(object):
         return cvs
 
 
-
 # ----------------------------------------------------------------------
 
-def mkpath(pts, closepath=True):
-    pts = [path.moveto(*pts[0])]+[path.lineto(*p) for p in pts[1:]]
-    if closepath:
-        pts.append(path.closepath())
-    p = path.path(*pts)
-    return p
 
-
-def make_sphere(radius, slices=8, stacks=8):
+def make_sphere(view, radius, slices=8, stacks=8, fill=color.rgb.white):
     z = -radius
     dz = 2*radius / stacks
     dtheta = 2*pi/slices
     dphi = pi/stacks
 
-    polys = []
     for i in range(stacks):
         phi0 = dphi*i
         phi1 = dphi*(i+1)
@@ -526,27 +604,78 @@ def make_sphere(radius, slices=8, stacks=8):
             x1, y1 = r1*cos(theta0), r1*sin(theta0)
             x2, y2 = r1*cos(theta1), r1*sin(theta1)
             x3, y3 = r0*cos(theta1), r0*sin(theta1)
-            poly = [
+            verts = [
                 Mat([x3, y3, z0]),
                 Mat([x2, y2, z1]),
                 Mat([x1, y1, z1]),
                 Mat([x0, y0, z0]),
             ]
             if i==0:
-                poly.pop(0)
+                verts.pop(0)
             elif i==stacks-1:
-                poly.pop(1)
-            #print(poly)
-            polys.append(poly)
-    return polys
+                verts.pop(1)
+            normals = [v.normalized() for v in verts]
+            view.add_mesh(verts, normals, fill)
 
 
-def make_torus(inner, outer, slices=16, stacks=16):
+def make_cylinder(view, radius0, radius1, height, slices=8, fill=color.rgb.white):
+
+    assert radius0 > EPSILON
+    assert radius1 > EPSILON
+    assert height > EPSILON
+
+    dtheta = 2*pi/slices
+
+    r0 = radius0
+    r1 = radius1
+    z = Mat([0, 0, height])
+    for j in range(slices):
+        theta0 = j * dtheta
+        theta1 = (j+1) * dtheta
+        v0 = Mat([cos(theta0), sin(theta0), 0.])
+        v1 = Mat([cos(theta1), sin(theta1), 0.])
+        dv0 = Mat([-sin(theta0), cos(theta0), 0.])
+        dv1 = Mat([-sin(theta1), cos(theta1), 0.])
+
+        verts = [r0*v1, r1*v1 + z, r1*v0 + z, r0*v0]
+        n0 = dv1.cross(verts[1]-verts[0]).normalized()
+        n1 = n0
+        n2 = dv0.cross(verts[2]-verts[3]).normalized()
+        n3 = n2
+        normals = [n0, n1, n2, n3]
+        view.add_mesh(verts, normals, fill)
+
+
+def make_cone(view, radius, height, slices=8, fill=color.rgb.white):
+
+    assert radius > EPSILON
+    assert height > EPSILON
+
+    dtheta = 2*pi/slices
+
+    r = radius
+    z = Mat([0, 0, height])
+    for j in range(slices):
+        theta0 = j * dtheta
+        theta1 = (j+1) * dtheta
+        v0 = Mat([cos(theta0), sin(theta0), 0.])
+        v1 = Mat([cos(theta1), sin(theta1), 0.])
+        dv0 = Mat([-sin(theta0), cos(theta0), 0.])
+        dv1 = Mat([-sin(theta1), cos(theta1), 0.])
+
+        verts = [r*v1, z, r*v0]
+        n0 = dv1.cross(verts[1]-verts[0]).normalized()
+        n2 = dv0.cross(verts[1]-verts[2]).normalized()
+        n1 = (0.5*(n0+n2)).normalized()
+        normals = [n0, n1, n2]
+        view.add_mesh(verts, normals, fill)
+
+
+def make_torus(view, inner, outer, slices=16, stacks=16, fill=color.rgb.white):
 
     dphi = 2*pi/stacks
     dtheta = 2*pi/slices
 
-    polys = []
     for i in range(stacks):
         phi0 = dphi*i
         phi1 = dphi*(i+1)
@@ -560,13 +689,20 @@ def make_torus(inner, outer, slices=16, stacks=16):
             theta0 = dtheta*j
             theta1 = dtheta*(j+1)
 
-            x0 = outer*u0 + inner*(sin(theta0)*u0 + cos(theta0)*v0)
-            x1 = outer*u1 + inner*(sin(theta0)*u1 + cos(theta0)*v1)
-            x2 = outer*u1 + inner*(sin(theta1)*u1 + cos(theta1)*v1)
-            x3 = outer*u0 + inner*(sin(theta1)*u0 + cos(theta1)*v0)
-            poly = [x3, x2, x1, x0]
-            polys.append(poly)
-    return polys
+            n0 = sin(theta0)*u0 + cos(theta0)*v0
+            n1 = sin(theta0)*u1 + cos(theta0)*v1
+            n2 = sin(theta1)*u1 + cos(theta1)*v1
+            n3 = sin(theta1)*u0 + cos(theta1)*v0
+            x0 = outer*u0 + inner*n0
+            x1 = outer*u1 + inner*n1
+            x2 = outer*u1 + inner*n2
+            x3 = outer*u0 + inner*n3
+            verts = [x3, x2, x1, x0]
+            normals = [n3, n2, n1, n0]
+            view.add_mesh(verts, normals, fill)
+
+
+# ----------------------------------------------------------------------
 
 
 def main():
@@ -585,15 +721,11 @@ def main():
         [[Mat(list(v)) for v in face] for face in polygon]
         for polygon in polytopes]
 
-    polytopes = [
-        #make_torus(0.5, 2., 32, 32),
-        make_sphere(1., 16, 12),
-    ]
 
     from bruhat.argv import argv
     frames = argv.get("frames", 1)
 
-    R = 8.0
+    R = 6.0
     y = 2.
     theta = 0.
     for frame in range(frames):
@@ -622,12 +754,19 @@ def main():
             (0.0, 0.6, 0.4, 0.8),
         ]
 
-        if 0:
-            view.rotate(-frame, 1, 1, 0)
-            for pts in polytopes[0]:
-                view.add_flat(pts, fills[0], stroke)
-
         if 1:
+            #view.rotate(frame, 1, 0, 0)
+            #view.rotate(0.1*frame, 0, 1, 0)
+            fill = fills[0]
+            #make_torus(view, 0.5, 2., 32, 32, fill)
+            #view.scale(2, 1, 1)
+            #make_sphere(view, 1., 16, 12, fill)
+            view.translate(0, -1, 0)
+            view.rotate(-90, 1, 0, 0)
+            #make_cylinder(view, 0.5, 1.0, 2., 16, fill)
+            make_cone(view, 0.5, 1., 16, fill)
+
+        elif 1:
             view.translate(-4., 0, 2)
     
             for idx, polygon in enumerate(polytopes):
@@ -635,16 +774,16 @@ def main():
     
                 view.save()
                 view.rotate(-frame*(idx+1), 1, 1, 0)
-                for pts in polygon:
-                    view.add_flat(pts, fill, stroke)
+                for verts in polygon:
+                    view.add_poly(verts, fill, stroke)
                 view.restore()
     
                 view.translate(+5, 0, 0)
         
                 view.rotate(360./5, 0, 1, 0)
-                break
     
-        cvs = view.render()
+        bg = color.rgb(0.2, 0.2, 0.2, 1.0)
+        cvs = view.render(bg=bg)
         cvs.writePNGfile("frames/%.4d.png"%frame)
         if frame == 0:
             cvs.writePDFfile("frames/%.4d.pdf"%frame)
