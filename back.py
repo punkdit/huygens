@@ -419,8 +419,13 @@ class Compound(Item):
         self.items = items
 
     def append(self, item):
+        assert isinstance(item, Item)
         items = self.items
         items.append(item)
+
+    def extend(self, items):
+        for item in items:
+            self.append(item)
 
     def __len__(self):
         return len(self.items)

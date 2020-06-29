@@ -43,7 +43,9 @@ def dopath(ps, attrs=[], fill=[], closepath=False, smooth=0.0, stroke=True, cvs=
 
 
 class Turtle(object):
-    def __init__(self, x=0.0, y=0.0, angle=0.0, cvs=None, attrs=[]):
+    default_attrs = [style.linewidth.thin, style.linecap.round, style.linejoin.round]
+
+    def __init__(self, x=0.0, y=0.0, angle=0.0, cvs=None, attrs=None):
         "angle: clockwise degrees starting from angle=0.0 is up"
         self.x = x
         self.y = y
@@ -53,6 +55,8 @@ class Turtle(object):
         self.pen = True
         self._save = None
         self.cvs = cvs
+        if attrs is None:
+            attrs = self.default_attrs
         self.attrs = attrs
 
     def copy(self):
@@ -93,10 +97,16 @@ class Turtle(object):
         #assert r > 1e-8, "can't lookat self"
         if r < 1e-8:
             return self
-        if dy >= 0.:
+        if dy > EPSILON:
             theta = atan(dx/dy)
-        else:
+        elif dy < -EPSILON:
             theta = atan(dx/dy) + pi
+        elif dx > EPSILON:
+            theta = 0.5*pi
+        elif dx < -EPSILON:
+            theta = -0.5*pi
+        else:
+            assert 0
         self.theta = theta
         return self
 
