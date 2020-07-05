@@ -120,11 +120,13 @@ trafo = NS(translate = Translate, scale = Scale, rotate = Rotate)
 class Canvas(Compound):
 
     def stroke(self, path, decos=[]):
+        assert type(decos) is list
         assert isinstance(path, Item), repr(path)
         item = Compound(decos, path, Stroke())
         self.append(item)
 
     def fill(self, path, decos=[]):
+        assert type(decos) is list
         assert isinstance(path, Item), repr(path)
         item = Compound(decos, path, Fill())
         self.append(item)
@@ -149,8 +151,12 @@ class Canvas(Compound):
         return (0., ury, urx-llx, ury-lly)
 
     def text(self, x, y, text, decos=[]):
-        #print("Canvas.text", x, y, text)
-        item = Compound(decos, Text(x, y, text))
+        assert type(decos) is list
+        color = None
+        for deco in decos:
+            if isinstance(deco, RGBA):
+                color = deco
+        item = Compound(decos, Text(x, y, text, color))
         self.append(item)
 
     def _write_cairo(self, method, name):

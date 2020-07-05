@@ -102,12 +102,13 @@ class Bound(Base):
 
 
 class Visitor(object):
-    def on_item(self, item):
-        pass
+    def on_visit(self, item):
+        return item
 
 class DumpVisitor(Visitor):
-    def on_item(self, item):
+    def on_visit(self, item):
         print('\t%s'%item)
+        return item
 
 
 # XXX this probably should be a full fledged Context XXX
@@ -117,7 +118,7 @@ class BoundVisitor(Visitor):
         self.lw = _defaultlinewidth*SCALE_CM_TO_POINT
         self.bound = Bound()
 
-    def on_item(self, item):
+    def on_visit(self, item):
         if isinstance(item, (Scale, Rotate, Translate_Pt)):
             assert 0, "trafo %s not implemented"%item
         elif isinstance(item, Compound):
@@ -144,8 +145,24 @@ class BoundVisitor(Visitor):
                 self.bound.update(Bound(x, y, x, y))
         else:
             pass
-        #print("BoundVisitor.on_item", self.bound)
+        #print("BoundVisitor.on_visit", self.bound)
+        return item
 
+
+class Replacer(Visitor):
+    def __init__(self, src, tgt):
+        assert isinstance(src, Item)
+        assert isinstance(tgt, Item)
+        self.src = src
+        self.tgt = tgt
+
+    def on_visit(self, item):
+        #if isinstance(item, RGBA):
+        #    print(item, self.src, item==self.src)
+        if item == self.src:
+            #print("Replacer", self.src, self.tgt)
+            item = self.tgt
+        return item
 
 
 # ----------------------------------------------------------------------------
@@ -164,11 +181,20 @@ class Item(Base):
         pass
 
     def visit(self, visitor):
-        visitor.on_item(self)
+        return visitor.on_visit(self)
+
+    def rewrite(self, visitor):
+        return visitor.on_visit(self)
 
     def dump(self):
         visitor = DumpVisitor()
         self.visit(visitor)
+
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 
@@ -437,6 +463,18 @@ class Compound(Item):
         for item in self.items:
             item.visit(visitor)
 
+    def rewrite(self, visitor):
+        items = self.items
+        idx = 0
+        while idx < len(items):
+            item = items[idx].rewrite(visitor)
+            if item is None:
+                items.pop(idx)
+            else:
+                items[idx] = item
+                idx += 1
+        return Item.rewrite(self, visitor)
+
     def get_bound(self):
         visitor = BoundVisitor()
         self.visit(visitor)
@@ -564,6 +602,9 @@ class RGBA(Deco):
     def __init__(self, r, g, b, a=1.0):
         self.cl = (r, g, b, a)
 
+    def __getitem__(self, idx):
+        return self.cl[idx]
+
     def process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
 
@@ -678,22 +719,35 @@ class Translate(Translate_Pt):
 
 
 class Scale(Deco):
-    def __init__(self, sx, sy=None):
+    def __init__(self, sx, sy=None, x=0., y=0.):
         if sy is None:
             sy = sx
         self.sx = float(sx)
         self.sy = float(sy)
+        self.x = float(x) * SCALE_CM_TO_POINT
+        self.y = float(y) * SCALE_CM_TO_POINT
 
     def process_cairo(self, cxt):
-        cxt.scale(self.sx, self.sy)
+        sx, sy = self.sx, self.sy
+        x, y = self.x, self.y
+        dx, dy = (1.-sx)*x, (1.-sy)*y
+        #print(dx,  dy)
+        cxt.translate(dx, -dy)
+        cxt.scale(sx, sy)
 
 
 class Rotate(Deco):
-    def __init__(self, angle):
+    def __init__(self, angle, x=0., y=0.):
+        "rotate by angle in radians around point at x,y"
         self.angle = angle
+        self.x = float(x) * SCALE_CM_TO_POINT
+        self.y = float(y) * SCALE_CM_TO_POINT
 
     def process_cairo(self, cxt):
+        x, y = self.x, self.y
+        cxt.translate(x, -y)
         cxt.rotate(self.angle)
+        cxt.translate(-x, y)
 
 
 
@@ -719,16 +773,17 @@ def text_extents_cairo(text):
 
 
 class Text(object):
-    def __new__(cls, x, y, text):
+    def __new__(cls, *args, **kw):
         ob = object.__new__(the_text_cls)
         return ob
 
 
 class CairoText(Item, Text):
-    def __init__(self, x, y, text):
+    def __init__(self, x, y, text, color=None):
         self.x = SCALE_CM_TO_POINT*x
         self.y = SCALE_CM_TO_POINT*y
         self.text = text
+        self.color = color
 
     def get_bound(self):
         extents = text_extents_cairo(self.text)
@@ -744,6 +799,8 @@ class CairoText(Item, Text):
 
     def process_cairo(self, cxt):
         cxt.save()
+        if self.color:
+            cxt.set_source_rgba(*self.color)
         cxt.move_to(self.x, -self.y)
         cxt.show_text(self.text)
         cxt.restore()
@@ -763,12 +820,15 @@ class MkText(Compound, Text):
             cls._baseline = bound.lly
         return cls._baseline
 
-    def __init__(self, x, y, text):
+    def __init__(self, x, y, text, color=None):
         assert text
         self.x = x = SCALE_CM_TO_POINT*x
         self.y = y = SCALE_CM_TO_POINT*y
         self.text = text
         item = make_text(text, self.tex_engine)
+        if color is not None:
+            black = RGBA(0., 0., 0., 1.)
+            item.rewrite(Replacer(black, color))
         bound = item.get_bound()
         assert not bound.is_empty(), bound
         llx, lly = bound.llx, bound.lly

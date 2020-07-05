@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import os
+from random import random
+from time import sleep
 
 from bruhat.render import config
 config(text="xelatex")
@@ -8,13 +10,16 @@ config(text="xelatex")
 from bruhat.render.base import SCALE_CM_TO_POINT
 
 from bruhat.render.front import *
+from bruhat.render.front import _defaultlinewidth
 from bruhat.render.box import *
 from bruhat.render.turtle import Turtle
+from bruhat.render.loadsvg import loadsvg
 from bruhat.argv import argv
 
+FPS = 25. # default ffmpeg encoding framerate
 
 """
-For the default 16:9 aspect ratio, encode at these resolutions:
+For 16:9 aspect ratio, encode at these resolutions:
 
 2160p: 3840x2160
 1440p: 2560x1440
@@ -27,7 +32,13 @@ For the default 16:9 aspect ratio, encode at these resolutions:
 
 bg = color.rgb.white
 bg = color.rgb.grey
+#bg = color.rgb(1.,1., 0.)
 fg = color.rgb.black
+
+black = color.rgb(0., 0., 0., 1.0)
+white = color.rgb(1., 1., 1., 1.0)
+blue = color.rgb(0.4, 0.3, 0.9, 1.0)
+orange = color.rgb(0.8, 0.2, 0.2, 1.0)
 
 W, H = 854, 480
 width, height = W/SCALE_CM_TO_POINT, H/SCALE_CM_TO_POINT
@@ -53,17 +64,15 @@ def setup():
     cvs.clip(p)
     cvs.fill(p, [bg])
 
-    #cvs.stroke(path.line(0., 0., width, h), [fg])
-    #cvs.stroke(path.line(0., h, width, 0), [fg])
+    #cvs.stroke(path.line(0., 0., width, height), [fg])
+    #cvs.stroke(path.line(0., height, width, 0), [fg])
 
     return cvs
 
 
-def text_box(s, scale=5.):
+def text_box(s, scale=5., color=black):
     sub = canvas.canvas()
-    sub.append(fg)
-    sub.append(Scale(scale))
-    sub.text(0., 0., s)
+    sub.text(0., 0., s, [color, trafo.scale(scale)])
     box = CanBox(sub)
     box = AlignBox(box, "center")
     return box
@@ -76,13 +85,22 @@ def title_seq():
 
     #x0, y0 = 1.5*width, 1.6*height
     #x1, y1 = 1.6*width, 1.3*height
-    N = 100
 
-    for i in range(N):
+    while 1:
 
         cvs = canvas.canvas()
-    
-        text_box("What the Quantum ?!?").render(cvs, x0, y0)
+
+        r, g, b, a = black
+        N = 4
+        for j in range(N):
+            #x = rnd(0, 1)
+            x = random()*0.1 + j*1./(N-1)
+            xx = 20*x - 10
+            a = abs(sin(xx) / xx)
+            x0 = x*width
+            y0 = 0.6*height + rnd(-1., 1.)
+            color = RGBA(r, g, b, a)
+            text_box("What the Quantum ?!?", color=color).render(cvs, x0, y0)
         text_box("Episode 1").render(cvs, x1, y1)
 
         x0 += 0.2/N*width
@@ -217,12 +235,9 @@ class Smooth(Lin):
         return (1-y)*x0 + y*x1
 
 
-def ball_seq():
+def ball_seq_1():
 
     N = 100
-
-    blue = color.rgb(0.4, 0.3, 0.9, 1.0)
-    orange = color.rgb(0.8, 0.2, 0.2, 1.0)
 
     r = 1./12
 
@@ -246,9 +261,317 @@ def ball_seq():
         yield axis
 
 
+class Ball(object):
+    def __init__(self, x, y, r, dx, dy, fill):
+        self.x = x
+        self.y = y
+        self.dx = dx
+        self.dy = dy
+        self.ddx = 0.
+        self.ddy = 0.
+        self.r = r
+        self.fill = fill
+
+    def update(self, ddx=0., ddy=0.):
+        self.x += self.dx
+        self.y += self.dy
+        self.dx += self.ddx
+        self.dy += self.ddy
+
+    def wrap(self, x0, y0, x1, y1):
+        x, y = self.x, self.y
+        if x < x0:
+            x = x1
+        elif x > x1:
+            x = x0
+        if y < y0:
+            y = y1
+        elif y > y1:
+            y = y0
+
+        self.x, self.y = (x, y)
+
+    def stroke(self, cvs):
+        p = path.circle(self.x, self.y, self.r)
+        cvs.stroke(p)
+        
+    def render(self, cvs, fill=None):
+        p = path.circle(self.x, self.y, self.r)
+        fill = fill or self.fill
+        if fill is not None:
+            cvs.fill(p, [fill])
+        cvs.stroke(p)
+
+
+def rnd(a, b):
+    return (b-a)*random() + a
+
+
+def ball_seq_2():
+
+#    blue = color.rgb(0.4, 0.3, 0.9, 0.8)
+#    orange = color.rgb(0.8, 0.2, 0.2, 0.8)
+
+    radius = 1.5
+
+    N = 20
+    balls = []
+    def mk_ball():
+        x, y = width*random(), height + radius
+        dx = -rnd(0.01, 0.03)
+        dy = -rnd(0.03, 0.05)
+        ball = Ball(x, y, radius, dx, dy, blue)
+        balls.append(ball)
+        print("balls:", len(balls))
+    mk_ball()
+
+    maxv = 0.03
+
+    person = loadsvg("person.svg")
+    cvs = canvas.canvas()
+    cvs.append(person)
+    person = AlignBox(CanBox(cvs), "center")
+
+    frame = 0
+    while 1:
+        frame += 1
+
+        cvs = canvas.canvas()
+
+        for ball in balls:
+            ball.render(cvs)
+
+        for ball in balls:
+            ball.stroke(cvs)
+            person.render(cvs, ball.x, ball.y)
+
+        if frame > 0: # warmup
+            yield cvs
+
+        #if (frame % FPS)==0 and len(balls) < N:
+        if (frame % 50)==0 and len(balls) < 4*N:
+            mk_ball()
+
+        for ball in balls:
+            ball.update()
+            ball.wrap(-1.1*radius, -1.1*radius, width+1.1*radius, height+1.1*radius)
+            ball.fill = blue
+            ball.ddx = 0.
+            ball.ddy = 0.
+            v = sqrt(ball.dx**2 + ball.dy**2)
+            if v > maxv:
+                ball.dx *= maxv/v
+                ball.dy *= maxv/v
+
+        for i in range(len(balls)):
+          for j in range(len(balls)):
+            if i==j:
+                continue
+            a = balls[i]
+            b = balls[j]
+
+            d = (b.x-a.x), (b.y-a.y)
+            r = sqrt(d[0]**2 + d[1]**2)
+            if r>2*radius:
+                continue
+            if r < 1e-2:
+                continue
+            r1 = r/radius
+            a.ddx += -0.01*d[0]/(r1**4)
+            a.ddy += -0.01*d[1]/(r1**4)
+
+            if r<1.95*radius:
+                a.fill = orange
+
+        for ball in balls:
+            if ball.dy >= 0 and ball.ddy == 0.:
+                ball.ddy = -0.0001
+
+        if len(balls) > N:
+            maxv *= 0.9999
+            
+
+def ball_seq():
+    import ode
+    from simulate import Sphere, Sim
+
+    sim = Sim(mu=0., has_gravity=False)
+    sim.world.setGravity((0, -4., -1.0))
+
+    left = -width
+    right = 2*width
+
+    walls = [
+        ode.GeomPlane(sim.space, (1, 0, 0), left),
+        ode.GeomPlane(sim.space, (-1, 0, 0), -right),
+        ode.GeomPlane(sim.space, (0, 0, 1), 0.), # bottom
+    ]
+
+    radius = 1.5
+
+#    blue = color.rgb(0.4, 0.3, 0.9, 0.8)
+#    orange = color.rgb(0.8, 0.2, 0.2, 0.8)
+
+    person = loadsvg("person.svg")
+    cvs = canvas.canvas()
+    cvs.append(person)
+    person = AlignBox(CanBox(cvs), "center")
+
+    balls = []
+    def mkball(x, z):
+        ball = Sphere(sim, radius=radius)
+        ball.setPosition((x, radius, z))
+        balls.append(ball)
+        print("balls:", len(balls))
+
+    rball = lambda : mkball(
+        rnd(left+radius, right-radius), height + 2*radius + 40*radius*random())
+
+    def rball_check(x0, y0, x1, y1):
+        if not balls:
+            return rball()
+        import kdtree
+        pts = []
+        for ball in balls:
+            x, _, y = ball.getPosition()
+            pts.append((x, y))
+        tree = kdtree.create(pts)
+        while 1:
+            x = rnd(x0, x1)
+            y = rnd(y0, y1)
+            nearest = tree.search_nn_dist((x, y), (1.9*radius)**2)
+            if not nearest:
+                break
+            #print(".", end="")
+        mkball(x, y)
+
+    for i in range(400):
+        rball_check(left+radius, radius, right-radius, 40*radius)
+
+    runner = sim.run()
+
+    scale = 1./4
+
+    frame = 0
+    while 1:
+        frame += 1
+
+        runner.__next__()
+
+        cvs = canvas.canvas()
+        if scale != 1.:
+            cvs.append(trafo.scale(scale, scale, 0.5*width, 0.1*height))
+
+        for ball in balls:
+            v = ball.getPosition()
+            x, _, y = v
+            #if x+radius < 0. or x-radius > width:
+            #    continue
+            p = path.circle(x, y, radius)
+            cvs.fill(p, blue)
+            cvs.stroke(p)
+            #person.render(cvs, x, y)
+
+        yield cvs
+
+        if frame % 10 == 0 and len(balls)<800:
+            rball_check(left+radius, 20*radius, right-radius, 80*radius)
+
+        if 100 < len(balls) and scale > 1./4:
+            scale *= 0.999
+
+
+class Live(object):
+
+    def __init__(self, width, height, frames):
+    
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk
+        from gi.repository import GObject
+    
+        win = Gtk.Window()
+        win.connect('destroy', self.quit)
+        win.set_default_size(width, height)
+        win.connect('key-press-event', self.on_key)
+    
+        drawingarea = Gtk.DrawingArea()
+        win.add(drawingarea)
+        drawingarea.connect('draw', self.render)
+        self.drawingarea = drawingarea
+    
+        win.show_all()
+
+        self.width = width
+        self.height = height
+        self.frames = frames
+
+        GObject.timeout_add(1000./FPS, self.refresh)
+
+        self.prev = None
+        self.pause = False
+
+        Gtk.main()
+
+    def refresh(self):
+        self.drawingarea.queue_draw()
+        return True
+
+    def quit(self, w=None):
+        from gi.repository import Gtk
+        Gtk.main_quit()
+
+    def on_key(self, w, event):
+        from gi.repository import Gdk
+        keyval = event.keyval
+        if keyval == Gdk.KEY_q:
+            self.quit()
+        elif keyval == Gdk.KEY_space:
+            self.pause = not self.pause
+        elif keyval == Gdk.KEY_Left:
+            print("left!")
+        elif keyval == Gdk.KEY_Right:
+            print("right!")
+        elif keyval == Gdk.KEY_Up:
+            print("up!")
+        elif keyval == Gdk.KEY_Down:
+            print("down!")
+        else:
+            print("on_key:", event.keyval)
+
+    def render(self, da, ctx):
+
+        if not self.pause:
+            try:
+                cvs = self.frames.__next__()
+            except StopIteration:
+                self.quit()
+                return
+        else:
+            cvs = self.prev
+            if cvs is None:
+                return
+
+        main = setup()
+        main.append(cvs)
+        bound = main.get_bound_cairo()
+
+        dx = 0 - bound.llx
+        dy = self.height + bound.lly
+
+        ctx.translate(dx, dy)
+        ctx.set_line_width(_defaultlinewidth * SCALE_CM_TO_POINT)
+        main.process_cairo(ctx)
+
+        self.prev = cvs
+
+
 def main():
 
     frames = argv.get("frames", None)
+    speed = argv.get("speed", 1)
+    speed = int(speed)
+    assert speed > 0
 
     frame = 0
     seqs = [
@@ -256,27 +579,44 @@ def main():
         ball_seq,
     ]
     for seq in seqs:
-      for cvs in seq():
-        main = setup()
-        main.append(cvs)
+        iseq = seq()
+        while 1:
+            try:
+                for _ in range(speed):
+                    cvs = iseq.__next__()
+            except StopIteration:
+                break
 
-        name = "ep01/%.4d"%frame
-        main.writePNGfile("%s.png"%name)
-        if frame==0:
-            main.writePDFfile("%s.pdf"%name)
-
-        print(".", end="", flush=True)
-        frame += 1
-
-        if frames is not None and frame>frames:
-            break
+            main = setup()
+            main.append(cvs)
+    
+            name = "ep01/%.4d"%frame
+            main.writePNGfile("%s.png"%name)
+            if frame==0:
+                main.writePDFfile("%s.pdf"%name)
+    
+            print(".", end="", flush=True)
+            frame += 1
+    
+            if frames is not None and frame>frames:
+                break
 
     print("OK")
 
 
+def live():
+    
+    #frames = ball_seq()
+    frames = title_seq()
+    Live(W, H, frames)
+
+
 if __name__ == "__main__":
 
-    main()
+    if argv.live:
+        live()
+    else:
+        main()
 
 
 

@@ -259,6 +259,7 @@ def test():
     radians = 1.234 * pi
     rotate = Matrix.rotate
     translate = Matrix.translate
+    scale = Matrix.scale
 
     I = Matrix()
     assert translate(x, y) * translate(-x, -y) == I
@@ -266,6 +267,12 @@ def test():
     lhs = translate(-x, -y)*rotate(radians)*translate(x, y)
     rhs = rotate(radians, x, y)
     assert lhs == rhs, (lhs, rhs)
+
+    
+    lhs = scale(0.5, 0.5)
+    rhs = translate(-2, 0) * scale(0.5, 0.5) * translate(1, 0)
+    print(lhs)
+    print(rhs)
 
     #angle = rhs.transform_angle(0.)
     #print(angle, radians)

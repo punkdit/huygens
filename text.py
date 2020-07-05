@@ -91,7 +91,7 @@ def make_text(text, tex_engine="pdftex"):
 
 def test():
 
-    item = make_text("hi there!")
+    item = make_text(".")
     print(item)
 
 

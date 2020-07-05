@@ -14,11 +14,13 @@ from bruhat.render.flatten import Flatten
 
 class DummySurf(Surface):
 
-    def __init__(self, tree, output, dpi):
+    def __init__(self, tree, output, dpi, context=None):
     
         W, H = 600., 200. # point == 1/72 inch
 
-        self.context = Flatten()
+        if context is None:
+            context = Flatten()
+        self.context = context
 
         self.dpi = dpi
 
@@ -53,11 +55,20 @@ class DummySurf(Surface):
         self.paths = self.context.paths
 
 
-def loadsvg(name, dpi=72.):
+class SkipColors(Flatten):
+    def set_source_rgba(self, r, g, b, a):
+        pass
+
+
+def loadsvg(name, dpi=72., keep_colors=True):
     assert name.endswith(".svg")
     s = open(name).read()
     tree = Tree(bytestring=s)
-    dummy = DummySurf(tree, None, dpi)
+    if keep_colors:
+        context = Flatten()
+    else:
+        context = SkipColors()
+    dummy = DummySurf(tree, None, dpi, context=context)
     item = back.Compound(dummy.paths)
     return item
 
