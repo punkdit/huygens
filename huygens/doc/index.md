@@ -1,5 +1,5 @@
 
-bruhat.render
+huygens
 =============
 
 <img src="images/braid-strands.svg" class="center">
@@ -21,25 +21,25 @@ things to change drastically and without warning.
 User guide
 ----------
 
-__[bruhat.render](test_canvas.html)__
+__[huygens](test_canvas.html)__
 Basic drawing functions. Lines, curves, text and so on.
 
-__[bruhat.render.turtle](test_turtle.html)__
+__[huygens.turtle](test_turtle.html)__
 A simple Turtle class for sequentially building paths.
 Also fun.
 
-__[bruhat.render.sat](test_sat.html)__
+__[huygens.sat](test_sat.html)__
 A convenient interface to a linear programming constraint solver. 
 Currently uses 
 [scipy.optimize.linprog](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linprog.html)
 
-__[bruhat.render.box](test_box.html)__
+__[huygens.box](test_box.html)__
 Structure figures into rectangular `Box`s.
 Various ways of combining these: `HBox`, `VBox`, `TableBox`, etc.
 The layout is determined by constraints, and so this uses
-the `bruhat.render.sat` module.
+the `huygens.sat` module.
 
-__[bruhat.render.diagram](test_diagram.html)__
+__[huygens.diagram](test_diagram.html)__
 Building on the `box` module to make string diagrams.
 
 See also

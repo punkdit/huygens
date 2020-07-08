@@ -81,7 +81,7 @@ def make_text(text, tex_engine="pdftex"):
         command("%s %s"%(tex_engine, tex_name))
         command("pdf2svg %s %s" % (pdf_name, svg_name))
 
-    from huygens.render import loadsvg
+    from huygens import loadsvg
     item = loadsvg.loadsvg(svg_name)
 
     os.chdir("..") # <---------- chdir <-----
