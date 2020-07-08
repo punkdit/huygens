@@ -53,7 +53,7 @@ def latex_output(text):
 
 def make_text(text, tex_engine="pdftex"):
     assert tex_engine in "pdftex xetex xelatex pdflatex".split()
-    cache = "__bruhat__"
+    cache = "__huygens__"
     if not file_exists(cache):
         os.mkdir(cache)
     os.chdir(cache) # <---------- chdir <-----
@@ -81,7 +81,7 @@ def make_text(text, tex_engine="pdftex"):
         command("%s %s"%(tex_engine, tex_name))
         command("pdf2svg %s %s" % (pdf_name, svg_name))
 
-    from bruhat.render import loadsvg
+    from huygens.render import loadsvg
     item = loadsvg.loadsvg(svg_name)
 
     os.chdir("..") # <---------- chdir <-----

@@ -21,7 +21,7 @@ from operator import add
 
 import ode
 
-from bruhat.argv import argv
+from huygens.argv import argv
 
 
 class Vec(object):

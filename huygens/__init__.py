@@ -1,7 +1,7 @@
-from bruhat.render import front, back
+from huygens import front, back
 
-from bruhat.render.front import canvas, style, path, color, trafo, linestyle
-from bruhat.render import box, diagram
+from huygens.front import canvas, style, path, color, trafo, linestyle
+from huygens import box, diagram
 
 
 def config(text=None):

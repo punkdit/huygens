@@ -19,10 +19,10 @@ The api uses the first quadrant coordinate system:
 
 from math import pi, sqrt, sin, cos, sqrt, floor
 
-from bruhat.render.base import EPSILON, NS, SCALE_CM_TO_POINT
-from bruhat.render.back import * # XXX
-from bruhat.render.back import _defaultlinewidth
-from bruhat.render.flatten import Flatten
+from huygens.base import EPSILON, NS, SCALE_CM_TO_POINT
+from huygens.back import * # XXX
+from huygens.back import _defaultlinewidth
+from huygens.flatten import Flatten
 
 
 # ----------------------------------------------------------------------------

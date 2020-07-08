@@ -19,8 +19,8 @@ The api uses the first quadrant coordinate system:
 
 from math import pi, sqrt, sin, cos, sqrt, floor
 
-from bruhat.render.base import SCALE_CM_TO_POINT, Base, Matrix
-from bruhat.render.text import make_text
+from huygens.base import SCALE_CM_TO_POINT, Base, Matrix
+from huygens.text import make_text
 
 
 # ----------------------------------------------------------------------------

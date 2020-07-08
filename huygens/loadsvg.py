@@ -7,9 +7,9 @@ Hijack cairosvg to load svg into our internal data structures.
 from cairosvg.parser import Tree
 from cairosvg.surface import Surface
 
-from bruhat.argv import argv
-from bruhat.render import back
-from bruhat.render.flatten import Flatten
+from huygens.argv import argv
+from huygens import back
+from huygens.flatten import Flatten
 
 
 class DummySurf(Surface):

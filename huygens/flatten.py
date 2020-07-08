@@ -8,9 +8,9 @@ to just a few primitives, such as move_to line_to and curve_to.
 import sys
 from math import sin, cos, pi
 
-from bruhat.argv import argv
-from bruhat.render import back
-from bruhat.render.base import Context
+from huygens import argv
+from huygens import back
+from huygens.base import Context
 
 
 class Flatten(Context):

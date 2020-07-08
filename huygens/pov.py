@@ -306,8 +306,8 @@ test_perspective()
 # ----------------------------------------------------------------------
 
 
-from bruhat.render.base import SCALE_CM_TO_POINT
-from bruhat.render.front import *
+from huygens.base import SCALE_CM_TO_POINT
+from huygens.front import *
 
 
 def mkpath(pts, closepath=True):
@@ -722,7 +722,7 @@ def main():
         for polygon in polytopes]
 
 
-    from bruhat.argv import argv
+    from huygens.argv import argv
     frames = argv.get("frames", 1)
 
     R = 6.0

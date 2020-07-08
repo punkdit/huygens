@@ -4,17 +4,17 @@ import os
 from random import random
 from time import sleep
 
-from bruhat.render import config
+from huygens import config
 config(text="xelatex")
 
-from bruhat.render.base import SCALE_CM_TO_POINT
+from huygens.base import SCALE_CM_TO_POINT
 
-from bruhat.render.front import *
-from bruhat.render.front import _defaultlinewidth
-from bruhat.render.box import *
-from bruhat.render.turtle import Turtle
-from bruhat.render.loadsvg import loadsvg
-from bruhat.argv import argv
+from huygens.front import *
+from huygens.front import _defaultlinewidth
+from huygens.box import *
+from huygens.turtle import Turtle
+from huygens.loadsvg import loadsvg
+from huygens.argv import argv
 
 FPS = 25. # default ffmpeg encoding framerate
 

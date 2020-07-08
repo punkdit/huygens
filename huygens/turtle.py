@@ -6,7 +6,7 @@ copied from arrowtheory repo
 import sys
 
 from math import sin, cos, pi, asin, acos, atan
-from bruhat.render.front import *
+from huygens.front import *
 
 
 def get_canvas():

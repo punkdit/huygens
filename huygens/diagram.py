@@ -6,9 +6,9 @@ string diagram's
 
 from math import pi
 
-from bruhat.render.base import Base
-from bruhat.render.front import canvas, path, trafo, style, color
-from bruhat.render.box import (Box, EmptyBox, HBox, VBox, AlignBox, 
+from huygens.base import Base
+from huygens.front import canvas, path, trafo, style, color
+from huygens.box import (Box, EmptyBox, HBox, VBox, AlignBox, 
     StrictVBox, StrictHBox, TextBox, RectBox)
 
 

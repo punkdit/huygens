@@ -5,11 +5,11 @@ from copy import deepcopy
 from math import pi
 
 
-from bruhat.render.sat import Expr, System, Listener
-from bruhat.render.front import RGBA, Compound, Translate
-from bruhat.render.front import path, style, canvas, color
-from bruhat.render.turtle import Turtle
-from bruhat.argv import argv
+from huygens.sat import Expr, System, Listener
+from huygens.front import RGBA, Compound, Translate
+from huygens.front import path, style, canvas, color
+from huygens.turtle import Turtle
+from huygens.argv import argv
 
 
 class Magic(Listener):
@@ -746,7 +746,7 @@ class ArrowBox(Box):
 
 def test():
 
-    from bruhat.render import config
+    from hugyens import config
     config(text="pdftex")
 
     Box.DEBUG = False
