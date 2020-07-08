@@ -7,9 +7,9 @@ Note: use mkdoc.py to rebuild all docs & images.
 import os
 import collections
 
-import bruhat.render.doc
-from bruhat.render.front import Canvas, Scale, Base
-from bruhat.render.box import Box
+import huygens.doc
+from huygens.front import Canvas, Scale, Base
+from huygens.box import Box
 
 
 class TestRun(Base):
@@ -100,9 +100,9 @@ def harvest(path, name, dummy=False):
     print("run_tests.harvest", name)
     assert name.endswith(".py")
     stem = name[:-len(".py")]
-    desc = "bruhat.render.doc."+stem
+    desc = "huygens.doc."+stem
     __import__(desc)
-    m = getattr(bruhat.render.doc, stem)
+    m = getattr(huygens.doc, stem)
     funcs = []
     for attr in dir(m):
         value = getattr(m, attr)

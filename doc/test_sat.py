@@ -16,7 +16,7 @@ def test_sat():
     # 
 
 
-    from bruhat.render.sat import Variable, Solver, System
+    from huygens.sat import Variable, Solver, System
     
     x = Variable('x')
     y = Variable('y')

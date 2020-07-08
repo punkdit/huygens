@@ -21,7 +21,7 @@ def test_canvas():
     # The canvas coordinates are positive in the
     # upper right quadrant.
 
-    from bruhat.render import canvas, path, color
+    from huygens import canvas, path, color
 
     cvs = canvas.canvas()
     cvs.stroke(path.line(0., 0., 3., 2.))
@@ -38,7 +38,7 @@ def test_canvas():
     # radians in calls to `path.arc` and `trafo.rotate`.
 
     from math import pi
-    from bruhat.render import style, trafo, linestyle
+    from huygens import style, trafo, linestyle
 
     cvs = canvas.canvas()
 

@@ -8,10 +8,10 @@ from pygments.formatters import HtmlFormatter
 from pygments import highlight
 from pygments.lexers import Python3Lexer
 
-from bruhat.argv import argv
-from bruhat.render.doc import run_tests
-from bruhat.render.front import Canvas, Scale
-from bruhat.render.box import Box
+from huygens.argv import argv
+from huygens.doc import run_tests
+from huygens.front import Canvas, Scale
+from huygens.box import Box
 
 
 def html_head(s):

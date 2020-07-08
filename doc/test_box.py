@@ -14,8 +14,8 @@ def test_box():
     # 
 
     from random import random
-    from bruhat.render.front import canvas, path
-    from bruhat.render.box import (Box, EmptyBox, CanBox, TextBox, 
+    from huygens.front import canvas, path
+    from huygens.box import (Box, EmptyBox, CanBox, TextBox, 
         HBox, VBox, OBox, TableBox, FillBox, MarginBox, AlignBox)
 
     # First we set a debug flag so we can see the shape of every box

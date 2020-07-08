@@ -16,8 +16,8 @@ def test_turtle():
     # ===============
     # Use a turtle to keep track of a path as you build it.
 
-    from bruhat.render import canvas, style, color
-    from bruhat.render.turtle import Turtle
+    from huygens import canvas, style, color
+    from huygens.turtle import Turtle
 
     cvs = canvas.canvas()
     turtle = Turtle(cvs=cvs)

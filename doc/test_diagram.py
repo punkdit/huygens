@@ -15,9 +15,9 @@ def test_relation():
     # that describe "input-output ports" on each of the four
     # edges: top, bot, left and right.
 
-    from bruhat.render.box import Box
-    #from bruhat.render.diagram import Spider, VWire, Cap, Cup, Relation
-    from bruhat.render.diagram import Relation
+    from huygens.box import Box
+    #from huygens.diagram import Spider, VWire, Cap, Cup, Relation
+    from huygens.diagram import Relation
     Box.DEBUG = True
     box = Relation(2, 4, topbot=[(0, 2), (1, 3)], botbot=[(0, 1)])
 
@@ -30,7 +30,7 @@ def test_relation():
     # and horizontally, as long as the number of ports agree
     # along the connecting edge.
 
-    from bruhat.render.diagram import VDia, HDia
+    from huygens.diagram import VDia, HDia
 
     a_box = Relation(0, 2, botbot=[(0, 1)])
     b_box = Relation(2, 4, topbot=[(0, 2), (1, 3)], botbot=[(0, 1)])
@@ -56,9 +56,9 @@ def test_snake():
     # The base class for a diagram is `Dia`. Diagrams are
     # also `Box`'s so we can stick them anywhere we can use a `Box`.
 
-    from bruhat.render import config, canvas
-    from bruhat.render.box import Box, HBox
-    from bruhat.render.diagram import HDia, VDia, VWire, Cap, Cup, SIZE
+    from huygens import config, canvas
+    from huygens.box import Box, HBox
+    from huygens.diagram import HDia, VDia, VWire, Cap, Cup, SIZE
     Box.DEBUG = False
 
     config(text="pdftex")
@@ -91,7 +91,7 @@ def test_snake():
     # If we use a `StrictHBox` it will stretch the `VWire()`
     # but then we need to put the text in a `SlackBox`.
 
-    from bruhat.render.box import SlackBox, StrictHBox
+    from huygens.box import SlackBox, StrictHBox
     boxs = [lsnake, SlackBox("$=$"), VWire(), SlackBox("$=$"), rsnake]
     dia = StrictHBox(boxs, align="center")
 
@@ -105,8 +105,8 @@ def test_spider():
     # The `*` operator composes top-down, like `VBox`.
     # The `@` operator composes left to right, like `HBox`.
 
-    from bruhat.render.box import Box
-    from bruhat.render.diagram import Spider, VWire, Cap, Cup
+    from huygens.box import Box
+    from huygens.diagram import Spider, VWire, Cap, Cup
     Box.DEBUG = False
 
     box = Spider(2, 2) @ Spider(1, 1)
@@ -144,8 +144,8 @@ def test_spider():
 
 def test_yang_baxter():
 
-    from bruhat.render.box import Box, HBox
-    from bruhat.render.diagram import VWire, Braid
+    from huygens.box import Box, HBox
+    from huygens.diagram import VWire, Braid
     Box.DEBUG = False
 
     Id = VWire
@@ -165,8 +165,8 @@ def test_yang_baxter():
 
 
 def test_braid_3():
-    from bruhat.render.box import Box, HBox
-    from bruhat.render.diagram import VWire, Braid
+    from huygens.box import Box, HBox
+    from huygens.diagram import VWire, Braid
     Box.DEBUG = False
 
     Id = VWire
@@ -195,9 +195,9 @@ def test_braid():
     from operator import matmul
     from functools import reduce
 
-    from bruhat.render import canvas, color, style, path
-    from bruhat.render.box import Box, HBox
-    from bruhat.render.diagram import VWire, Braid, Relation
+    from huygens import canvas, color, style, path
+    from huygens.box import Box, HBox
+    from huygens.diagram import VWire, Braid, Relation
 
     seed(1)
 
@@ -354,7 +354,7 @@ def XXXtest_braid():
 
 if __name__ == "__main__":
 
-    from bruhat.argv import argv
+    from huygens import argv
     if argv.profile:
         import cProfile as profile
         profile.run("test()")
