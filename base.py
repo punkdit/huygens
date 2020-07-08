@@ -271,8 +271,6 @@ def test():
     
     lhs = scale(0.5, 0.5)
     rhs = translate(-2, 0) * scale(0.5, 0.5) * translate(1, 0)
-    print(lhs)
-    print(rhs)
 
     #angle = rhs.transform_angle(0.)
     #print(angle, radians)

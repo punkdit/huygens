@@ -126,7 +126,7 @@ class Canvas(Compound):
         self.append(item)
 
     def fill(self, path, decos=[]):
-        assert type(decos) is list
+        #assert type(decos) is list
         assert isinstance(path, Item), repr(path)
         item = Compound(decos, path, Fill())
         self.append(item)

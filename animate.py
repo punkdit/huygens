@@ -86,27 +86,25 @@ def title_seq():
     #x0, y0 = 1.5*width, 1.6*height
     #x1, y1 = 1.6*width, 1.3*height
 
+    spread = 1.0
+
+    N = 100
     while 1:
 
         cvs = canvas.canvas()
 
-        r, g, b, a = black
-        N = 4
-        for j in range(N):
-            #x = rnd(0, 1)
-            x = random()*0.1 + j*1./(N-1)
-            xx = 20*x - 10
-            a = abs(sin(xx) / xx)
-            x0 = x*width
-            y0 = 0.6*height + rnd(-1., 1.)
-            color = RGBA(r, g, b, a)
-            text_box("What the Quantum ?!?", color=color).render(cvs, x0, y0)
+        #color = RGBA(r, g, b, a)
+        color = black
+        text_box("What the Quantum ?!?", color=color).render(cvs, x0, y0)
+
         text_box("Episode 1").render(cvs, x1, y1)
 
         x0 += 0.2/N*width
         x1 -= 0.2/N*width
     
         yield cvs
+
+        spread *= 0.9
 
 
 
@@ -395,7 +393,8 @@ def ball_seq():
     import ode
     from simulate import Sphere, Sim
 
-    sim = Sim(mu=0., has_gravity=False)
+    mu = argv.get("mu", 0.)
+    sim = Sim(mu=mu, has_gravity=False)
     sim.world.setGravity((0, -4., -1.0))
 
     left = -width
@@ -407,7 +406,8 @@ def ball_seq():
         ode.GeomPlane(sim.space, (0, 0, 1), 0.), # bottom
     ]
 
-    radius = 1.5
+    #radius = 1.5
+    radius = 0.5 * (width/10.)
 
 #    blue = color.rgb(0.4, 0.3, 0.9, 0.8)
 #    orange = color.rgb(0.8, 0.2, 0.2, 0.8)
@@ -422,7 +422,7 @@ def ball_seq():
         ball = Sphere(sim, radius=radius)
         ball.setPosition((x, radius, z))
         balls.append(ball)
-        print("balls:", len(balls))
+        #print("balls:", len(balls))
 
     rball = lambda : mkball(
         rnd(left+radius, right-radius), height + 2*radius + 40*radius*random())
@@ -445,10 +445,16 @@ def ball_seq():
             #print(".", end="")
         mkball(x, y)
 
-    for i in range(400):
-        rball_check(left+radius, radius, right-radius, 40*radius)
+    nballs = argv.get("nballs", 800)
+    #for i in range(400):
+    #    rball_check(left+radius, radius, right-radius, 40*radius)
+    for i in range(nballs):
+        rball_check(left+radius, radius, right-radius, 80*radius)
 
     runner = sim.run()
+
+    speed = argv.get("speed", 1)
+    speed = int(speed)
 
     scale = 1./4
 
@@ -456,7 +462,8 @@ def ball_seq():
     while 1:
         frame += 1
 
-        runner.__next__()
+        for _ in range(speed):
+            runner.__next__()
 
         cvs = canvas.canvas()
         if scale != 1.:
@@ -566,57 +573,52 @@ class Live(object):
         self.prev = cvs
 
 
-def main():
+def main(frames):
 
-    frames = argv.get("frames", None)
+    nframes = argv.get("nframes", None)
     speed = argv.get("speed", 1)
     speed = int(speed)
     assert speed > 0
 
     frame = 0
-    seqs = [
-        #title_seq,
-        ball_seq,
-    ]
-    for seq in seqs:
-        iseq = seq()
-        while 1:
-            try:
-                for _ in range(speed):
-                    cvs = iseq.__next__()
-            except StopIteration:
-                break
+    while 1:
+        try:
+            for _ in range(speed):
+                cvs = frames.__next__()
+        except StopIteration:
+            break
 
-            main = setup()
-            main.append(cvs)
-    
-            name = "ep01/%.4d"%frame
-            main.writePNGfile("%s.png"%name)
-            if frame==0:
-                main.writePDFfile("%s.pdf"%name)
-    
-            print(".", end="", flush=True)
-            frame += 1
-    
-            if frames is not None and frame>frames:
-                break
+        main = setup()
+        main.append(cvs)
+
+        name = "frames/%.4d"%frame
+        main.writePNGfile("%s.png"%name)
+        if frame==0:
+            main.writePDFfile("%s.pdf"%name)
+
+        print(".", end="", flush=True)
+        frame += 1
+
+        if nframes is not None and frame>nframes:
+            break
 
     print("OK")
 
 
-def live():
-    
-    #frames = ball_seq()
-    frames = title_seq()
-    Live(W, H, frames)
-
 
 if __name__ == "__main__":
 
-    if argv.live:
-        live()
+    live = argv.live
+
+    frames = argv.next()
+    assert frames is not None, "please specify sequence name"
+    frames = eval(frames)
+    frames = frames()
+
+    if live:
+        Live(W, H, frames)
     else:
-        main()
+        main(frames)
 
 
 
