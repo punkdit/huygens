@@ -21,6 +21,9 @@ things to change drastically and without warning.
 User guide
 ----------
 
+The documentation is in [huygens/doc](huygens/doc/). 
+You can also read it online 
+[here](https://arrowtheory.com/huygens/huygens/doc/index.html).
 
 See also
 --------

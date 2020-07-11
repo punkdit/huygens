@@ -10,7 +10,6 @@ from pygments.lexers import Python3Lexer
 
 from huygens.argv import argv
 from huygens.doc import run_tests
-from huygens.front import Canvas, Scale
 from huygens.box import Box
 
 
