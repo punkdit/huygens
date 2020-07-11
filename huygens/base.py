@@ -10,6 +10,9 @@ class NS(object):
     def __init__(self, **kw):
         self.__dict__.update(kw)
 
+    #def __call__(self, *args, **kw):
+    #    return self
+
 
 SCALE_CM_TO_POINT = 72.0/2.54 # convert cm's to points at 72 dpi.
 _defaultlinewidth = 0.02

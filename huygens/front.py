@@ -112,9 +112,15 @@ linestyle = NS(
     dotted = CompoundDeco([style.linecap.round, LineDash([0, 2])]),
     dashdotted = CompoundDeco([style.linecap.round, LineDash([0, 2, 2, 2])]))
 
+style.linestyle = linestyle
 
 trafo = NS(translate = Translate, scale = Scale, rotate = Rotate)
 
+deco = NS()
+deco.earrow = NS()
+deco.earrow.Large = NS()
+
+#bbox = Bound
 
 
 class Canvas(Compound):
@@ -195,21 +201,30 @@ class Canvas(Compound):
         return surface
 
     def writePDFfile(self, name):
-        assert name.endswith(".pdf") or name=="/dev/null" 
+        if name=="/dev/null" or name.endswith(".pdf"):
+            pass
+        else:
+            name = name + ".pdf"
         import cairo
         method = cairo.PDFSurface
         surface = self._write_cairo(method, name)
         surface.finish()
 
     def writeSVGfile(self, name):
-        assert name.endswith(".svg") or name=="/dev/null" 
+        if name=="/dev/null" or name.endswith(".svg"):
+            pass
+        else:
+            name = name + ".svg"
         import cairo
         method = cairo.SVGSurface
         surface = self._write_cairo(method, name)
         surface.finish()
 
     def writePNGfile(self, name):
-        assert name.endswith(".png") or name=="/dev/null" 
+        if name=="/dev/null" or name.endswith(".png"):
+            pass
+        else:
+            name = name + ".png"
         import cairo
         def method(name, W, H):
             W = int(round(W))
