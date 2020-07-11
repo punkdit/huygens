@@ -9,7 +9,7 @@ Intended to have multiple backends, currently the only
 backend implemented uses [cairo](https://www.cairographics.org/).
 Hopefully there will also be a [PyX](https://pyx-project.org/) backend.
 
-It can also include text from $\TeX$ via pdftex, pdflatex, xetex or xelatex.
+It can also include text from TeX via pdftex, pdflatex, xetex or xelatex.
 
 Diagrams are able to be composed in various ways, based 
 on a linear constraint solver. Therefore, this system becomes
@@ -21,9 +21,9 @@ things to change drastically and without warning.
 User guide
 ----------
 
-The documentation is in [huygens/doc](huygens/doc/). 
-You can also read it online 
+You can read it online 
 [here](https://arrowtheory.com/huygens/huygens/doc/index.html).
+The documentation is distributed in [huygens/doc](huygens/doc/). 
 
 See also
 --------

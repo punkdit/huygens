@@ -1,8 +1,8 @@
 
-huygens
-=============
+<img src="images/Christiaan_Huygens.png" align="right" />
 
-<img src="images/braid-strands.svg" class="center">
+huygens
+=======
 
 This is a python package for drawing diagrams.
 Intended to have multiple backends, currently the only
