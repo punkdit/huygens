@@ -20,7 +20,7 @@ The api uses the first quadrant coordinate system:
 from math import pi, sqrt, sin, cos, sqrt, floor
 
 from huygens.base import EPSILON, NS, SCALE_CM_TO_POINT
-from huygens.back import * # XXX
+from huygens.back import *
 from huygens.back import _defaultlinewidth
 from huygens.flatten import Flatten
 
@@ -164,6 +164,10 @@ class Canvas(Compound):
                 color = deco
         item = Compound(decos, Text(x, y, text, color))
         self.append(item)
+
+    def image(self, name, x=0, y=0):
+        im = Image(name, x, y)
+        self.append(im)
 
     def _write_cairo(self, method, name):
 

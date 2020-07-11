@@ -561,6 +561,25 @@ class Circle(Path):
 
 
 # ----------------------------------------------------------------------------
+# 
+#
+
+class Image(Item):
+    def __init__(self, name, x=0, y=0):
+        self.name = name
+        self.x = x*SCALE_CM_TO_POINT
+        self.y = y*SCALE_CM_TO_POINT
+
+    def process_cairo(self, cxt):
+        import cairo
+        surf = cairo.ImageSurface.create_from_png(self.name)
+        cxt.save()
+        cxt.set_source_surface(surf, self.x, -self.y)
+        cxt.paint()
+        cxt.restore()
+
+
+# ----------------------------------------------------------------------------
 # Deco
 #
 
