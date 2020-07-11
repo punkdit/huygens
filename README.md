@@ -1,8 +1,8 @@
 
+<img src="huygens/doc/images/Christiaan_Huygens.png" align="right" />
+
 huygens
 =======
-
-<img src="huygens/doc/images/Christiaan_Huygens.png" align="right" />
 
 This is a python package for drawing diagrams.
 Intended to have multiple backends, currently the only
@@ -21,26 +21,6 @@ things to change drastically and without warning.
 User guide
 ----------
 
-__[huygens](test_canvas.html)__
-Basic drawing functions. Lines, curves, text and so on.
-
-__[huygens.turtle](test_turtle.html)__
-A simple Turtle class for sequentially building paths.
-Also fun.
-
-__[huygens.sat](test_sat.html)__
-A convenient interface to a linear programming constraint solver. 
-Currently uses 
-[scipy.optimize.linprog](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linprog.html)
-
-__[huygens.box](test_box.html)__
-Structure figures into rectangular `Box`s.
-Various ways of combining these: `HBox`, `VBox`, `TableBox`, etc.
-The layout is determined by constraints, and so this uses
-the `huygens.sat` module.
-
-__[huygens.diagram](test_diagram.html)__
-Building on the `box` module to make string diagrams.
 
 See also
 --------
