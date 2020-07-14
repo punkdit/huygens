@@ -22,6 +22,7 @@ from math import pi, sqrt, sin, cos, sqrt, floor
 from huygens.base import SCALE_CM_TO_POINT, Base, Matrix
 from huygens.text import make_text
 
+EPSILON = 1e-8
 
 # ----------------------------------------------------------------------------
 # 
@@ -197,19 +198,58 @@ class Item(Base):
         return not self.__eq__(other)
 
 
+class PathItem(Item):
+    "belongs in a Path"
+    def get_length_pt(self, curpos, startpos):
+        assert 0, self.__class__
 
-class ClosePath(Item):
+    def get_at(self, curpos, startpos, t):
+        assert 0, self.__class__
+
+    def diff_at(self, curpos, startpos, t):
+        assert 0, self.__class__
+
+
+class ClosePath(PathItem):
+    def get_length_pt(self, curpos, startpos):
+        assert curpos is not None
+        assert startpos is not None
+        x0, y0 = curpos
+        x1, y1 = startpos
+        r = sqrt((x1-x0)**2 + (y1-y0)**2)
+        return startpos, r
+
+    def get_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        assert startpos is not None
+        assert 0.<=t<=1.
+        #print("LineTo_Pt.get_at", t, curpos, self)
+        x0, y0 = curpos
+        x1, y1 = startpos
+        return (1.-t)*x0 + t*x1, (1.-t)*y0 + t*y1
+
+    def diff_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        assert 0.<=t<=1.
+        #print("LineTo_Pt.get_at", t, curpos, self)
+        x0, y0 = curpos
+        x1, y1 = startpos
+        return (x1-x0), (y1-y0)
+
     def process_cairo(self, cxt):
         cxt.close_path()
 
 
-class MoveTo_Pt(Item):
+class MoveTo_Pt(PathItem):
     def __init__(self, x, y):
         self.x = float(x)
         self.y = float(y)
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
+
+    def get_length_pt(self, curpos, startpos):
+        return (self.x, self.y), 0.
 
     def process_cairo(self, cxt):
         if self.DEBUG:
@@ -224,10 +264,33 @@ class MoveTo(MoveTo_Pt):
         self.y = SCALE_CM_TO_POINT*y
 
 
-class LineTo_Pt(Item):
+class LineTo_Pt(PathItem):
     def __init__(self, x, y):
         self.x = float(x)
         self.y = float(y)
+
+    def get_length_pt(self, curpos, startpos):
+        assert curpos is not None, "no current point"
+        x0, y0 = curpos
+        x1, y1 = self.x, self.y
+        r = sqrt((x1-x0)**2 + (y1-y0)**2)
+        return (x1, y1), r
+
+    def get_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        assert 0.<=t<=1.
+        #print("LineTo_Pt.get_at", t, curpos, self)
+        x0, y0 = curpos
+        x1, y1 = self.x, self.y
+        return (1.-t)*x0 + t*x1, (1.-t)*y0 + t*y1
+
+    def diff_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        assert 0.<=t<=1.
+        #print("LineTo_Pt.get_at", t, curpos, self)
+        x0, y0 = curpos
+        x1, y1 = self.x, self.y
+        return (x1-x0), (y1-y0)
 
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
@@ -245,7 +308,7 @@ class LineTo(LineTo_Pt):
         self.y = SCALE_CM_TO_POINT*y
 
 
-class CurveTo_Pt(Item):
+class CurveTo_Pt(PathItem):
     def __init__(self, x0, y0, x1, y1, x2, y2):
         self.x0 = x0
         self.y0 = y0
@@ -253,6 +316,42 @@ class CurveTo_Pt(Item):
         self.y1 = y1
         self.x2 = x2
         self.y2 = y2
+
+    def get_length_pt(self, curpos, startpos):
+        assert curpos is not None, "no current point"
+        # TODO XXX
+        x0, y0 = curpos
+        x1, y1 = self.x2, self.y2
+        r = sqrt((x1-x0)**2 + (y1-y0)**2)
+        return (x1, y1), r
+
+    def get_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        x0, y0 = curpos
+        x1, y1 = self.x0, self.y0
+        x2, y2 = self.x1, self.y1
+        x3, y3 = self.x2, self.y2
+        x = ((-x0 + 3*x1 - 3*x2 + x3)*(t**3) + 
+             (3*x0-6*x1+3*x2)*(t**2) +
+             (-3*x0+3*x1)*t + x0)
+        y = ((-y0 + 3*y1 - 3*y2 + y3)*(t**3) + 
+             (3*y0-6*y1+3*y2)*(t**2) +
+             (-3*y0+3*y1)*t + y0)
+        return x, y
+
+    def diff_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        x0, y0 = curpos
+        x1, y1 = self.x0, self.y0
+        x2, y2 = self.x1, self.y1
+        x3, y3 = self.x2, self.y2
+        dx = (3*(-x0 + 3*x1 - 3*x2 + x3)*(t**2) + 
+              2*(3*x0-6*x1+3*x2)*t +
+                (-3*x0+3*x1))
+        dy = (3*(-y0 + 3*y1 - 3*y2 + y3)*(t**2) + 
+              2*(3*y0-6*y1+3*y2)*t +
+                (-3*y0+3*y1))
+        return dx, dy
 
     def get_bound(self):
         x0 = min([self.x0, self.x1, self.x2])
@@ -277,7 +376,7 @@ class CurveTo(CurveTo_Pt):
         self.y2 = SCALE_CM_TO_POINT*y2
 
 
-class Arc_Pt(Item):
+class Arc_Pt(PathItem):
     def __init__(self, x, y, r, angle1, angle2):
         "angle in radians"
         self.x = x
@@ -286,11 +385,50 @@ class Arc_Pt(Item):
         self.angle1 = angle1
         self.angle2 = angle2
 
+    def get_length_pt(self, curpos, startpos):
+        r, x, y = self.r, self.x, self.y
+        angle1, angle2 = self.angle1, self.angle2
+        dangle = abs(angle1 - angle2)
+        #x0, y0 = x+r*cos(angle1), y+r*sin(angle1)
+        x1, y1 = x+r*cos(angle2), y+r*sin(angle2)
+        return (x1, y1), r*dangle
+
+    def get_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        assert 0.<=t<=1.
+        r = self.r
+        x, y = self.x, self.y
+        angle1, angle2 = self.angle1, self.angle2
+        while angle1 > angle2:
+            angle2 += 2*pi
+        angle = (1.-t)*angle1 + t*angle2
+        #x0, y0 = x+r*cos(angle1), y+r*sin(angle1)
+        #x1, y1 = x+r*cos(angle2), y+r*sin(angle2)
+        #cx, cy = curpos
+        px, py = x+r*cos(angle), y+r*sin(angle)
+        return (px, py)
+
+    def diff_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        assert 0.<=t<=1.
+        r = self.r
+        x, y = self.x, self.y
+        angle1, angle2 = self.angle1, self.angle2
+        while angle1 > angle2:
+            angle2 += 2*pi
+        angle = (1.-t)*angle1 + t*angle2
+        #x0, y0 = x+r*cos(angle1), y+r*sin(angle1)
+        #x1, y1 = x+r*cos(angle2), y+r*sin(angle2)
+        #cx, cy = curpos
+        dx, dy = -r*sin(angle), r*cos(angle)
+        return (dx, dy)
+
     def get_bound(self):
         r = self.r
         return Bound(self.x-r, self.y-r, self.x+r, self.y+r) # XXX TODO XXX
 
     def process_cairo(self, cxt):
+        #print("cxt.arc_negative", self.__class__)
         cxt.arc_negative(self.x, -self.y, self.r, 2*pi-self.angle1, 2*pi-self.angle2)
 
 
@@ -305,129 +443,47 @@ class Arc(Arc_Pt):
 
 
 class _ArcnMixin(object):
+    def get_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        assert 0.<=t<=1.
+        r = self.r
+        x, y = self.x, self.y
+        angle1, angle2 = self.angle1, self.angle2
+        while angle1 < angle2:
+            angle2 -= 2*pi
+        angle = (1.-t)*angle1 + t*angle2
+        #x0, y0 = x+r*cos(angle1), y+r*sin(angle1)
+        #x1, y1 = x+r*cos(angle2), y+r*sin(angle2)
+        #cx, cy = curpos
+        px, py = x+r*cos(angle), y+r*sin(angle)
+        return (px, py)
+
+    def diff_at(self, curpos, startpos, t):
+        assert curpos is not None, "no current point"
+        assert 0.<=t<=1.
+        r = self.r
+        x, y = self.x, self.y
+        angle1, angle2 = self.angle1, self.angle2
+        while angle1 < angle2:
+            angle2 -= 2*pi
+        angle = (1.-t)*angle1 + t*angle2
+        #x0, y0 = x+r*cos(angle1), y+r*sin(angle1)
+        #x1, y1 = x+r*cos(angle2), y+r*sin(angle2)
+        #cx, cy = curpos
+        dx, dy = r*sin(angle), -r*cos(angle)
+        return (dx, dy)
+
     def process_cairo(self, cxt):
+        #print("cxt.arc", self.__class__)
         cxt.arc(self.x, -self.y, self.r, 2*pi-self.angle1, 2*pi-self.angle2)
 
 
-class Arcn(Arc, _ArcnMixin):
+class Arcn(_ArcnMixin, Arc):
     pass
 
 
-class Arcn_Pt(Arc_Pt, _ArcnMixin):
+class Arcn_Pt(_ArcnMixin, Arc_Pt):
     pass
-
-
-# ----------------------------------------------------------------------------
-# 
-#
-
-class Polygon(Item):
-    def __init__(self, pts, fill=None, stroke=None):
-        Item.__init__(self)
-        assert len(pts)>1
-        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
-        self.fill = fill
-        self.stroke = stroke
-
-    def process_cairo(self, cxt):
-        pts = self.pts
-        cxt.save() # <--------- save
-        #cxt.set_line_width(2.0)
-
-        fill = self.fill #or (0., 0., 0., 1.)
-        if fill is not None:
-            cxt.set_source_rgba(*fill)
-            x, y = pts[0]
-            cxt.move_to(x, -y)
-            for (x, y) in pts[1:]:
-                cxt.line_to(x, -y)
-            cxt.close_path()
-            cxt.fill()
-    
-        stroke = self.stroke # or (1., 1., 1., 1.)
-        if stroke is not None:
-            cxt.set_source_rgba(*stroke)
-            x, y = pts[0]
-            cxt.move_to(x, -y)
-            for (x, y) in pts[1:]:
-                cxt.line_to(x, -y)
-            cxt.close_path()
-            cxt.stroke()
-
-        cxt.restore() # <------- restore
-
-
-class Polymesh(Item):
-    def __init__(self, pts, fills):
-        Item.__init__(self)
-        assert len(pts)>=3
-        assert len(pts) == len(fills)
-        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
-        self.fills = fills
-
-    def process_cairo(self, cxt):
-        import cairo
-        pts = self.pts
-        fills = self.fills
-        cxt.save() # <--------- save
-
-        pts = list(self.pts)
-        if len(pts)==3:
-            pts.append(pts[-1])
-            fills.append(fills[-1])
-        assert len(pts)==4, len(pts)
-        m = cairo.MeshPattern()
-        m.begin_patch()
-        x, y = pts[0]
-        m.move_to(x, -y)
-        for (x,y) in pts[1:]:
-            m.line_to(x, -y)
-        for i in range(4):
-            m.set_corner_color_rgba(i, *fills[i])
-        m.end_patch()
-
-        cxt.set_source(m)
-        x, y = pts[0]
-        cxt.move_to(x, -y)
-        for (x, y) in pts[1:]:
-            cxt.line_to(x, -y)
-        cxt.close_path()
-        cxt.fill()
-
-        cxt.restore() # <------- restore
-
-
-class Ball(Item):
-    def __init__(self, x, y, radius, rgb0=None, rgb1=None):
-        Item.__init__(self)
-        self.x = x*SCALE_CM_TO_POINT
-        self.y = y*SCALE_CM_TO_POINT
-        self.radius = radius*SCALE_CM_TO_POINT
-        self.rgb0 = rgb0
-        self.rgb1 = rgb1
-
-    def process_cairo(self, cxt):
-        x, y, radius = self.x, -self.y, self.radius
-        cxt.save()
-        cxt.set_line_width(0.5)
-        cxt.arc(x, y, radius, 0., pi*2)
-        cxt.stroke()
-        cx0, cy0 = cx1, cy1 = x+0.8*radius, y+0.8*radius
-        radius0 = 0.2*radius
-        radius1 = 2.0*radius
-        p = cairo.RadialGradient(cx0, cy0, radius0, cx1, cy1, radius1)
-        if self.rgb0 is not None:
-            p.add_color_stop_rgba(0, *self.rgb0)
-        else:
-            p.add_color_stop_rgba(0, 0.9, 0.9, 0.9, 1)
-        if self.rgb1 is not None:
-            p.add_color_stop_rgba(1, *self.rgb1)
-        else:
-            p.add_color_stop_rgba(1, 0.6, 0.6, 0.6, 1.)
-        cxt.set_source(p)
-        cxt.arc(x, y, radius, 0., pi*2)
-        cxt.fill()
-        cxt.restore()
 
 
 # ----------------------------------------------------------------------------
@@ -500,7 +556,10 @@ class Compound(Item):
 
 
 class Path(Compound):
-    def reversed(self, pos=None):
+
+    # XXX should reqire PathItem elements ?
+
+    def reversed(self, pos=None): # used in flatten.py
         if len(self)==0:
             return self
         #print("Path.reversed")
@@ -524,6 +583,54 @@ class Path(Compound):
             idx -= 2
         p = Path(items)
         return p
+
+    def get_length_pt(self):
+        curpos = None
+        startpos = None
+        length = 0.
+        for item in self:
+            assert isinstance(item, PathItem)
+            curpos, _length = item.get_length_pt(curpos, startpos)
+            startpos = startpos or curpos
+            length += _length
+        return length
+
+    def get_length(self):
+        length = self.get_length_pt() / SCALE_CM_TO_POINT
+        return length
+
+    def tangent(self, t):
+        "find point and differential on curve at time t, with 0<=t<=1."
+        assert 0.<=t<=1.
+        curpos = None
+        startpos = None
+        length = 0.
+        total = self.get_length_pt()
+        assert total > EPSILON, "empty path"
+        closed = False
+        for item in self:
+            assert isinstance(item, PathItem)
+            assert not closed, "only contiguous paths supported"
+            closed = isinstance(item, ClosePath)
+            _curpos, _length = item.get_length_pt(curpos, startpos)
+            startpos = startpos or curpos
+            if _length < EPSILON:
+                curpos = _curpos
+                continue # <------- continue
+            t0 = length / total
+            t1 = (length + _length) / total
+            if t0 <= t <= t1:
+                t = (t-t0) / (t1-t0)
+                x, y = item.get_at(curpos, startpos, t)
+                x = x/SCALE_CM_TO_POINT
+                y = y/SCALE_CM_TO_POINT
+                dx, dy = item.diff_at(curpos, startpos, t)
+                dx = dx/SCALE_CM_TO_POINT
+                dy = dy/SCALE_CM_TO_POINT
+                return x, y, dx, dy # <------------ return
+            length += _length
+            curpos = _curpos
+        assert 0, "ran out of path"
 
 
 
@@ -558,25 +665,6 @@ class Circle(Path):
             Arc(x, y, r, 0, 2*pi),
             ClosePath()])
         
-
-
-# ----------------------------------------------------------------------------
-# 
-#
-
-class Image(Item):
-    def __init__(self, name, x=0, y=0):
-        self.name = name
-        self.x = x*SCALE_CM_TO_POINT
-        self.y = y*SCALE_CM_TO_POINT
-
-    def process_cairo(self, cxt):
-        import cairo
-        surf = cairo.ImageSurface.create_from_png(self.name)
-        cxt.save()
-        cxt.set_source_surface(surf, self.x, -self.y)
-        cxt.paint()
-        cxt.restore()
 
 
 # ----------------------------------------------------------------------------
@@ -775,6 +863,25 @@ class Rotate(Deco):
 # 
 #
 
+class Image(Item):
+    def __init__(self, name, x=0, y=0):
+        self.name = name
+        self.x = x*SCALE_CM_TO_POINT
+        self.y = y*SCALE_CM_TO_POINT
+
+    def process_cairo(self, cxt):
+        import cairo
+        surf = cairo.ImageSurface.create_from_png(self.name)
+        cxt.save()
+        cxt.set_source_surface(surf, self.x, -self.y)
+        cxt.paint()
+        cxt.restore()
+
+
+# ----------------------------------------------------------------------------
+# 
+#
+
 
 def text_extents_cairo(text):
     import cairo
@@ -924,6 +1031,119 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
 
     p = Path(items)
     return p
+
+
+# ----------------------------------------------------------------------------
+# 
+#
+
+class Polygon(Item):
+    def __init__(self, pts, fill=None, stroke=None):
+        Item.__init__(self)
+        assert len(pts)>1
+        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
+        self.fill = fill
+        self.stroke = stroke
+
+    def process_cairo(self, cxt):
+        pts = self.pts
+        cxt.save() # <--------- save
+        #cxt.set_line_width(2.0)
+
+        fill = self.fill #or (0., 0., 0., 1.)
+        if fill is not None:
+            cxt.set_source_rgba(*fill)
+            x, y = pts[0]
+            cxt.move_to(x, -y)
+            for (x, y) in pts[1:]:
+                cxt.line_to(x, -y)
+            cxt.close_path()
+            cxt.fill()
+    
+        stroke = self.stroke # or (1., 1., 1., 1.)
+        if stroke is not None:
+            cxt.set_source_rgba(*stroke)
+            x, y = pts[0]
+            cxt.move_to(x, -y)
+            for (x, y) in pts[1:]:
+                cxt.line_to(x, -y)
+            cxt.close_path()
+            cxt.stroke()
+
+        cxt.restore() # <------- restore
+
+
+class Polymesh(Item):
+    def __init__(self, pts, fills):
+        Item.__init__(self)
+        assert len(pts)>=3
+        assert len(pts) == len(fills)
+        self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
+        self.fills = fills
+
+    def process_cairo(self, cxt):
+        import cairo
+        pts = self.pts
+        fills = self.fills
+        cxt.save() # <--------- save
+
+        pts = list(self.pts)
+        if len(pts)==3:
+            pts.append(pts[-1])
+            fills.append(fills[-1])
+        assert len(pts)==4, len(pts)
+        m = cairo.MeshPattern()
+        m.begin_patch()
+        x, y = pts[0]
+        m.move_to(x, -y)
+        for (x,y) in pts[1:]:
+            m.line_to(x, -y)
+        for i in range(4):
+            m.set_corner_color_rgba(i, *fills[i])
+        m.end_patch()
+
+        cxt.set_source(m)
+        x, y = pts[0]
+        cxt.move_to(x, -y)
+        for (x, y) in pts[1:]:
+            cxt.line_to(x, -y)
+        cxt.close_path()
+        cxt.fill()
+
+        cxt.restore() # <------- restore
+
+
+class Ball(Item):
+    def __init__(self, x, y, radius, rgb0=None, rgb1=None):
+        Item.__init__(self)
+        self.x = x*SCALE_CM_TO_POINT
+        self.y = y*SCALE_CM_TO_POINT
+        self.radius = radius*SCALE_CM_TO_POINT
+        self.rgb0 = rgb0
+        self.rgb1 = rgb1
+
+    def process_cairo(self, cxt):
+        x, y, radius = self.x, -self.y, self.radius
+        cxt.save()
+        cxt.set_line_width(0.5)
+        cxt.arc(x, y, radius, 0., pi*2)
+        cxt.stroke()
+        cx0, cy0 = cx1, cy1 = x+0.8*radius, y+0.8*radius
+        radius0 = 0.2*radius
+        radius1 = 2.0*radius
+        p = cairo.RadialGradient(cx0, cy0, radius0, cx1, cy1, radius1)
+        if self.rgb0 is not None:
+            p.add_color_stop_rgba(0, *self.rgb0)
+        else:
+            p.add_color_stop_rgba(0, 0.9, 0.9, 0.9, 1)
+        if self.rgb1 is not None:
+            p.add_color_stop_rgba(1, *self.rgb1)
+        else:
+            p.add_color_stop_rgba(1, 0.6, 0.6, 0.6, 1.)
+        cxt.set_source(p)
+        cxt.arc(x, y, radius, 0., pi*2)
+        cxt.fill()
+        cxt.restore()
 
 
 # ----------------------------------------------------------------------------

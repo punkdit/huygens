@@ -316,8 +316,59 @@ def test():
     print("OK\n")
 
 
+def test():
+
+    from huygens.turtle import Turtle
+
+    cvs = canvas.canvas()
+
+    def arrow(x, y, dx, dy, attrs=[]):
+        t = Turtle(x, y)
+        t.lookat(x+dx, y+dy)
+        #r = sqrt(dx**2+dy**2)
+        #t.fwd(r)
+        t.arrow(style="curve")
+        t.stroke(cvs=cvs, attrs=attrs)
+
+    p = path.rect(0, 0, 1, 1)
+    cvs.stroke(p)
+
+    for t in [0.1, 0.4, 0.8]:
+        x, y, dx, dy = p.tangent(t)
+        #cvs.fill(path.circle(x, y, 0.1), [color.rgb.red])
+        arrow(x, y, dx, dy)
+
+    tr = trafo.translate(0., 0)
+
+    p = path.curve(3, 0, 1, 0, 2, 2, 1, 3)
+    cvs.stroke(p, [tr])
+
+    for t in [0., 0.5, 0.75, 1.0]:
+        x, y, dx, dy = p.tangent(t)
+        #cvs.fill(path.circle(x, y, 0.1), [color.rgb.red, tr])
+        arrow(x, y, dx, dy, [tr])
+
+    tr = trafo.translate(0.5, 0)
+    p = path.path([
+        path.moveto(2.5, 2),
+        path.arcn(2, 2, 0.5, 0., 0.5*pi)])
+    #p = path.circle(3, 2, 0.5)
+    cvs.stroke(p, [tr])
+
+    for t in [0.5, 0.75, 1.0]:
+        x, y, dx, dy = p.tangent(t)
+        #cvs.fill(path.circle(x, y, 0.1), [color.rgb.red, tr])
+        arrow(x, y, dx, dy, [tr])
+
+    cvs.writePDFfile("output.pdf")
+
+
+
+
 if __name__ == "__main__":
     test()
+
+    print("OK")
 
 
 

@@ -452,13 +452,40 @@ class CompoundBox(Box):
         for box in self.boxs:
             box.on_render(cvs, system)
 
+# FAIL:
+#
+#class MultiBox(CompoundBox):
+#    def on_layout(self, cvs, system):
+#        #Box.on_layout(self, cvs, system)
+#        for box in self.boxs:
+#            box.on_layout(cvs, system)
+#
+#    def on_render(self, cvs, system):
+#        # Don't call Box.on_render because I have no shape
+#        for box in self.boxs:
+#            box.on_render(cvs, system)
+#
 
-class MultiBox(CompoundBox):
-    def on_render(self, cvs, system):
-        # Don't call Box.on_render because I have no shape
-        for box in self.boxs:
-            box.on_render(cvs, system)
+
+class DecoBox(CompoundBox):
+    def __init__(self, box, boxs, weight=None, align=None):
+        CompoundBox.__init__(self, [box] + boxs, weight, align)
+        self.box = box # master box
     
+    def on_layout(self, cvs, system):
+        box = self.box
+        box.on_layout(cvs, system)
+        # inherit layout from the master box:
+        self.x = box.x
+        self.y = box.y
+        self.left = box.left
+        self.right = box.right
+        self.top = box.top
+        self.bot = box.bot
+        Box.on_layout(self, cvs, system)
+        for box in self.boxs[1:]:
+            box.on_layout(cvs, system)
+
 
 
 class OBox(CompoundBox):
@@ -744,9 +771,9 @@ class ArrowBox(Box):
         #cvs.stroke(path.circle(x, y, 0.02), [color.rgb.red])
 
 
-def test():
+def test_arrows(): # XXX move to doc
 
-    from hugyens import config
+    from huygens import config
     config(text="pdftex")
 
     Box.DEBUG = False
@@ -770,7 +797,7 @@ def test():
 
     r = 1.1
     table = TableBox(boxs, hspace=r, vspace=0.8*r)
-    box = MultiBox([table]+arrows)
+    box = DecoBox(table, arrows)
 
     cvs = canvas.canvas()
     box.render(cvs)
@@ -781,7 +808,7 @@ def test():
 
 if __name__ == "__main__":
 
-    test()
+    test_arrows()
 
     print("OK\n")
 
