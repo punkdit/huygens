@@ -13,7 +13,8 @@ def test_box():
     # =================
     # 
 
-    from random import random
+    from random import random, seed
+    seed(0)
     from huygens.front import canvas, path
     from huygens.box import (Box, EmptyBox, CanBox, TextBox, 
         HBox, VBox, OBox, TableBox, FillBox, MarginBox, AlignBox)
