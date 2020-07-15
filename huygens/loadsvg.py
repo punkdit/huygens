@@ -2,6 +2,8 @@
 
 """
 Hijack cairosvg to load svg into our internal data structures.
+
+Does not work on all svg files, but seems good enough for text.
 """
 
 from cairosvg.parser import Tree
@@ -80,8 +82,10 @@ if __name__ == "__main__":
     s = open(name).read()
     tree = Tree(bytestring=s)
     my = DummySurf(tree, None, 72.)
-    cvs = back.Canvas(my.paths)
+    from huygens.front import Canvas
+    cvs = Canvas(my.paths)
     cvs.writePDFfile("output.pdf")
+    cvs.writeSVGfile("output.svg")
 
 
 

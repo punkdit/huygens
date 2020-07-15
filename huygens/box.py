@@ -679,14 +679,14 @@ class TableBox(CompoundBox):
 
 class ArrowBox(Box):
 
-    #default_style = "flat"
-    default_style = "curve"
+    #default_astyle = "flat"
+    default_astyle = "curve"
     default_size = 0.15
     default_attrs = [style.linewidth.thin, style.linecap.round,
         style.linejoin.round]
 
     def __init__(self, src, tgt, label=None, label_align=None,
-            style=None, size=None, pad_head=0.04, pad_tail=0.04,
+            astyle=None, size=None, pad_head=0.04, pad_tail=0.04,
             attrs=None, weight=0.1):
         assert isinstance(src, Box)
         assert isinstance(tgt, Box)
@@ -697,9 +697,9 @@ class ArrowBox(Box):
         #    label = Box.promote(label)
         self.label = label
         self.label_align = label_align
-        if style is None:
-            style = ArrowBox.default_style
-        self.style = style
+        if astyle is None:
+            astyle = ArrowBox.default_astyle
+        self.astyle = astyle
         if size is None:
             size = ArrowBox.default_size
         self.size = size
@@ -734,7 +734,7 @@ class ArrowBox(Box):
         y1 = system[self.y1]
         turtle = Turtle(x0, y0)
         turtle.moveto(x1, y1)
-        turtle.arrow(size=self.size, style=self.style)
+        turtle.arrow(size=self.size, astyle=self.astyle)
         turtle.stroke(attrs=self.attrs, cvs=cvs)
 
         label = self.label

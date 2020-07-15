@@ -319,7 +319,7 @@ class CurveTo_Pt(PathItem):
 
     def get_length_pt(self, curpos, startpos):
         assert curpos is not None, "no current point"
-        # TODO XXX
+        # Totally fake the length... shameless!
         x0, y0 = curpos
         x1, y1 = self.x2, self.y2
         r = sqrt((x1-x0)**2 + (y1-y0)**2)
@@ -515,6 +515,15 @@ class Compound(Item):
     def __getitem__(self, idx):
         return self.items[idx]
 
+    def __add__(self, other):
+        assert isinstance(other, self.__class__), repr(other)
+        return self.__class__(self.items + other.items)
+
+    def __iadd__(self, other):
+        assert isinstance(other, Compound), repr(other)
+        self.items += other.items
+        return self
+
     def visit(self, visitor):
         for item in self.items:
             item.visit(visitor)
@@ -673,7 +682,8 @@ class Circle(Path):
 
 
 class Deco(Item):
-    pass
+    def on_decorate(self, pre, item, post):
+        pre.append(self)
 
 
 class CompoundDeco(Deco):
@@ -686,21 +696,33 @@ class CompoundDeco(Deco):
 
 
 class Stroke(Deco):
+    def on_decorate(self, pre, item, post):
+        post.append(self)
+
     def process_cairo(self, cxt):
         cxt.stroke()
 
 
 class Fill(Deco):
+    def on_decorate(self, pre, item, post):
+        post.append(self)
+
     def process_cairo(self, cxt):
         cxt.fill()
 
 
 class FillPreserve(Deco):
+    def on_decorate(self, pre, item, post):
+        post.append(self)
+
     def process_cairo(self, cxt):
         cxt.fill_preserve()
 
 
 class Clip(Deco):
+    def on_decorate(self, pre, item, post):
+        post.append(self)
+
     def process_cairo(self, cxt):
         cxt.clip()
 

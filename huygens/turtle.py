@@ -8,13 +8,18 @@ import sys
 from math import sin, cos, pi, asin, acos, atan
 from huygens.front import *
 
+# XXX TODO 
+# Cleanup this mess: 
+#   (1) don't just build paths out of straight lines
+#   (2) construct actual Path object in Turtle instances
 
-def get_canvas():
-    try:
-        c = sys.modules["__main__"].cvs
-    except:
-        c = sys.modules["__main__"].c
-    return c
+
+#def get_canvas():
+#    try:
+#        c = sys.modules["__main__"].cvs
+#    except:
+#        c = sys.modules["__main__"].c
+#    return c
 
 
 def mkpath(ps, closepath=False):
@@ -28,8 +33,8 @@ def mkpath(ps, closepath=False):
 def dopath(ps, attrs=[], fill=[], closepath=False, smooth=0.0, stroke=True, cvs=None):
     #print("dopath:", ps)
     c = cvs
-    if c is None:
-        c = get_canvas()
+    #if c is None:
+    #    c = get_canvas()
     if len(ps) < 2:
         return
     p = mkpath(ps)
@@ -158,7 +163,6 @@ class Turtle(object):
 
     def flat_arrow(self, size=0.15, angle=30.):
         self.penup()
-        #self.fwd(0.2*size)
         self.right(angle)
         self.back(size)
         self.pendown()
@@ -169,6 +173,22 @@ class Turtle(object):
         self.fwd(size)
         self.right(angle)
         self.pendown()
+        return self
+        
+    def dart_arrow(self, size=0.15, angle=30.):
+        assert 0<angle<90, "bad angle %s"%angle
+        b = size / (2*cos(2*pi*angle/360.))
+        self.save()
+        self.fwd(0.5*b)
+        self.right(angle)
+        self.back(size)
+        self.right(angle)
+        self.fwd(b)
+        self.left(180-2*angle)
+        self.back(b)
+        self.right(angle)
+        self.fwd(size)
+        self.restore()
         return self
         
     def curve_arrow(self, size=0.15, angle=30.):
@@ -191,11 +211,40 @@ class Turtle(object):
         self.restore()
         return self
 
-    def arrow(self, size=0.1, angle=30., style="flat"):
-        meth = getattr(self, style+"_arrow", None)
-        assert meth is not None, "style %r not found"%style
+    def bar_arrow(self, size=0.15, *arg, **kw):
+        return self.flat_arrow(0.6*size, 90)
+
+    def feather_arrow(self, size=0.15, angle=30.):
+        # not perfect... but works in some circumstances
+        self.curve_arrow(size, angle)
+        self.reverse(0.5*size)
+        self.curve_arrow(size, angle)
+
+    def hook_arrow(self, size=0.15, *arg, **kw):
+        self.save()
+        self.right(180., -0.5*size)
+        self.reverse(0.1*size)
+        self.restore()
+
+    def arrow(self, size=0.1, angle=30., astyle="flat"):
+        meth = getattr(self, astyle+"_arrow", None)
+        assert meth is not None, "astyle %r not found"%astyle
         meth(size, angle)
         return self
+
+    def mkpath(self, closepath=False):
+        paths = list(self.paths)
+        if self.pen:
+            paths.append(self.ps)
+        p = None
+        for pts in paths:
+            if len(pts)<=1:
+                continue
+            p1 = mkpath(pts, closepath)
+            assert p1 is not None
+            p = p1 if p is None else p+p1
+            assert p is not None
+        return p
         
     def _render(self, attrs=None, closepath=False, cvs=None, name="stroke"):
         if attrs is None:
