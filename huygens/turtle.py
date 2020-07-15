@@ -14,14 +14,6 @@ from huygens.front import *
 #   (2) construct actual Path object in Turtle instances
 
 
-#def get_canvas():
-#    try:
-#        c = sys.modules["__main__"].cvs
-#    except:
-#        c = sys.modules["__main__"].c
-#    return c
-
-
 def mkpath(ps, closepath=False):
     ps = [path.moveto(*ps[0])]+[path.lineto(*p) for p in ps[1:]]
     if closepath:
@@ -33,8 +25,6 @@ def mkpath(ps, closepath=False):
 def dopath(ps, attrs=[], fill=[], closepath=False, smooth=0.0, stroke=True, cvs=None):
     #print("dopath:", ps)
     c = cvs
-    #if c is None:
-    #    c = get_canvas()
     if len(ps) < 2:
         return
     p = mkpath(ps)
@@ -179,7 +169,9 @@ class Turtle(object):
         assert 0<angle<90, "bad angle %s"%angle
         b = size / (2*cos(2*pi*angle/360.))
         self.save()
-        self.fwd(0.5*b)
+        #self.penup()
+        #self.fwd(0.1*b) # Clear the end of the line we are pointing on.
+        #self.pendown()  # We don't seem to need this if we stroke it.
         self.right(angle)
         self.back(size)
         self.right(angle)

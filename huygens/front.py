@@ -25,6 +25,48 @@ from huygens.back import _defaultlinewidth
 from huygens.flatten import Flatten
 
 
+class ArrowDeco(Deco):
+    def __init__(self, astyle="curve", t=1.0, size=0.1, angle=30., round=False):
+        assert 0<=t<=1.
+        assert astyle in "hook dart curve feather bar flat".split()
+        self.astyle = astyle
+        self.t = t
+        self.size = size
+        self.angle = angle
+        self.round = round
+
+    def on_decorate(self, pre, path, post):
+        from huygens.turtle import Turtle
+        assert isinstance(path, Path), "don't know how to decorate %s"%(path,)
+        x, y, dx, dy = path.tangent(self.t)
+        # Ugh, not pretty but it works...
+        turtle = Turtle(x, y)
+        turtle.lookat(x+dx, y+dy)
+        astyle = self.astyle
+        turtle.arrow(self.size, self.angle, astyle)
+        post.append(style.linestyle.solid) # ???
+        if astyle == "dart":
+            if self.round:
+                post.append(style.linejoin.round)
+            post += turtle.mkpath(closepath=True)
+            post.append(FillPreserve())
+            post.append(Stroke())
+        elif astyle == "curve" or astyle == "feather":
+            post.append(style.linejoin.round)
+            post.append(style.linecap.round)
+            post += turtle.mkpath()
+            post.append(Stroke())
+        else:
+            if self.round:
+                post.append(style.linejoin.round)
+                post.append(style.linecap.round)
+            else:
+                post.append(style.linejoin.miter)
+                post.append(style.linecap.butt)
+            post += turtle.mkpath()
+            post.append(Stroke())
+
+
 # ----------------------------------------------------------------------------
 # 
 #
@@ -116,9 +158,12 @@ style.linestyle = linestyle
 
 trafo = NS(translate = Translate, scale = Scale, rotate = Rotate)
 
+_base = 0.1 
 deco = NS()
-deco.earrow = NS()
-deco.earrow.Large = NS()
+deco.barrow = ArrowDeco("dart", 0.0)
+deco.earrow = ArrowDeco("dart", 1.0)
+deco.earrow.large = ArrowDeco("dart", 1.0, _base*sqrt(2))
+deco.earrow.Large = ArrowDeco("dart", 1.0, _base*sqrt(4))
 
 #bbox = Bound
 
@@ -328,62 +373,28 @@ def test():
     print("OK\n")
 
 
-class ArrowDeco(Deco):
-    def __init__(self, astyle="curve", t=1.0):
-        assert 0<=t<=1.
-        assert astyle in "hook dart curve feather bar flat".split()
-        self.astyle = astyle
-        self.t = t
-
-    def on_decorate(self, pre, path, post):
-        from huygens.turtle import Turtle
-        assert isinstance(path, Path), "don't know how to decorate %s"%(path,)
-        x, y, dx, dy = path.tangent(self.t)
-        # ugh, not pretty but it works...
-        turtle = Turtle(x, y)
-        turtle.lookat(x+dx, y+dy)
-        astyle = self.astyle
-        turtle.arrow(astyle=astyle)
-        if astyle == "dart":
-            post += turtle.mkpath(closepath=True)
-            post.append(Fill())
-        elif astyle == "curve" or astyle == "feather":
-            post.append(style.linejoin.round)
-            post.append(style.linecap.round)
-            post += turtle.mkpath()
-            post.append(Stroke())
-        else:
-            post.append(style.linejoin.miter)
-            post.append(style.linecap.butt)
-            post += turtle.mkpath()
-            post.append(Stroke())
-
-
 def test():
-
-    from huygens.turtle import Turtle
 
     cvs = canvas.canvas()
 
-    items = [
-        (0.1, "dart"),
-        (0.3, "curve"),
-        (0.6, "feather"),
-        (0.8, "bar"),
-        (1.0, "flat"),
+    st_thin = [style.linewidth.thin]
+
+    cvs.stroke(path.line(0,    2, 0,    3), st_thin+[ArrowDeco("curve")])
+    cvs.stroke(path.line(-0.5, 2, -0.5, 3), st_thin+[ArrowDeco("feather")])
+    cvs.stroke(path.line(-1.0, 2, -1.0, 3), st_thin+[ArrowDeco("dart")])
+
+    attrs = st_thin+[
+        ArrowDeco("dart", 0.1),
+        ArrowDeco("curve", 0.3),
+        ArrowDeco("feather", 0.6),
+        ArrowDeco("bar", 0.8),
+        ArrowDeco("flat"),
     ]
 
-    attrs = [style.linewidth.thin]
-
-    p = path.rect(0, 0, 1, 1)
-
-    for (t, astyle) in items:
-        attrs.append(ArrowDeco(astyle, t))
-
+    p = path.rect(-1, 0, 1, 1)
     cvs.stroke(p, attrs)
 
     tr = trafo.translate(-0.3, 0.5)
-
     attrs.append(ArrowDeco("hook", 0.))
 
     p = path.curve(3, 0, 1, 0, 2, 2, 1, 3)
@@ -393,7 +404,7 @@ def test():
     p = path.path([
         path.moveto(2.5, 2),
         path.arcn(2, 2, 0.5, 0., 0.5*pi)])
-    cvs.stroke(p, [tr]+attrs)
+    cvs.stroke(p, [tr, color.rgb.red]+attrs)
 
     cvs.writePDFfile("output.pdf")
 
