@@ -685,6 +685,12 @@ class Deco(Item):
     def on_decorate(self, pre, item, post):
         pre.append(self)
 
+    def __call__(self, **kw):
+        d = dict(self.__dict__)
+        d.update(kw)
+        deco = self.__class__(**d)
+        return deco
+
 
 class CompoundDeco(Deco):
     def __init__(self, decos):

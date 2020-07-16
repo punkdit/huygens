@@ -112,7 +112,7 @@ class Turtle(object):
             self.ps.append((self.x, self.y))
         return self
 
-    def moveto(self, x=None, y=None, angle=None):
+    def goto(self, x=None, y=None, angle=None):
         if x is not None and y is not None:
             self.lookat(x, y)
             self.ps.append((x, y))

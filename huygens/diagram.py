@@ -7,9 +7,9 @@ string diagram's
 from math import pi
 
 from huygens.base import Base
-from huygens.front import canvas, path, trafo, style, color
+from huygens.front import canvas, path, trafo, style, color, deco
 from huygens.box import (Box, EmptyBox, HBox, VBox, AlignBox, 
-    StrictVBox, StrictHBox, TextBox, RectBox)
+    StrictVBox, StrictHBox, TextBox, RectBox, MarginBox, BoxDeco, CanBox)
 
 
 
@@ -266,7 +266,14 @@ class Cup(Box, Atom):
 
 
 class Multi(Box, Atom):
-    def __init__(self, n_top, n_bot, weight=1.0, min_width=None, min_height=None):
+    def __init__(self, n_top, n_bot,
+            weight=1.0, min_width=None, min_height=None,
+            top_attrs=None, bot_attrs=None, **kw
+        ):
+        if top_attrs is None:
+            top_attrs = [[] for i in range(n_top)]
+        if bot_attrs is None:
+            bot_attrs = [[] for i in range(n_bot)]
         if min_width is None:
             min_width = 0.5*SIZE
             if n_top > 1 or n_bot > 1:
@@ -274,6 +281,10 @@ class Multi(Box, Atom):
         if min_height is None:
             min_height = 0.5*SIZE
         self.weight = weight
+        self.top_attrs = top_attrs
+        self.bot_attrs = bot_attrs
+        assert len(top_attrs) == n_top
+        assert len(bot_attrs) == n_bot
         Atom.__init__(self, n_top=n_top, n_bot=n_bot,
             min_width=min_width, min_height=min_height)
 
@@ -315,6 +326,19 @@ class Multi(Box, Atom):
 
 
 class Spider(Multi):
+    def __init__(self, *args, **kw):
+        Multi.__init__(self, *args, **kw)
+        pip = kw.get("pip")
+        if pip is not None:
+            pip_align = kw.get("pip_align")
+            pip = Box.promote(pip, pip_align)
+        self.pip = pip
+
+    def _get_pipx(self, x_top, x_bot): # override in TBone below
+        n = self.n_top + self.n_bot
+        x0 = (1./n)*sum(x_top + x_bot)
+        return x0
+
     def on_render(self, cvs, system):
         Box.on_render(self, cvs, system)
         Atom.on_render(self, cvs, system)
@@ -333,23 +357,49 @@ class Spider(Multi):
 
         x_top = [system[x] for x in self.x_top]
         x_bot = [system[x] for x in self.x_bot]
-        x0 = (1./n)*sum(x_top + x_bot)
+        x0 = self._get_pipx(x_top, x_bot)
 
         conv = lambda x0, x1, t: (1.-t)*x0 + t*x1
 
+        top_attrs = self.top_attrs
+        bot_attrs = self.bot_attrs
+
         y3 = y_top
-        for x3 in x_top:
+        for x3, attrs in zip(x_top, top_attrs):
             x2, y2 = x3, conv(y3, y0, 0.3)
             x1, y1 = conv(x0, x3, 0.7), conv(y3, y0, 0.7)
-            cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3))
+            cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3), attrs)
 
         y3 = y_bot
-        for x3 in x_bot:
+        for x3, attrs in zip(x_bot, bot_attrs):
             x2, y2 = x3, conv(y3, y0, 0.3)
             x1, y1 = conv(x0, x3, 0.7), conv(y3, y0, 0.7)
-            cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3))
+            cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3), attrs)
 
-        cvs.fill(path.circle(x0, y0, 0.04))
+        #cvs.fill(path.circle(x0, y0, 0.04))
+        if self.pip is not None:
+            self.pip.render(cvs, x0, y0)
+
+
+class TBone(Spider):
+    def __init__(self, *args, **kw):
+        Spider.__init__(self, *args, **kw)
+        connect = kw.get("connect")
+        assert connect is not None, "please specify connect"
+        assert len(connect) == 2, "connect top index to bot index"
+        self.connect = connect
+
+    def _get_pipx(self, x_top, x_bot):
+        connect = self.connect
+        i, j = connect
+        x0 = 0.5*(x_top[i] + x_bot[j])
+        return x0
+
+    def on_layout(self, cvs, system):
+        Spider.on_layout(self, cvs, system)
+        connect = self.connect
+        i, j = connect
+        system.add(self.x_top[i] == self.x_bot[j])
 
 
 class Relation(Multi):
@@ -474,6 +524,73 @@ class Braid(Multi):
                 cvs.stroke(p)
 
             under = not under
+
+
+def test():
+    from huygens import config
+    config("pdftex")
+
+    #Box.DEBUG=True
+
+    st_dashed = [style.linestyle.dashed]
+    st_arrow = [deco.marrow()]
+    st_rarrow = [deco.marrow(reverse=True)]
+
+    #box = Spider(1, 2)
+    
+    box = TBone(1, 2, connect=[0,0], weight=0.5)
+    box = box * (VWire() @ Spider(1, 2))
+    box = box * (Spider(2, 1) @ VWire())
+    
+    cvs = canvas.canvas()
+    box.render(cvs)
+    cvs.writePDFfile("output.pdf")
+
+
+def test_trace():
+    from huygens import config
+    config("pdftex")
+
+    st_dashed = [style.linestyle.dashed]
+    st_arrow = [deco.marrow()]
+    st_rarrow = [deco.marrow(reverse=True)]
+
+    unit = AlignBox(MarginBox(TextBox("$i_A$"), 0.1, 0.), "northwest")
+    counit = AlignBox(MarginBox(TextBox("$e_A$"), 0.1, 0.), "southwest")
+    left = AlignBox(MarginBox(TextBox("$A$"), 0.15, 0.), "east")
+    right = AlignBox(MarginBox(TextBox("$A$"), 0.15, 0.), "west")
+
+    pip = canvas.canvas()
+    pip.fill(path.circle(0, 0, 0.05))
+    pip = AlignBox(CanBox(pip), "center")
+
+    # Note: __add__ on Box's makes an OBox
+    st_unit = [BoxDeco(unit+pip, 0.)]
+    st_counit = [BoxDeco(counit+pip, 0.)]
+    st_left = [BoxDeco(left, 0.7)]
+    st_right = [BoxDeco(right, 0.7)]
+
+    box = Spider(2, 1, 
+        top_attrs=[st_rarrow+st_left, st_arrow+st_right], 
+        bot_attrs=[st_dashed+st_unit])
+    box = Braid() * box
+    box = Spider(1, 2, 
+        top_attrs=[st_dashed+st_counit], 
+        bot_attrs=[st_rarrow, st_arrow]) * box
+    
+    #Box.DEBUG = True
+    cvs = canvas.canvas()
+    box.render(cvs)
+    cvs.writePDFfile("test_trace.pdf")
+
+
+
+if __name__ == "__main__":
+
+    test_trace()
+    test()
+
+    print("OK")
 
 
 

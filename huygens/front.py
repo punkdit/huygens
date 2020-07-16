@@ -26,7 +26,8 @@ from huygens.flatten import Flatten
 
 
 class ArrowDeco(Deco):
-    def __init__(self, astyle="curve", t=1.0, size=0.1, angle=30., round=False):
+    def __init__(self, astyle="curve", t=1.0, size=0.1, angle=30., 
+            round=False, reverse=False):
         assert 0<=t<=1.
         assert astyle in "hook dart curve feather bar flat".split()
         self.astyle = astyle
@@ -34,11 +35,28 @@ class ArrowDeco(Deco):
         self.size = size
         self.angle = angle
         self.round = round
+        self.reverse = reverse
+
+#    # I think we can just do all this with **kw and __dict__ magic...
+#    def __call__(self, astyle=None, t=None, size=None, angle=None, 
+#            round=None, reverse=None):
+#        astyle = self.astyle if astyle is None else astyle
+#        t = self.t if t is None else t
+#        size = self.size if size is None else size
+#        angle = self.angle if angle is None else angle
+#        round = self.round if round is None else round
+#        reverse = self.reverse if reverse is None else reverse
+#        return ArrowDeco(astyle, t, size, angle, round, reverse)
 
     def on_decorate(self, pre, path, post):
         from huygens.turtle import Turtle
         assert isinstance(path, Path), "don't know how to decorate %s"%(path,)
-        x, y, dx, dy = path.tangent(self.t)
+        t = self.t
+        if self.reverse:
+            t = 1.-t
+        x, y, dx, dy = path.tangent(t)
+        if self.reverse:
+            dx, dy = -dx, -dy
         # Ugh, not pretty but it works...
         turtle = Turtle(x, y)
         turtle.lookat(x+dx, y+dy)
@@ -160,10 +178,12 @@ trafo = NS(translate = Translate, scale = Scale, rotate = Rotate)
 
 _base = 0.1 
 deco = NS()
-deco.barrow = ArrowDeco("dart", 0.0)
-deco.earrow = ArrowDeco("dart", 1.0)
-deco.earrow.large = ArrowDeco("dart", 1.0, _base*sqrt(2))
-deco.earrow.Large = ArrowDeco("dart", 1.0, _base*sqrt(4))
+_default_astyle = "curve"
+deco.barrow = ArrowDeco(_default_astyle, 0.0)
+deco.marrow = ArrowDeco(_default_astyle, 0.5) # mid arrow
+deco.earrow = ArrowDeco(_default_astyle, 1.0)
+deco.earrow.large = ArrowDeco(_default_astyle, 1.0, _base*sqrt(2))
+deco.earrow.Large = ArrowDeco(_default_astyle, 1.0, _base*sqrt(4))
 
 #bbox = Bound
 

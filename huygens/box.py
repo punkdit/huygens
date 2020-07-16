@@ -2,11 +2,11 @@
 
 from random import random, choice, seed
 from copy import deepcopy
-from math import pi
+from math import pi, sqrt
 
 
 from huygens.sat import Expr, System, Listener
-from huygens.front import RGBA, Compound, Translate
+from huygens.front import RGBA, Compound, Translate, Deco, Path
 from huygens.front import path, style, canvas, color
 from huygens.turtle import Turtle
 from huygens.argv import argv
@@ -225,6 +225,25 @@ class Box(Magic):
         self.on_render(cvs, self.system)
         self.system.refresh()
 
+    def __add__(self, other):
+        other = Box.promote(other)
+        return OBox([self, other])
+
+
+class BoxDeco(Deco):
+    def __init__(self, box, t, *args, **kw):
+        "decorate a path at time t with a Box"
+        box = Box.promote(box, *args, **kw)
+        self.box = box
+        self.t = t
+
+    def on_decorate(self, pre, path, post):
+        assert isinstance(path, Path)
+        cvs = canvas.canvas()
+        x, y, dx, dy = path.tangent(self.t)
+        self.box.render(cvs, x, y)
+        post += cvs
+
 
 #class EmptyBox(Box):
 #    def __init__(self, top=0., bot=0., left=0., right=0.):
@@ -347,32 +366,37 @@ class ChildBox(Box):
 
 
 class MarginBox(ChildBox):
-    def __init__(self, child, margin):
+    def __init__(self, child, xmargin, ymargin=None):
         ChildBox.__init__(self, child)
-        self.margin = margin
+        ymargin = xmargin if ymargin is None else ymargin
+        self.xmargin = xmargin
+        self.ymargin = ymargin
 
-    def SLOW_on_layout(self, cvs, system):
-        Box.on_layout(self, cvs, system)
-        child = self.child
-        child.on_layout(cvs, system)
-        system.add(self.x == child.x)
-        system.add(self.y == child.y)
-        margin = self.margin
-        system.add(self.left == child.left + margin)
-        system.add(self.right == child.right + margin)
-        system.add(self.top == child.top + margin)
-        system.add(self.bot == child.bot + margin)
+#    def SLOW_on_layout(self, cvs, system):
+#        Box.on_layout(self, cvs, system)
+#        child = self.child
+#        child.on_layout(cvs, system)
+#        system.add(self.x == child.x)
+#        system.add(self.y == child.y)
+#        xmargin = self.xmargin
+#        ymargin = self.ymargin
+#        system.add(self.left == child.left + xmargin)
+#        system.add(self.right == child.right + xmargin)
+#        system.add(self.top == child.top + ymargin)
+#        system.add(self.bot == child.bot + ymargin)
 
     def on_layout(self, cvs, system):
         child = self.child
         child.on_layout(cvs, system)
+        # inherit the child anchor
         self.x = child.x
         self.y = child.y
-        margin = self.margin
-        self.left = child.left + margin
-        self.right = child.right + margin
-        self.top = child.top + margin
-        self.bot = child.bot + margin
+        xmargin = self.xmargin
+        ymargin = self.ymargin
+        self.left = child.left + xmargin
+        self.right = child.right + xmargin
+        self.top = child.top + ymargin
+        self.bot = child.bot + ymargin
         Box.on_layout(self, cvs, system)
 
 
@@ -467,7 +491,7 @@ class CompoundBox(Box):
 #
 
 
-class DecoBox(CompoundBox):
+class MasterBox(CompoundBox):
     def __init__(self, box, boxs, weight=None, align=None):
         CompoundBox.__init__(self, [box] + boxs, weight, align)
         self.box = box # master box
@@ -564,7 +588,7 @@ class TableBox(CompoundBox):
         assert len(rows), "no rows"
         assert len(rows[0]), "no cols"
 
-        rows = [list(row) for row in rows] # copy
+        rows = [[Box.promote(item) for item in row] for row in rows]
         assert hspace >= 0.
         assert vspace >= 0.
 
@@ -677,7 +701,49 @@ class TableBox(CompoundBox):
         cvs.stroke(path.rect(x, y-height, width, height))
 
 
-class ArrowBox(Box):
+class PathBox(Box):
+
+    def __init__(self, src, tgt, attrs=[], xweight=0.1, yweight=0.1):
+        "stroke a path from src Box to tgt Box"
+        assert isinstance(src, Box)
+        assert isinstance(tgt, Box)
+        self.src = src
+        self.tgt = tgt
+        assert src is not tgt, "self-arrow not implemented"
+        self.attrs = attrs
+        self.xweight = xweight
+        self.yweight = yweight
+
+    def on_layout(self, cvs, system):
+        Box.on_layout(self, cvs, system)
+        self.x1 = x1 = system.get_var("PathBox.x1", weight=0.)
+        self.y1 = y1 = system.get_var("PathBox.y1", weight=0.)
+        x0, y0 = self.x, self.y 
+        src = self.src
+        tgt = self.tgt
+        src.contain(x0, y0, system)
+        tgt.contain(x1, y1, system)
+        self.contain(x1, y1, system)
+
+        # With a lower weight, try to stay in the middle
+        xweight = self.xweight
+        yweight = self.yweight
+        system.add(x0 == src.midx, xweight)
+        system.add(y0 == src.midy, yweight)
+        system.add(x1 == tgt.midx, xweight)
+        system.add(y1 == tgt.midy, yweight)
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        x0 = system[self.x]
+        y0 = system[self.y]
+        x1 = system[self.x1]
+        y1 = system[self.y1]
+        cvs.stroke(path.line(x0, y0, x1, y1), self.attrs)
+
+
+
+class ArrowBox(PathBox):
 
     #default_astyle = "flat"
     default_astyle = "curve"
@@ -687,7 +753,7 @@ class ArrowBox(Box):
 
     def __init__(self, src, tgt, label=None, label_align=None,
             astyle=None, size=None, pad_head=0.04, pad_tail=0.04,
-            attrs=None, weight=0.1):
+            attrs=None, xweight=0.1, yweight=0.1):
         assert isinstance(src, Box)
         assert isinstance(tgt, Box)
         self.src = src
@@ -705,35 +771,29 @@ class ArrowBox(Box):
         self.size = size
         if attrs is None:
             attrs = ArrowBox.default_attrs
-        self.attrs = attrs
-        self.weight = weight
-
-    def on_layout(self, cvs, system):
-        Box.on_layout(self, cvs, system)
-        self.x1 = x1 = system.get_var("ArrowBox.x1", weight=0.)
-        self.y1 = y1 = system.get_var("ArrowBox.y1", weight=0.)
-        x0, y0 = self.x, self.y 
-        src = self.src
-        tgt = self.tgt
-        src.contain(x0, y0, system)
-        tgt.contain(x1, y1, system)
-        self.contain(x1, y1, system)
-
-        # With a lower weight, try to stay in the middle
-        weight = self.weight
-        system.add(x0 == src.midx, weight)
-        system.add(y0 == src.midy, weight)
-        system.add(x1 == tgt.midx, weight)
-        system.add(y1 == tgt.midy, weight)
+        self.pad_head = pad_head
+        self.pad_tail = pad_tail
+        PathBox.__init__(self, src, tgt, attrs, xweight, yweight)
 
     def on_render(self, cvs, system):
         Box.on_render(self, cvs, system)
+
+        pad_head = self.pad_head
+        pad_tail = self.pad_tail
+
         x0 = system[self.x]
         y0 = system[self.y]
         x1 = system[self.x1]
         y1 = system[self.y1]
+
+        r = sqrt((x1-x0)**2 + (y1-y0)**2)
+
         turtle = Turtle(x0, y0)
-        turtle.moveto(x1, y1)
+        turtle.lookat(x1, y1)
+        turtle.penup()
+        turtle.fwd(pad_tail)
+        turtle.pendown()
+        turtle.fwd(r-pad_head-pad_tail)
         turtle.arrow(size=self.size, astyle=self.astyle)
         turtle.stroke(attrs=self.attrs, cvs=cvs)
 
@@ -747,17 +807,19 @@ class ArrowBox(Box):
         PIP = 0.04 # <------- MAGIC CONSTANT TODO
         if align is not None:
             pass
-        elif abs(dy)<EPSILON:
+        elif abs(dy) < 0.1: # another MAGIC CONSTANT
             align = "south"
-        elif abs(dx)<EPSILON:
+        elif abs(dx) < 0.1: # another MAGIC CONSTANT
             align = "west"
+            PIP = 0.08
         elif dx*dy > 0.:
             align = "northwest"
-            PIP = 0.02
+            PIP = 0.04
         else:
             align = "southwest"
             PIP = 0.02
 
+        #print("PIP", PIP, align, label, abs(dx), abs(dy))
         if isinstance(label, Box):
             pass
         else:
@@ -797,7 +859,7 @@ def test_arrows(): # XXX move to doc
 
     r = 1.1
     table = TableBox(boxs, hspace=r, vspace=0.8*r)
-    box = DecoBox(table, arrows)
+    box = MasterBox(table, arrows)
 
     cvs = canvas.canvas()
     box.render(cvs)
