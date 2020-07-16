@@ -185,9 +185,10 @@ class VDia(StrictVBox, Dia):
 
 
 class VWire(Box, Atom):
-    def __init__(self, min_width=0.5*SIZE, min_height=0.5*SIZE):
+    def __init__(self, min_width=0.5*SIZE, min_height=0.5*SIZE, attrs=[]):
         Atom.__init__(self, n_top=1, n_bot=1, 
             min_width=min_width, min_height=min_height)
+        self.attrs = attrs
 
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
@@ -204,7 +205,8 @@ class VWire(Box, Atom):
         top = system[self.top] + PIP
         bot = system[self.bot] + PIP
         x0 = system[self.x_bot[0]]
-        cvs.stroke(path.line(x0, y-bot, x0, y+top))
+        #cvs.stroke(path.line(x0, y-bot, x0, y+top), self.attrs)
+        cvs.stroke(path.line(x0, y+top, x0, y-bot), self.attrs)
 
 
 class Cap(Box, Atom):
@@ -368,7 +370,8 @@ class Spider(Multi):
         for x3, attrs in zip(x_top, top_attrs):
             x2, y2 = x3, conv(y3, y0, 0.3)
             x1, y1 = conv(x0, x3, 0.7), conv(y3, y0, 0.7)
-            cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3), attrs)
+            #cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3), attrs)
+            cvs.stroke(path.curve(x3, y3, x2, y2, x1, y1, x0, y0), attrs)
 
         y3 = y_bot
         for x3, attrs in zip(x_bot, bot_attrs):
@@ -547,47 +550,9 @@ def test():
     cvs.writePDFfile("output.pdf")
 
 
-def test_trace():
-    from huygens import config
-    config("pdftex")
-
-    st_dashed = [style.linestyle.dashed]
-    st_arrow = [deco.marrow()]
-    st_rarrow = [deco.marrow(reverse=True)]
-
-    unit = AlignBox(MarginBox(TextBox("$i_A$"), 0.1, 0.), "northwest")
-    counit = AlignBox(MarginBox(TextBox("$e_A$"), 0.1, 0.), "southwest")
-    left = AlignBox(MarginBox(TextBox("$A$"), 0.15, 0.), "east")
-    right = AlignBox(MarginBox(TextBox("$A$"), 0.15, 0.), "west")
-
-    pip = canvas.canvas()
-    pip.fill(path.circle(0, 0, 0.05))
-    pip = AlignBox(CanBox(pip), "center")
-
-    # Note: __add__ on Box's makes an OBox
-    st_unit = [BoxDeco(unit+pip, 0.)]
-    st_counit = [BoxDeco(counit+pip, 0.)]
-    st_left = [BoxDeco(left, 0.7)]
-    st_right = [BoxDeco(right, 0.7)]
-
-    box = Spider(2, 1, 
-        top_attrs=[st_rarrow+st_left, st_arrow+st_right], 
-        bot_attrs=[st_dashed+st_unit])
-    box = Braid() * box
-    box = Spider(1, 2, 
-        top_attrs=[st_dashed+st_counit], 
-        bot_attrs=[st_rarrow, st_arrow]) * box
-    
-    #Box.DEBUG = True
-    cvs = canvas.canvas()
-    box.render(cvs)
-    cvs.writePDFfile("test_trace.pdf")
-
-
 
 if __name__ == "__main__":
 
-    test_trace()
     test()
 
     print("OK")

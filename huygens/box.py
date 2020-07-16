@@ -265,6 +265,17 @@ class EmptyBox(Box):
             self.right = right
 
 
+class HSpace(Box):
+    def __init__(self, space):
+        self.left = 0
+        self.right = space
+
+class VSpace(Box):
+    def __init__(self, space):
+        self.top = 0
+        self.bot = space
+
+
 class MinBox(Box):
     def __init__(self, min_top=0., min_bot=0., min_left=0., min_right=0.):
         self.min_top = min_top
@@ -457,6 +468,7 @@ class SlackBox(ChildBox):
 class CompoundBox(Box):
     def __init__(self, boxs, weight=None, align=None):
         assert len(boxs)
+        assert type(boxs) is list
         self.boxs = [Box.promote(box, align) for box in boxs]
         self.weight = weight
 
@@ -534,7 +546,7 @@ class OBox(CompoundBox):
 
 
 class HBox(CompoundBox):
-    "horizontal compound box: anchor left"
+    "horizontal compound box: anchor left, layout Box's left to right."
     strict = False
     def on_layout(self, cvs, system):
         CompoundBox.on_layout(self, cvs, system)
@@ -559,7 +571,7 @@ class StrictHBox(HBox):
 
 
 class VBox(CompoundBox):
-    "vertical compound box: anchor top"
+    "vertical compound box: anchor top, layout Box's top down."
     strict = False
     def on_layout(self, cvs, system):
         CompoundBox.on_layout(self, cvs, system)
