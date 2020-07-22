@@ -6,7 +6,7 @@ from math import pi, sqrt
 
 
 from huygens.sat import Expr, System, Listener
-from huygens.front import RGBA, Compound, Translate, Deco, Path
+from huygens.front import RGBA, Compound, Translate, Deco, Path, Canvas
 from huygens.front import path, style, canvas, color
 from huygens.turtle import Turtle
 from huygens.argv import argv
@@ -47,6 +47,8 @@ class Box(Magic):
             box = HBox(item)
         elif item is None:
             box = EmptyBox()
+        elif isinstance(item, Canvas):
+            box = CanBox(item)
         else:
             raise TypeError(repr(item))
         if align is not None:
@@ -198,14 +200,14 @@ class Box(Magic):
             return
         assert type(x) is float, str(self)
         #cvs.set_line_width(0.5)
-        cl = RGBA(1., 0., 0., 0.5)
+        st = [color.rgba(1., 0., 0., 0.5), style.linestyle.solid]
         r = 0.1
-        cvs.stroke(path.line(x-r, y-r, x+r, y+r), [cl]) #, style.linewidth.Thick])
-        cvs.stroke(path.line(x+r, y-r, x-r, y+r), [cl])
+        cvs.stroke(path.line(x-r, y-r, x+r, y+r), st)
+        cvs.stroke(path.line(x+r, y-r, x-r, y+r), st)
         #bg = RGBA(0.5*random(), 0.5*random(), 0.5*random(), 0.5)
         bg = RGBA(0.5, 0.5, 0., 0.1)
         cvs.fill(path.rect(x-left, y-bot, left+right, top+bot), [bg])
-        cvs.stroke(path.rect(x-left, y-bot, left+right, top+bot), [cl])
+        cvs.stroke(path.rect(x-left, y-bot, left+right, top+bot), st)
 
     system = None
     def layout(self, cvs, x=0, y=0):
@@ -219,11 +221,13 @@ class Box(Magic):
         system.solve()
         return system
 
-    def render(self, cvs, x=0, y=0):
-        #if not self.did_layout:
+    def render(self, cvs=None, x=0, y=0):
+        if cvs is None:
+            cvs = canvas.canvas()
         self.layout(cvs, x, y)
         self.on_render(cvs, self.system)
         self.system.refresh()
+        return cvs
 
     def __add__(self, other):
         other = Box.promote(other)
@@ -265,12 +269,12 @@ class EmptyBox(Box):
             self.right = right
 
 
-class HSpace(Box):
+class HSpaceBox(Box):
     def __init__(self, space):
         self.left = 0
         self.right = space
 
-class VSpace(Box):
+class VSpaceBox(Box):
     def __init__(self, space):
         self.top = 0
         self.bot = space
@@ -362,8 +366,8 @@ class TextBox(Box):
 
 class ChildBox(Box):
     "Has one child box"
-    def __init__(self, child):
-        self.child = Box.promote(child)
+    def __init__(self, child, *args, **kw):
+        self.child = Box.promote(child, *args, **kw)
 
     def __len__(self):
         return 1
@@ -382,19 +386,6 @@ class MarginBox(ChildBox):
         ymargin = xmargin if ymargin is None else ymargin
         self.xmargin = xmargin
         self.ymargin = ymargin
-
-#    def SLOW_on_layout(self, cvs, system):
-#        Box.on_layout(self, cvs, system)
-#        child = self.child
-#        child.on_layout(cvs, system)
-#        system.add(self.x == child.x)
-#        system.add(self.y == child.y)
-#        xmargin = self.xmargin
-#        ymargin = self.ymargin
-#        system.add(self.left == child.left + xmargin)
-#        system.add(self.right == child.right + xmargin)
-#        system.add(self.top == child.top + ymargin)
-#        system.add(self.bot == child.bot + ymargin)
 
     def on_layout(self, cvs, system):
         child = self.child
@@ -449,8 +440,8 @@ class AlignBox(ChildBox):
 
 
 class SlackBox(ChildBox):
-    def __init__(self, child):
-        ChildBox.__init__(self, child)
+    def __init__(self, child, *args, **kw):
+        ChildBox.__init__(self, child, *args, **kw)
 
     def on_layout(self, cvs, system):
         child = self.child

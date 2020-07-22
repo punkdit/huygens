@@ -25,7 +25,7 @@
 </symbol>
 </g>
 </defs>
-<g id="surface168">
+<g id="surface177">
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M -2.833984 2.833984 L 2.833984 -2.833984 " transform="matrix(2,0,0,2,8,8)"/>
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 2.833984 2.833984 L -2.833984 -2.833984 " transform="matrix(2,0,0,2,8,8)"/>
 <path style="fill-rule:nonzero;fill:rgb(50%,50%,0%);fill-opacity:0.1;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 0 26 L 30 26 L 30 0 L 0 0 Z M 0 26 " transform="matrix(2,0,0,2,8,8)"/>
@@ -39,6 +39,7 @@
   <use xlink:href="#glyph0-3" x="45.695312" y="24"/>
   <use xlink:href="#glyph0-3" x="58.371094" y="24"/>
 </g>
+<path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 2 L 30 2 L 30 -8 L 0 -8 Z M 0 2 " transform="matrix(2,0,0,2,8,24)"/>
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M -2.833984 20.833984 L 2.833984 15.166016 " transform="matrix(2,0,0,2,8,8)"/>
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 2.833984 20.833984 L -2.833984 15.166016 " transform="matrix(2,0,0,2,8,8)"/>
 <path style="fill-rule:nonzero;fill:rgb(50%,50%,0%);fill-opacity:0.1;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 0 18 L 24 18 L 24 10 L 0 10 Z M 0 18 " transform="matrix(2,0,0,2,8,8)"/>
@@ -48,6 +49,7 @@
   <use xlink:href="#glyph0-5" x="31.671875" y="44"/>
   <use xlink:href="#glyph0-2" x="44.367188" y="44"/>
 </g>
+<path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 0.00000000205901 L 24 0.00000000205901 L 24 -8 L 0 -8 Z M 0 0.00000000205901 " transform="matrix(2,0,0,2,8,44)"/>
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M -2.833984 26.833984 L 2.833984 21.166016 " transform="matrix(2,0,0,2,8,8)"/>
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 2.833984 26.833984 L -2.833984 21.166016 " transform="matrix(2,0,0,2,8,8)"/>
 <path style="fill-rule:nonzero;fill:rgb(50%,50%,0%);fill-opacity:0.1;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 0 26 L 30 26 L 30 18 L 0 18 Z M 0 26 " transform="matrix(2,0,0,2,8,8)"/>
@@ -58,5 +60,6 @@
   <use xlink:href="#glyph0-2" x="43.976562" y="56"/>
   <use xlink:href="#glyph0-6" x="56.28125" y="56"/>
 </g>
+<path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 2 L 30 2 L 30 -6 L 0 -6 Z M 0 2 " transform="matrix(2,0,0,2,8,56)"/>
 </g>
 </svg>

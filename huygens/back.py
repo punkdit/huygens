@@ -836,6 +836,33 @@ class TextAlign(Deco):
     def __init__(self, desc):
         self.desc = desc
 
+    def on_decorate(self, pre, item, post):
+        assert isinstance(item, Text)
+        _, ury, width, height = item.text_extents()
+        #print("TextAlign", ury, width, height)
+        rise = ury
+        drop = ury-height
+        desc = self.desc
+        dx, dy = 0., 0.
+        if desc == "boxcenter":
+            dx = 0.5*width
+        elif desc == "boxright":
+            dx = 1.0*width
+        elif desc == "boxleft":
+            dx = 0.0*width
+        elif desc == "top":
+            dy = 1.0*rise
+        elif desc == "middle":
+            dy = 0.5*(rise + drop)
+        elif desc == "bottom":
+            dy = drop
+        else:
+            assert 0, "TextAlign: unknown desc %r"%desc
+        pre.append(Translate(-dx, -dy))
+
+TextHAlign = TextAlign
+TextVAlign = TextAlign
+
 
 
 class Translate_Pt(Deco):
@@ -930,6 +957,16 @@ class Text(object):
     def __new__(cls, *args, **kw):
         ob = object.__new__(the_text_cls)
         return ob
+
+    def text_extents(self):
+        bound = self.get_bound()
+        llx, lly, urx, ury = bound
+        llx /= SCALE_CM_TO_POINT
+        lly /= SCALE_CM_TO_POINT
+        urx /= SCALE_CM_TO_POINT
+        ury /= SCALE_CM_TO_POINT
+        return (0., ury, urx-llx, ury-lly) # 0., ury, width, height
+
 
 
 class CairoText(Item, Text):

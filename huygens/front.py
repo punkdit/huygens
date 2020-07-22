@@ -106,7 +106,7 @@ RGB.white = RGB(1., 1., 1.)
 RGB.grey = RGB.gray = RGB(0.8, 0.8, 0.8)
 RGB.black = RGB(0., 0., 0.)
 
-color = NS(rgb=RGBA)
+color = NS(rgb=RGBA, rgba=RGBA)
 
 
 style = NS(
@@ -148,20 +148,20 @@ text = NS(
         huge = TextSize(4),
         Huge = TextSize(5)),
     halign = NS(
-        left = TextAlign("left"),
-        center = TextAlign("center"),
-        right = TextAlign("right"),
-        clear = TextAlign("clear"),
-        boxleft = TextAlign("boxleft"),
-        boxcenter = TextAlign("boxcenter"),
-        boxright = TextAlign("boxright"),
-        flushleft = TextAlign("flushleft"),
-        flushcenter = TextAlign("flushcenter"),
-        flushright = TextAlign("flushright")),
+        left = TextHAlign("left"),
+        center = TextHAlign("center"),
+        right = TextHAlign("right"),
+        clear = TextHAlign("clear"),
+        boxleft = TextHAlign("boxleft"),
+        boxcenter = TextHAlign("boxcenter"),
+        boxright = TextHAlign("boxright"),
+        flushleft = TextHAlign("flushleft"),
+        flushcenter = TextHAlign("flushcenter"),
+        flushright = TextHAlign("flushright")),
     valign = NS(
-        top = TextAlign("top"),
-        middle = TextAlign("middle"),
-        bottom = TextAlign("bottom")))
+        top = TextVAlign("top"),
+        middle = TextVAlign("middle"),
+        bottom = TextVAlign("bottom")))
 
 
 
@@ -225,22 +225,31 @@ class Canvas(Compound):
 
     def text_extents(self, text):
         item = Text(0., 0., text)
-        bound = item.get_bound()
-        llx, lly, urx, ury = bound
-        llx /= SCALE_CM_TO_POINT
-        lly /= SCALE_CM_TO_POINT
-        urx /= SCALE_CM_TO_POINT
-        ury /= SCALE_CM_TO_POINT
-        return (0., ury, urx-llx, ury-lly)
+        return item.text_extents()
 
     def text(self, x, y, text, decos=[]):
         assert type(decos) is list
-        color = None
+        # just hack this color deco...
+        color = None 
         for deco in decos:
-            if isinstance(deco, RGBA):
+            if isinstance(deco, RGBA): 
                 color = deco
-        item = Compound(decos, Text(x, y, text, color))
-        self.append(item)
+        item = Text(0., 0., text, color)
+        _, ury, width, height = item.text_extents()
+        tr = trafo.translate(x, y)
+        pre = Compound([tr])
+        post = Compound()
+        for deco in decos:
+            if not isinstance(deco, RGBA):
+                deco.on_decorate(pre, item, post)
+        pre.append(item)
+        if 0:
+            # DEBUG with a rectangle around the text...
+            #self.stroke(path.circle(x, y, 0.05))
+            p = path.rect(0., ury-height, width, height)
+            post.append(p)
+            post.append(Stroke())
+        self.append(pre + post)
 
     def image(self, name, x=0, y=0):
         im = Image(name, x, y)
