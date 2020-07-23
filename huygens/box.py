@@ -587,15 +587,15 @@ class StrictVBox(VBox):
 
 
 class TableBox(CompoundBox):
-    def __init__(self, rows, hspace=0., vspace=0., grid=False):
+    def __init__(self, rows, hspace=0., vspace=0., grid=False, attrs=[], **kw):
         assert len(rows), "no rows"
         assert len(rows[0]), "no cols"
 
-        rows = [[Box.promote(item) for item in row] for row in rows]
+        rows = [[Box.promote(item, **kw) for item in row] for row in rows]
         assert hspace >= 0.
         assert vspace >= 0.
 
-#        if 0:
+#       too tricky...
 #            # Get original shape
 #            m = len(rows) # rows
 #            n = len(rows[0]) # cols

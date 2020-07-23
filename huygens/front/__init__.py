@@ -134,19 +134,18 @@ style = NS(
     ))
 
 
-# XXX TODO
 text = NS(
     size = NS(
-        tiny = TextSize(-4),
-        script = TextSize(-3),
-        footnote = TextSize(-2),
-        small = TextSize(-1),
-        normal = TextSize(0),
-        large = TextSize(1),
-        Large = TextSize(2),
-        LARGE = TextSize(3),
-        huge = TextSize(4),
-        Huge = TextSize(5)),
+        tiny = TextSize(-4, "tiny"),
+        script = TextSize(-3, "script"),
+        footnote = TextSize(-2, "footnote"),
+        small = TextSize(-1, "small"),
+        normal = TextSize(0, "normalsize"),
+        large = TextSize(1, "large"),
+        Large = TextSize(2, "Large"),
+        LARGE = TextSize(3, "LARGE"),
+        huge = TextSize(4, "huge"),
+        Huge = TextSize(5, "Huge")),
     halign = NS(
         left = TextHAlign("left"),
         center = TextHAlign("center"),

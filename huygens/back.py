@@ -823,13 +823,17 @@ class LineDash(Deco):
 
 
 class TextSize(Deco):
-    def __init__(self, size):
-        #self.size = float(size) * SCALE_CM_TO_POINT
-        self.size = size # ???
+    def __init__(self, size_idx, latex_desc=None):
+        scale = (2**(0.5*size_idx))
+        self.size = 10. * scale
+        self.scale = scale
+        self.latex_desc = latex_desc # TODO
 
     def process_cairo(self, cxt):
-        pass
-        #cxt.set_font_size(self.size)
+        if the_text_cls == CairoText: # bit of a hack..
+            cxt.set_font_size(self.size)
+        #else:
+        #    cxt.scale(self.scale, self.scale)
 
 
 class TextAlign(Deco):
@@ -839,7 +843,7 @@ class TextAlign(Deco):
     def on_decorate(self, pre, item, post):
         assert isinstance(item, Text)
         _, ury, width, height = item.text_extents()
-        #print("TextAlign", ury, width, height)
+        print("TextAlign", ury, width, height)
         rise = ury
         drop = ury-height
         desc = self.desc
@@ -970,7 +974,7 @@ class Text(object):
 
 
 class CairoText(Item, Text):
-    def __init__(self, x, y, text, color=None):
+    def __init__(self, x, y, text, color=None, size=None, **kw):
         self.x = SCALE_CM_TO_POINT*x
         self.y = SCALE_CM_TO_POINT*y
         self.text = text
@@ -994,6 +998,7 @@ class CairoText(Item, Text):
             cxt.set_source_rgba(*self.color)
         cxt.move_to(self.x, -self.y)
         cxt.show_text(self.text)
+        #cxt.set_font_size(10.)
         cxt.restore()
 
 
@@ -1005,13 +1010,13 @@ class MkText(Compound, Text):
     @classmethod
     def _get_baseline(cls):
         if cls._baseline is None:
-            item = make_text("x") # measure this font using "x"
+            item = make_text("x", cls.tex_engine) # measure this font using "x"
             bound = item.get_bound()
             #print("_get_baseline", bound)
             cls._baseline = bound.lly
         return cls._baseline
 
-    def __init__(self, x, y, text, color=None):
+    def __init__(self, x, y, text, color=None, size=None, **kw):
         assert text
         self.x = x = SCALE_CM_TO_POINT*x
         self.y = y = SCALE_CM_TO_POINT*y

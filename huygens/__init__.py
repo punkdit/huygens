@@ -14,8 +14,7 @@ def config(text=None):
         back.the_text_cls = back.MkText
         back.MkText.tex_engine = text
     else:
-        print("config text option %r not understood" % text)
-        raise Exception
+        raise Exception("config text option %r not understood" % text)
 
 
 

@@ -42,6 +42,17 @@ def latex_output(text):
     lines = []
     lines.append(r"\documentclass[11pt]{article}")
     lines.append(r"\pagenumbering{gobble}")
+    lines.append(r"\def\folio{}")
+    lines.append(r"\begin{document}")
+    lines.append(text)
+    lines.append(r"\end{document}")
+    return '\n'.join(lines)
+
+
+def xelatex_output(text):
+    lines = []
+    lines.append(r"\documentclass[11pt]{article}")
+    lines.append(r"\pagenumbering{gobble}")
     lines.append(r"\usepackage{fontspec}")
     lines.append(r"\setromanfont{Gentium Book Basic}")
     lines.append(r"\def\folio{}")
@@ -60,8 +71,10 @@ def make_text(text, tex_engine="pdftex"):
 
     if tex_engine == "pdftex" or tex_engine == "xetex":
         output = tex_output(text)
-    elif tex_engine == "xelatex" or tex_engine=="pdflatex":
+    elif tex_engine=="pdflatex":
         output = latex_output(text)
+    elif tex_engine == "xelatex":
+        output = xelatex_output(text)
     else:
         assert 0, tex_engine
 
