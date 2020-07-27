@@ -27,7 +27,7 @@ from huygens.flatten import Flatten
 
 class ArrowDeco(Deco):
     def __init__(self, astyle="curve", t=1.0, size=0.1, angle=30., 
-            round=False, reverse=False):
+            round=False, reverse=False, **kw):
         assert 0<=t<=1.
         assert astyle in "hook dart curve feather bar flat".split()
         self.astyle = astyle

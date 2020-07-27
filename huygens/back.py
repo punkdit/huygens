@@ -688,6 +688,7 @@ class Deco(Item):
     def __call__(self, **kw):
         d = dict(self.__dict__)
         d.update(kw)
+        #print(d)
         deco = self.__class__(**d)
         return deco
 
@@ -843,7 +844,7 @@ class TextAlign(Deco):
     def on_decorate(self, pre, item, post):
         assert isinstance(item, Text)
         _, ury, width, height = item.text_extents()
-        print("TextAlign", ury, width, height)
+        #print("TextAlign", ury, width, height)
         rise = ury
         drop = ury-height
         desc = self.desc
