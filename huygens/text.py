@@ -30,10 +30,16 @@ def command(cmd):
 
 command = verbose_command
 
+tex_header = None
+latex_header = None
+xelatex_header = None
+
 
 def tex_output(text):
     lines = []
     lines.append(r"\def\folio{}")
+    if tex_header:
+        lines += tex_header.split("\n")
     lines.append(r"%s\bye"%text)
     return '\n'.join(lines)
 
@@ -43,6 +49,8 @@ def latex_output(text):
     lines.append(r"\documentclass[11pt]{article}")
     lines.append(r"\pagenumbering{gobble}")
     lines.append(r"\def\folio{}")
+    if latex_header:
+        lines += latex_header.split("\n")
     lines.append(r"\begin{document}")
     lines.append(text)
     lines.append(r"\end{document}")
@@ -56,6 +64,8 @@ def xelatex_output(text):
     lines.append(r"\usepackage{fontspec}")
     lines.append(r"\setromanfont{Gentium Book Basic}")
     lines.append(r"\def\folio{}")
+    if xelatex_header:
+        lines += xelatex_header.split("\n")
     lines.append(r"\begin{document}")
     lines.append(text)
     lines.append(r"\end{document}")

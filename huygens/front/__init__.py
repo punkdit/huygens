@@ -25,8 +25,23 @@ from huygens.back import _defaultlinewidth
 from huygens.flatten import Flatten
 
 
-class ArrowDeco(Deco):
-    def __init__(self, astyle="curve", t=1.0, size=0.1, angle=30., 
+class BoxDeco(Deco): 
+    def __init__(self, box, t=0.5):
+        assert 0<=t<=1.
+        self.box = box
+        self.t = t
+
+    def on_decorate(self, pre, path, post):
+        t = self.t
+        x, y, dx, dy = path.tangent(t)
+        cvs = canvas.canvas()
+        self.box.render(cvs, x, y)
+        post.append(cvs)
+
+
+# move this somewhere ... 
+class ArrowDeco(Deco): # PathDeco ?
+    def __init__(self, astyle="curve", t=1.0, size=0.15, angle=30., 
             round=False, reverse=False, **kw):
         assert 0<=t<=1.
         assert astyle in "hook dart curve feather bar flat".split()
@@ -434,7 +449,7 @@ def test():
         path.arcn(2, 2, 0.5, 0., 0.5*pi)])
     cvs.stroke(p, [tr, color.rgb.red]+attrs)
 
-    cvs.writePDFfile("output.pdf")
+    cvs.writePDFfile("output-arrow.pdf")
 
 
 

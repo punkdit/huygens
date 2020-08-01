@@ -38,7 +38,7 @@ class Box(Magic):
     DEBUG = False
 
     @classmethod
-    def promote(cls, item, align=None):
+    def promote(cls, item, align=None, margin=None, xmargin=None, ymargin=None):
         if isinstance(item, Box):
             box = item
         elif isinstance(item, str):
@@ -53,6 +53,10 @@ class Box(Magic):
             raise TypeError(repr(item))
         if align is not None:
             box = AlignBox(box, align)
+        xmargin = xmargin if xmargin is not None else margin
+        ymargin = ymargin if ymargin is not None else xmargin
+        if xmargin is not None:
+            box = MarginBox(box, xmargin, ymargin)
         return box
 
     @property

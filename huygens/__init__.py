@@ -2,9 +2,14 @@ from huygens import front, back
 
 from huygens.front import canvas, style, path, color, trafo, linestyle
 from huygens import box, diagram
+import huygens.text
+
+tex_header = None
+latex_header = None
+xelatex_header = None
 
 
-def config(text=None):
+def config(text=None, tex_header=None, latex_header=None, xelatex_header=None):
 
     if text is None:
         pass
@@ -16,5 +21,8 @@ def config(text=None):
     else:
         raise Exception("config text option %r not understood" % text)
 
+    huygens.text.tex_header = tex_header
+    huygens.text.latex_header = latex_header
+    huygens.text.xelatex_header = xelatex_header
 
 
