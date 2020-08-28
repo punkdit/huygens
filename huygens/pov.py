@@ -409,7 +409,8 @@ class Light(object):
 class View(object):
     def __init__(self, _width=640, _height=480):
         #global width, height, viewport, proj, model
-        scale = 0.05 # XXX 1./SCALE_CM_TO_POINT
+        #scale = 0.05 # XXX 1./SCALE_CM_TO_POINT
+        scale = 1./SCALE_CM_TO_POINT
         width, height = scale*_width, scale*_height
         self.viewport = (0., 0., width, height)
         self.proj = Mat.identity(4) # Projection matrix
@@ -438,7 +439,11 @@ class View(object):
         M = Mat.rotate(angle, x, y, z)
         self.model = self.model*M
 
-    def scale(self, sx, sy, sz):
+    def scale(self, sx, sy=None, sz=None):
+        if sy is None:
+            sy = sx
+        if sz is None:
+            sz = sy
         M = Mat.scale(sx, sy, sz)
         self.model = self.model*M
 
@@ -531,7 +536,8 @@ class View(object):
     
         x0, y0, width, height = self.viewport
         p = mkpath([(x0, y0), (x0+width, y0), (x0+width, y0+height), (x0, y0+height)])
-        cvs.fill(p, [bg])
+        if bg is not None:
+            cvs.fill(p, [bg])
         if clip:
             cvs.clip(p)
 
@@ -754,7 +760,7 @@ def main():
             (0.0, 0.6, 0.4, 0.8),
         ]
 
-        if 1:
+        if 0:
             #view.rotate(frame, 1, 0, 0)
             #view.rotate(0.1*frame, 0, 1, 0)
             fill = fills[0]

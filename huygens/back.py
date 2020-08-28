@@ -1139,6 +1139,7 @@ class Polygon(Item):
             for (x, y) in pts[1:]:
                 cxt.line_to(x, -y)
             cxt.close_path()
+            cxt.clip_preserve()
             cxt.stroke()
 
         cxt.restore() # <------- restore
