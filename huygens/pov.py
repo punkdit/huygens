@@ -338,10 +338,11 @@ class GItem(object):
 
 
 class GPoly(GItem):
-    def __init__(self, verts, fill=None, stroke=None, epsilon=1e-2):
+    def __init__(self, verts, fill=None, stroke=None, texture=None, epsilon=1e-2):
         GItem.__init__(self, verts, epsilon)
         self.fill = fill
         self.stroke = stroke
+        self.texture = texture
 
         v0, v1, v2 = verts[:3]
         a = v1-v0
@@ -362,7 +363,7 @@ class GPoly(GItem):
             fill = view.illuminate(v, n, fill)
         if stroke is not None:
             stroke = view.illuminate(v, n, stroke)
-        cvs.append(Polygon(verts, fill, stroke))
+        cvs.append(Polygon(verts, fill, stroke, self.texture))
         
 
 class GMesh(GItem):
@@ -512,6 +513,7 @@ class View(object):
         verts = [self.trafo_view(v) for v in verts]
         gitem = GPoly(verts, *args, **kw)
         self.add_gitem(gitem)
+        return gitem
 
     def add_mesh(self, verts, normals, *args, **kw):
         verts = [self.trafo_view(v) for v in verts]

@@ -917,6 +917,22 @@ class Rotate(Deco):
         cxt.translate(-x, y)
 
 
+class Transform(Deco):
+    def __init__(self, xx=1.0, yx=0.0, xy=0.0, yy=1.0, x0=0.0, y0=0.0):
+        self.xx = float(xx)
+        self.yx = float(yx)
+        self.xy = float(xy)
+        self.yy = float(yy)
+        self.x0 = float(x0) * SCALE_CM_TO_POINT
+        self.y0 = float(y0) * SCALE_CM_TO_POINT
+
+    def process_cairo(self, cxt):
+        import cairo
+        #m = cairo.Matrix(self.xx, -self.yx, self.xy, -self.yy, self.x0, -self.y0)
+        m = cairo.Matrix(self.xx, -self.yx, -self.xy, self.yy, self.x0, -self.y0)
+        #print(m)
+        cxt.transform(m)
+
 
 
 # ----------------------------------------------------------------------------
@@ -1109,17 +1125,18 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
 #
 
 class Polygon(Item):
-    def __init__(self, pts, fill=None, stroke=None):
+    def __init__(self, pts, fill=None, stroke=None, texture=None):
         Item.__init__(self)
         assert len(pts)>1
         self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
         self.fill = fill
         self.stroke = stroke
+        self.texture = texture
+        assert texture is None or isinstance(texture, Item)
 
     def process_cairo(self, cxt):
         pts = self.pts
         cxt.save() # <--------- save
-        #cxt.set_line_width(2.0)
 
         fill = self.fill #or (0., 0., 0., 1.)
         if fill is not None:
@@ -1131,6 +1148,7 @@ class Polygon(Item):
             cxt.close_path()
             cxt.fill()
     
+        cxt.set_line_width(4.0)
         stroke = self.stroke # or (1., 1., 1., 1.)
         if stroke is not None:
             cxt.set_source_rgba(*stroke)
@@ -1141,6 +1159,33 @@ class Polygon(Item):
             cxt.close_path()
             cxt.clip_preserve()
             cxt.stroke()
+
+            #cxt.set_source_rgba(0., 0., 1., 1.)
+            #x, y = pts[0]
+            #r = 20.0
+            #cxt.arc(x, -y, r, 0, 2*pi)
+            #cxt.fill()
+
+        import cairo
+
+        texture = self.texture
+        if texture is not None:
+            x, y = pts[0]
+            cxt.move_to(x, -y)
+            for (x, y) in pts[1:]:
+                cxt.line_to(x, -y)
+            cxt.close_path()
+            cxt.clip()
+
+            x0, y0 = pts[0]
+            x1, y1 = pts[1]
+            x2, y2 = pts[2]
+            #cxt.translate(x, -y)
+            #m = cairo.Matrix(self.xx, -self.yx, -self.xy, self.yy, self.x0, -self.y0)
+            m = cairo.Matrix(x1-x0, y0-y1, x0-x2, y2-y0, x0, -y0)
+            cxt.transform(m)
+            cxt.scale(1./SCALE_CM_TO_POINT, 1./SCALE_CM_TO_POINT)
+            texture.process_cairo(cxt)
 
         cxt.restore() # <------- restore
 
