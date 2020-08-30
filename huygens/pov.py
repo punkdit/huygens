@@ -338,11 +338,12 @@ class GItem(object):
 
 
 class GPoly(GItem):
-    def __init__(self, verts, fill=None, stroke=None, texture=None, epsilon=1e-2):
+    def __init__(self, verts, fill=None, stroke=None, texture=None, texture_coords=None, epsilon=1e-2):
         GItem.__init__(self, verts, epsilon)
         self.fill = fill
         self.stroke = stroke
         self.texture = texture
+        self.texture_coords = texture_coords
 
         v0, v1, v2 = verts[:3]
         a = v1-v0
@@ -363,7 +364,7 @@ class GPoly(GItem):
             fill = view.illuminate(v, n, fill)
         if stroke is not None:
             stroke = view.illuminate(v, n, stroke)
-        cvs.append(Polygon(verts, fill, stroke, self.texture))
+        cvs.append(Polygon(verts, fill, stroke, self.texture, self.texture_coords))
         
 
 class GMesh(GItem):

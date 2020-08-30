@@ -1125,14 +1125,28 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
 #
 
 class Polygon(Item):
-    def __init__(self, pts, fill=None, stroke=None, texture=None):
+    def __init__(self, pts, fill=None, stroke=None, 
+#            texture=None, texture_coords=[(0., 0.), (1., 0.), (0., 1.)]):
+            texture=None, texture_coords=[(0., 0.), (0., 1.), (1., 0.)]):
         Item.__init__(self)
         assert len(pts)>1
         self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
         self.fill = fill
         self.stroke = stroke
-        self.texture = texture
         assert texture is None or isinstance(texture, Item)
+        self.texture = texture
+        if texture is not None:
+            pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in texture_coords]
+            x0, y0 = pts[0]
+            x1, y1 = pts[1]
+            x2, y2 = pts[2]
+
+            import cairo
+            m = cairo.Matrix((x1-x0), (y0-y1), (x0-x2), (y2-y0), x0, -y0)
+            m.invert()
+            self.texm = m
+
+        #self.texture_coords = texture_coords
 
     def process_cairo(self, cxt):
         pts = self.pts
@@ -1180,11 +1194,15 @@ class Polygon(Item):
             x0, y0 = pts[0]
             x1, y1 = pts[1]
             x2, y2 = pts[2]
-            #cxt.translate(x, -y)
-            #m = cairo.Matrix(self.xx, -self.yx, -self.xy, self.yy, self.x0, -self.y0)
-            m = cairo.Matrix(x1-x0, y0-y1, x0-x2, y2-y0, x0, -y0)
-            cxt.transform(m)
-            cxt.scale(1./SCALE_CM_TO_POINT, 1./SCALE_CM_TO_POINT)
+
+            #rs = 1./SCALE_CM_TO_POINT
+            rs = 1.
+            #cxt.transform(cairo.Matrix(x1-x0, y0-y1, x0-x2, y2-y0, x0, -y0))
+            #cxt.scale(rs, rs)
+
+            cxt.transform(cairo.Matrix(rs*(x1-x0), rs*(y0-y1), rs*(x0-x2), rs*(y2-y0), x0, -y0))
+            cxt.transform(self.texm)
+
             texture.process_cairo(cxt)
 
         cxt.restore() # <------- restore
