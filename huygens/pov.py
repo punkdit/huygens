@@ -505,13 +505,13 @@ class View(object):
         v0, v1, v2 = verts[:3]
         n = (v1-v0).cross(v2-v0)
         #nz = n[2]
-        side = (-v0).dot(n)
+        eye_side = -v0.dot(n)
         gitems = self.gitems
         back, front = [], []
         for gi in gitems:
             vc = gi.center
-            r = (vc-v0).dot(n)
-            if (r>-EPSILON) == (side>-EPSILON):
+            other_side = (vc-v0).dot(n)
+            if (other_side>-EPSILON) == (eye_side>-EPSILON):
                 front.append(gi)
             else:
                 back.append(gi)
