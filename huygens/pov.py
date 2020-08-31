@@ -410,8 +410,6 @@ class Light(object):
 
 class View(object):
     def __init__(self, _width=640, _height=480):
-        #global width, height, viewport, proj, model
-        #scale = 0.05 # XXX 1./SCALE_CM_TO_POINT
         scale = 1./SCALE_CM_TO_POINT
         width, height = scale*_width, scale*_height
         self.viewport = (0., 0., width, height)
@@ -422,18 +420,15 @@ class View(object):
         self.lights = []
     
     def perspective(self):
-        #global proj
         width, height = self.viewport[2:]
         M = Mat.perspective(45., width/height, 0.1, 100.)
         self.proj = M * self.proj
     
-    def translate(self, x, y, z): # XXX use Mat
-        #global model
+    def translate(self, x, y, z):
         M = Mat.translate(x, y, z)
         self.model = self.model*M
     
     def lookat(self, eye, center, up):
-        #global model
         M = Mat.lookat(eye, center, up)
         self.model = self.model*M
 
@@ -461,6 +456,7 @@ class View(object):
     # ------------------------------------------------
     
     def trafo_view(self, point):
+        "apply model transform to point"
         assert isinstance(point, Mat), type(point)
         assert point.shape == (3, 1), repr(point)
         x, y, z = point
@@ -480,6 +476,7 @@ class View(object):
         return v
 
     def trafo_camera(self, point):
+        "apply proj transform to point"
         assert point.shape == (3, 1)
         x, y, z = point
         v = self.proj * [x, y, z, 1.]
@@ -499,16 +496,29 @@ class View(object):
         y = y0 + h2 + y*h2
         return x, y
     
-    def get_depth(self, gitem):
-        v = gitem.center
-        x, y, z = self.trafo_camera(v)
-        return -z
-
     # -----------------------------------------
     # class Scene ?
 
     def add_gitem(self, face):
-        self.gitems.append(face)
+        assert isinstance(face, GItem)
+        verts = face.verts
+        v0, v1, v2 = verts[:3]
+        n = (v1-v0).cross(v2-v0)
+        #nz = n[2]
+        side = (-v0).dot(n)
+        gitems = self.gitems
+        back, front = [], []
+        for gi in gitems:
+            vc = gi.center
+            r = (vc-v0).dot(n)
+            if (r>-EPSILON) == (side>-EPSILON):
+                front.append(gi)
+            else:
+                back.append(gi)
+        back.append(face)
+        self.gitems[:] = back + front
+        #gitems.append(face)
+        #gitems.sort(key = self.get_depth)
 
     def add_poly(self, verts, *args, **kw):
         verts = [self.trafo_view(v) for v in verts]
@@ -575,14 +585,20 @@ class View(object):
         color = (x*r, x*g, x*b, a)
         return color
 
+    def get_depth(self, gitem):
+        v = gitem.center
+        x, y, z = self.trafo_camera(v)
+        return -z
+
     def render(self, *args, **kw):
         cvs = self.prepare_canvas(*args, **kw)
 
         gitems = list(self.gitems)
 
-        # XXX sorting by depth does not always work...
-        # XXX try subdividing your GItem's ?
-        gitems.sort(key = self.get_depth)
+        if 0:
+            # XXX sorting by depth does not always work...
+            # XXX try subdividing your GItem's ?
+            gitems.sort(key = self.get_depth)
 
         for gitem in gitems:
             gitem.render(self, cvs)

@@ -741,6 +741,10 @@ class RGBA(Deco):
     def __getitem__(self, idx):
         return self.cl[idx]
 
+    def alpha(self, a):
+        (r, g, b, _) = self.cl
+        return RGBA(r, g, b, a)
+
     def process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
 
@@ -1126,8 +1130,7 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
 
 class Polygon(Item):
     def __init__(self, pts, fill=None, stroke=None, 
-#            texture=None, texture_coords=[(0., 0.), (1., 0.), (0., 1.)]):
-            texture=None, texture_coords=[(0., 0.), (0., 1.), (1., 0.)]):
+            texture=None, texture_coords=[(0., 0.), (1., 0.), (0., 1.)]):
         Item.__init__(self)
         assert len(pts)>1
         self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
