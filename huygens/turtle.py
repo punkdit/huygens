@@ -238,7 +238,7 @@ class Turtle(object):
             assert p is not None
         return p
         
-    def _render(self, attrs=None, closepath=False, cvs=None, name="stroke"):
+    def _render(self, attrs=None, closepath=False, cvs=None, name="stroke", preserve=False):
         if attrs is None:
             attrs = self.attrs
         if cvs is None:
@@ -251,26 +251,28 @@ class Turtle(object):
                 p = mkpath(ps, closepath)
                 method = getattr(cvs, name)
                 method(p, attrs)
-        if not name.endswith("_preserve"):
+        if not preserve:
             self.paths = []
             if self.ps is not None:
                 self.ps = self.ps[-1:]
         return self
 
-    def stroke(self, **kw):
+    def stroke(self, *args, **kw):
         kw["name"] = "stroke"
-        self._render(**kw)
+        self._render(*args, **kw)
 
-    def fill(self, **kw):
+    def fill(self, *args, **kw):
         kw["name"] = "fill"
-        self._render(**kw)
+        self._render(*args, **kw)
 
-    def stroke_preserve(self, **kw):
-        kw["name"] = "stroke" # TODO
-        self._render(**kw)
+    def stroke_preserve(self, *args, **kw):
+        kw["name"] = "stroke"
+        kw["preserve"] = True
+        self._render(*args, **kw)
 
-    def fill_preserve(self, **kw):
-        kw["name"] = "fill" # TODO
-        self._render(**kw)
+    def fill_preserve(self, *args, **kw):
+        kw["name"] = "fill"
+        kw["preserve"] = True
+        self._render(*args, **kw)
 
 
