@@ -873,52 +873,7 @@ TextHAlign = TextAlign
 TextVAlign = TextAlign
 
 
-
-class Translate_Pt(Deco):
-    def __init__(self, dx, dy):
-        self.dx = dx
-        self.dy = dy
-
-    def process_cairo(self, cxt):
-        cxt.translate(self.dx, -self.dy)
-
-
-class Translate(Translate_Pt):
-    def __init__(self, dx, dy):
-        self.dx = dx*SCALE_CM_TO_POINT
-        self.dy = dy*SCALE_CM_TO_POINT
-
-
-class Scale(Deco):
-    def __init__(self, sx, sy=None, x=0., y=0.):
-        if sy is None:
-            sy = sx
-        self.sx = float(sx)
-        self.sy = float(sy)
-        self.x = float(x) * SCALE_CM_TO_POINT
-        self.y = float(y) * SCALE_CM_TO_POINT
-
-    def process_cairo(self, cxt):
-        sx, sy = self.sx, self.sy
-        x, y = self.x, self.y
-        dx, dy = (1.-sx)*x, (1.-sy)*y
-        #print(dx,  dy)
-        cxt.translate(dx, -dy)
-        cxt.scale(sx, sy)
-
-
-class Rotate(Deco):
-    def __init__(self, angle, x=0., y=0.):
-        "rotate by angle in radians around point at x,y"
-        self.angle = angle
-        self.x = float(x) * SCALE_CM_TO_POINT
-        self.y = float(y) * SCALE_CM_TO_POINT
-
-    def process_cairo(self, cxt):
-        x, y = self.x, self.y
-        cxt.translate(x, -y)
-        cxt.rotate(self.angle)
-        cxt.translate(-x, y)
+# ------ transform's ----------
 
 
 class Transform(Deco):
@@ -937,6 +892,88 @@ class Transform(Deco):
         #print(m)
         cxt.transform(m)
 
+    def transform_point(self, x, y):
+        "translate a point, using hugyens coordinates"
+        assert 0, "not implemented"
+        # TODO
+
+
+#class Translate_Pt(Deco):
+class Translate_Pt(Transform):
+    def __init__(self, dx, dy):
+        self.dx = dx
+        self.dy = dy
+
+    def process_cairo(self, cxt):
+        cxt.translate(self.dx, -self.dy)
+
+    def transform_point(self, x, y):
+        "translate a point, using hugyens coordinates"
+        dx = self.dx/SCALE_CM_TO_POINT
+        dy = self.dy/SCALE_CM_TO_POINT
+        return (x+dx, y+dy)
+
+
+class Translate(Translate_Pt):
+    def __init__(self, dx, dy):
+        self.dx = dx*SCALE_CM_TO_POINT
+        self.dy = dy*SCALE_CM_TO_POINT
+
+
+
+class Scale(Transform):
+    def __init__(self, sx, sy=None, x=0., y=0.):
+        if sy is None:
+            sy = sx
+        self.sx = float(sx)
+        self.sy = float(sy)
+        self.x = float(x) * SCALE_CM_TO_POINT
+        self.y = float(y) * SCALE_CM_TO_POINT
+
+    def process_cairo(self, cxt):
+        sx, sy = self.sx, self.sy
+        x, y = self.x, self.y
+        dx, dy = (1.-sx)*x, (1.-sy)*y
+        cxt.translate(dx, -dy)
+        cxt.scale(sx, sy)
+
+    def transform_point(self, x, y):
+        "translate a point, using hugyens coordinates"
+        sx, sy = self.sx, self.sy
+        x0, y0 = self.x, self.y
+        x0 /= SCALE_CM_TO_POINT
+        y0 /= SCALE_CM_TO_POINT
+        dx, dy = (1.-sx)*x0, (1.-sy)*y0
+        x += dx
+        y += dy
+        x *= sx
+        y *= sy
+        return (x, y)
+
+
+class Rotate(Transform):
+    def __init__(self, angle, x=0., y=0.):
+        "rotate by angle in radians around point at x,y"
+        self.angle = angle
+        self.x = float(x) * SCALE_CM_TO_POINT
+        self.y = float(y) * SCALE_CM_TO_POINT
+
+    def process_cairo(self, cxt):
+        x, y = self.x, self.y
+        cxt.translate(x, -y)
+        cxt.rotate(self.angle)
+        cxt.translate(-x, y)
+
+    def transform_point(self, x, y):
+        "translate a point, using hugyens coordinates"
+        x0, y0 = self.x, self.y
+        x0 /= SCALE_CM_TO_POINT
+        y0 /= SCALE_CM_TO_POINT
+        x, y = x-x0, y-y0
+        s, c = sin(self.angle), cos(self.angle)
+        x, y = (c*x+s*y, -s*x+c*y)
+        x, y = x+x0, y+y0
+        return (x, y)
 
 
 # ----------------------------------------------------------------------------
