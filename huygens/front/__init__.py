@@ -121,7 +121,15 @@ RGB.white = RGB(1., 1., 1.)
 RGB.grey = RGB.gray = RGB(0.8, 0.8, 0.8)
 RGB.black = RGB(0., 0., 0.)
 
-color = NS(rgb=RGBA, rgba=RGBA)
+def rgbhex(spec):
+    assert type(spec) is str
+    if spec.startswith("#"):
+        spec = spec[1:]
+    assert len(spec)==6
+    r, g, b = [1.*int(spec[2*i:2*i+2], 16)/255. for i in range(3)]
+    return RGB(r, g, b)
+
+color = NS(rgb=RGBA, rgba=RGBA, rgbhex=rgbhex)
 
 
 style = NS(
@@ -203,6 +211,13 @@ deco.earrow.Large = ArrowDeco(_default_astyle, 1.0, _base*sqrt(4))
 
 
 class Canvas(Compound):
+
+    def __init__(self, *args, **kw):
+        Compound.__init__(self, *args, **kw)
+
+        # Used in diagram.py for recording paths
+        # (Lord help me, this is getting hairy.)
+        #self.trace = {} 
 
     def stroke(self, path, decos=[]):
         assert type(decos) is list

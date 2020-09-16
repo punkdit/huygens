@@ -100,8 +100,8 @@
 <p>Diagrams are built from <code>Box</code>'s with some extra variables
 that describe "input-output ports" on each of the four
 edges: top, bot, left and right.</p>
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="kn">import</span> <span class="n">Box</span>
-<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="kn">import</span> <span class="n">Relation</span>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="k">import</span> <span class="n">Box</span>
+<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">Relation</span>
 <span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">True</span>
 <span class="n">box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">topbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span> <span class="n">botbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)])</span>
 </pre></div>
@@ -114,7 +114,7 @@ along the bot edge.</p>
 <p>Just like <code>Box</code>'s, we can compose diagrams vertically
 and horizontally, as long as the number of ports agree
 along the connecting edge.</p>
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="kn">import</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">HDia</span>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">HDia</span>
 
 <span class="n">a_box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">botbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)])</span>
 <span class="n">b_box</span> <span class="o">=</span> <span class="n">Relation</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">topbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span> <span class="n">botbot</span><span class="o">=</span><span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)])</span>
@@ -142,9 +142,9 @@ constraints specifying that the position of the ports agree.</p>
 <h2>Composing diagrams and box's</h2>
 <p>The base class for a diagram is <code>Dia</code>. Diagrams are
 also <code>Box</code>'s so we can stick them anywhere we can use a <code>Box</code>.</p>
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens</span> <span class="kn">import</span> <span class="n">config</span><span class="p">,</span> <span class="n">canvas</span>
-<span class="kn">from</span> <span class="nn">huygens.box</span> <span class="kn">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
-<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="kn">import</span> <span class="n">HDia</span><span class="p">,</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">SIZE</span>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens</span> <span class="k">import</span> <span class="n">config</span><span class="p">,</span> <span class="n">canvas</span>
+<span class="kn">from</span> <span class="nn">huygens.box</span> <span class="k">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
+<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">HDia</span><span class="p">,</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">SIZE</span>
 <span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
 
 <span class="n">config</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;pdftex&quot;</span><span class="p">)</span>
@@ -178,7 +178,7 @@ Maybe this will change in the future.</p>
 
 <p>If we use a <code>StrictHBox</code> it will stretch the <code>VWire()</code>
 but then we need to put the text in a <code>SlackBox</code>.</p>
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="kn">import</span> <span class="n">SlackBox</span><span class="p">,</span> <span class="n">StrictHBox</span>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="k">import</span> <span class="n">SlackBox</span><span class="p">,</span> <span class="n">StrictHBox</span>
 <span class="n">boxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lsnake</span><span class="p">,</span> <span class="n">SlackBox</span><span class="p">(</span><span class="s2">&quot;$=$&quot;</span><span class="p">),</span> <span class="n">VWire</span><span class="p">(),</span> <span class="n">SlackBox</span><span class="p">(</span><span class="s2">&quot;$=$&quot;</span><span class="p">),</span> <span class="n">rsnake</span><span class="p">]</span>
 <span class="n">dia</span> <span class="o">=</span> <span class="n">StrictHBox</span><span class="p">(</span><span class="n">boxs</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
 </pre></div>
@@ -194,8 +194,8 @@ but then we need to put the text in a <code>SlackBox</code>.</p>
 we can use the operators <code>*</code> and <code>@</code>, respectively.
 The <code>*</code> operator composes top-down, like <code>VBox</code>.
 The <code>@</code> operator composes left to right, like <code>HBox</code>.</p>
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="kn">import</span> <span class="n">Box</span>
-<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="kn">import</span> <span class="n">Spider</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="k">import</span> <span class="n">Box</span>
+<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">Spider</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span>
 <span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
 
 <span class="n">box</span> <span class="o">=</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">Spider</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -236,8 +236,8 @@ inside its large box.</p>
 
 <hr />
 
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="kn">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
-<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="kn">import</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Braid</span>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="k">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
+<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Braid</span>
 <span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
 
 <span class="n">Id</span> <span class="o">=</span> <span class="n">VWire</span>
@@ -259,8 +259,8 @@ inside its large box.</p>
 
 <hr />
 
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="kn">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
-<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="kn">import</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Braid</span>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens.box</span> <span class="k">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
+<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Braid</span>
 <span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
 
 <span class="n">Id</span> <span class="o">=</span> <span class="n">VWire</span>
@@ -271,8 +271,8 @@ inside its large box.</p>
 <span class="n">s1</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
 <span class="n">s2</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">mul</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="k">import</span> <span class="n">mul</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">reduce</span>
 
 <span class="n">word</span> <span class="o">=</span> <span class="p">[[</span><span class="n">s1</span><span class="p">,</span> <span class="n">s2</span><span class="p">][</span><span class="n">i</span><span class="o">%</span><span class="mi">2</span><span class="p">]()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">)]</span>
 <span class="n">box</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">mul</span><span class="p">,</span> <span class="n">word</span><span class="p">)</span>
@@ -286,13 +286,13 @@ inside its large box.</p>
 
 <hr />
 
-<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">shuffle</span><span class="p">,</span> <span class="n">seed</span><span class="p">,</span> <span class="n">randint</span>
-<span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">matmul</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">random</span> <span class="k">import</span> <span class="n">shuffle</span><span class="p">,</span> <span class="n">seed</span><span class="p">,</span> <span class="n">randint</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="k">import</span> <span class="n">matmul</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">reduce</span>
 
-<span class="kn">from</span> <span class="nn">huygens</span> <span class="kn">import</span> <span class="n">canvas</span><span class="p">,</span> <span class="n">color</span><span class="p">,</span> <span class="n">style</span><span class="p">,</span> <span class="n">path</span>
-<span class="kn">from</span> <span class="nn">huygens.box</span> <span class="kn">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
-<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="kn">import</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Braid</span><span class="p">,</span> <span class="n">Relation</span>
+<span class="kn">from</span> <span class="nn">huygens</span> <span class="k">import</span> <span class="n">canvas</span><span class="p">,</span> <span class="n">color</span><span class="p">,</span> <span class="n">style</span><span class="p">,</span> <span class="n">path</span>
+<span class="kn">from</span> <span class="nn">huygens.box</span> <span class="k">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
+<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Braid</span><span class="p">,</span> <span class="n">Relation</span>
 
 <span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 

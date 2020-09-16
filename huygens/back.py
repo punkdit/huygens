@@ -197,6 +197,10 @@ class Item(Base):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        # XXX this is not in agreement with __eq__/__ne__
+        return id(self)
+
 
 class PathItem(Item):
     "belongs in a Path"
