@@ -202,6 +202,10 @@ class Item(Base):
         return id(self)
 
 
+class Empty(Item):
+    pass
+
+
 class PathItem(Item):
     "belongs in a Path"
     def get_length_pt(self, curpos, startpos):

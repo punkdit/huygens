@@ -229,6 +229,7 @@ class Canvas(Compound):
         pre.append(path)
         pre.append(Stroke())
         self.append(pre + post)
+        return self # yes...
 
     def fill(self, path, decos=[]):
         assert type(decos) is list
@@ -242,10 +243,12 @@ class Canvas(Compound):
         pre.append(path)
         pre.append(Fill())
         self.append(pre + post)
+        return self # yes...
 
     def clip(self, path):
         self.append(path)
         self.append(Clip())
+        return self # yes...
 
 #    def text_extents(self, text):
 #        dx, dy, width, height, _, _ = text_extents_cairo(text)
@@ -279,10 +282,12 @@ class Canvas(Compound):
             post.append(p)
             post.append(Stroke())
         self.append(pre + post)
+        return self # yes...
 
     def image(self, name, x=0, y=0):
         im = Image(name, x, y)
         self.append(im)
+        return self # yes...
 
     def _write_cairo(self, method, name):
 
