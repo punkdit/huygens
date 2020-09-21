@@ -651,7 +651,10 @@ class Path(Compound):
 
     def subpath(self, t0=0., t1=1., N=10):
         # bit of a hack but works...
-        assert 0<=t0<t1<=1.
+        t0 = max(t0, 0.)
+        t1 = min(t1, 1.)
+        if t0==0. and t1==1.:
+            return self
         ps = []
         for i in range(N+1):
             t = (t1-t0)*i/N + t0
