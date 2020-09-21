@@ -649,6 +649,27 @@ class Path(Compound):
             curpos = _curpos
         assert 0, "ran out of path"
 
+    def subpath(self, t0=0., t1=1., N=10):
+        # bit of a hack but works...
+        assert 0<=t0<t1<=1.
+        ps = []
+        for i in range(N+1):
+            t = (t1-t0)*i/N + t0
+            x, y, dx, dy = self.tangent(t)
+            r = sqrt(dx**2 + dy**2)
+            assert r > 1e-8, "wup"
+            dx, dy = dx/r, dy/r # normalize
+            if i==0:
+                ps.append(MoveTo(x, y))
+            else:
+                r = 0.5*sqrt((x-x0)**2 + (y-y0)**2)
+                #ps.append(path.lineto(x, y))
+                ps.append(CurveTo(x0+r*dx0, y0+r*dy0, x-r*dx, y-r*dy, x, y))
+            x0, y0, dx0, dy0 = x, y, dx, dy
+    
+        return Path(ps)
+
+
 
 
 class Line(Path):
