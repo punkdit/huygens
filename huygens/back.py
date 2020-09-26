@@ -653,6 +653,7 @@ class Path(Compound):
         # bit of a hack but works...
         t0 = max(t0, 0.)
         t1 = min(t1, 1.)
+        assert 0<=t0<=t1<=1., "t0=%f, t1=%f"%(t0, t1)
         if t0==0. and t1==1.:
             return self
         ps = []
@@ -957,6 +958,7 @@ class Scale(Transform):
     def __init__(self, sx, sy=None, x=0., y=0.):
         if sy is None:
             sy = sx
+        assert abs(sx*sy) > EPSILON
         self.sx = float(sx)
         self.sy = float(sy)
         self.x = float(x) * SCALE_CM_TO_POINT
@@ -967,7 +969,11 @@ class Scale(Transform):
         x, y = self.x, self.y
         dx, dy = (1.-sx)*x, (1.-sy)*y
         cxt.translate(dx, -dy)
-        cxt.scale(sx, sy)
+        try:
+            cxt.scale(sx, sy)
+        except: # cairo.Error:
+            print("Scale.process_cairo", sx, sy)
+            raise
 
     def transform_point(self, x, y):
         "translate a point, using hugyens coordinates"
