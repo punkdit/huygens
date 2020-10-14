@@ -576,6 +576,15 @@ class Path(Compound):
 
     # XXX should reqire PathItem elements ?
 
+    def __add__(self, other):
+        assert isinstance(other, Path), repr(other)
+        return Path(self.items + other.items)
+
+    def __iadd__(self, other):
+        assert isinstance(other, Path), repr(other)
+        self.items += other.items
+        return self
+
     def reversed(self, pos=None): # used in flatten.py
         if len(self)==0:
             return self
@@ -618,7 +627,7 @@ class Path(Compound):
 
     def tangent(self, t):
         "find point and differential on curve at time t, with 0<=t<=1."
-        assert 0.<=t<=1.
+        assert 0.<=t<=1., repr(t)
         curpos = None
         startpos = None
         length = 0.
@@ -636,7 +645,7 @@ class Path(Compound):
                 continue # <------- continue
             t0 = length / total
             t1 = (length + _length) / total
-            if t0 <= t <= t1:
+            if t0 <= t <= t1+EPSILON:
                 t = (t-t0) / (t1-t0)
                 x, y = item.get_at(curpos, startpos, t)
                 x = x/SCALE_CM_TO_POINT
@@ -647,7 +656,15 @@ class Path(Compound):
                 return x, y, dx, dy # <------------ return
             length += _length
             curpos = _curpos
-        assert 0, "ran out of path"
+        print(t0, t, t1)
+        assert 0, "ran out of path: length=%s, total=%s"%(length, total)
+
+    def normtangent(self, t):
+        x, y, dx, dy = self.tangent(t)
+        r = sqrt(dx**2 + dy**2)
+        assert r > 1e-8, "wup"
+        dx, dy = dx/r, dy/r # normalize
+        return x, y, dx, dy
 
     def subpath(self, t0=0., t1=1., N=10):
         # bit of a hack but works...
@@ -707,6 +724,9 @@ class Circle(Path):
             Arc(x, y, r, 0, 2*pi),
             ClosePath()])
         
+
+# XXX Arc is PathItem XXX
+
 
 
 # ----------------------------------------------------------------------------
@@ -1336,6 +1356,7 @@ class Ball(Item):
         self.rgb1 = rgb1
 
     def process_cairo(self, cxt):
+        import cairo
         x, y, radius = self.x, -self.y, self.radius
         cxt.save()
         cxt.set_line_width(0.5)

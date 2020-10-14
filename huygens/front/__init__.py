@@ -111,6 +111,8 @@ path = NS(
     arc=Arc, arcn=Arcn, moveto=MoveTo, lineto=LineTo, 
     curveto=CurveTo, closepath=ClosePath)
 
+# XXX Arc is PathItem, we need a Path for path.arc XXX
+# Use arc=arc_to_bezier ?
 
 
 RGB = RGBA
