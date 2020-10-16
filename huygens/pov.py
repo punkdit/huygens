@@ -409,7 +409,7 @@ class Light(object):
 
 
 class View(object):
-    def __init__(self, _width=640, _height=480):
+    def __init__(self, _width=640, _height=480, sort_gitems=False):
         scale = 1./SCALE_CM_TO_POINT
         width, height = scale*_width, scale*_height
         self.viewport = (0., 0., width, height)
@@ -418,10 +418,12 @@ class View(object):
         self.stack = []
         self.gitems = []
         self.lights = []
+        self.sort_gitems = sort_gitems
     
-    def perspective(self):
+    def perspective(self, fovy=45.):
         width, height = self.viewport[2:]
-        M = Mat.perspective(45., width/height, 0.1, 100.)
+        #perspective(cls, fovy, aspect, z_near, z_far):
+        M = Mat.perspective(fovy, width/height, 0.1, 100.)
         self.proj = M * self.proj
     
     def translate(self, x, y, z):
@@ -433,6 +435,7 @@ class View(object):
         self.model = self.model*M
 
     def rotate(self, angle, x, y, z):
+        "angle: degrees, about axis (x, y, z)"
         M = Mat.rotate(angle, x, y, z)
         self.model = self.model*M
 
@@ -595,7 +598,7 @@ class View(object):
 
         gitems = list(self.gitems)
 
-        if 0:
+        if self.sort_gitems:
             # XXX sorting by depth does not always work...
             # XXX try subdividing your GItem's ?
             gitems.sort(key = self.get_depth)
@@ -644,6 +647,7 @@ def make_sphere(view, radius, slices=8, stacks=8, fill=color.rgb.white):
 
 
 def make_cylinder(view, radius0, radius1, height, slices=8, fill=color.rgb.white):
+    "make a cylinder in the z direction"
 
     assert radius0 > EPSILON
     assert radius1 > EPSILON
