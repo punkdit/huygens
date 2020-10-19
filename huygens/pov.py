@@ -409,10 +409,12 @@ class Light(object):
 
 
 class View(object):
-    def __init__(self, _width=640, _height=480, sort_gitems=False):
+    def __init__(self, _width=640, _height=480, viewport=None, sort_gitems=False):
         scale = 1./SCALE_CM_TO_POINT
         width, height = scale*_width, scale*_height
-        self.viewport = (0., 0., width, height)
+        if viewport is None:
+            viewport = (0., 0., width, height)
+        self.viewport = viewport
         self.proj = Mat.identity(4) # Projection matrix
         self.model = Mat.identity(4) # ModelView matrix
         self.stack = []
