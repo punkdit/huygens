@@ -436,10 +436,14 @@ class View(object):
         M = Mat.lookat(eye, center, up)
         self.model = self.model*M
 
-    def rotate(self, angle, x, y, z):
+    def rotate(self, angle, x, y, z, xc=0., yc=0., zc=0.):
         "angle: degrees, about axis (x, y, z)"
+        if xc!=0. or yc!=0. or zc!=0.:
+            self.translate(xc, yc, zc)
         M = Mat.rotate(angle, x, y, z)
         self.model = self.model*M
+        if xc!=0. or yc!=0. or zc!=0.:
+            self.translate(-xc, -yc, -zc)
 
     def scale(self, sx, sy=None, sz=None):
         if sy is None:
