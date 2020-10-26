@@ -21,7 +21,7 @@ class Mat(object):
         if len(A.shape)==1:
             m = len(A)
             A.shape = (m, 1) # col vector
-        assert len(A.shape)==2, A.shape
+        assert len(A.shape)==2, repr(A)
         self.A = A
         self.shape = A.shape
 
@@ -436,12 +436,15 @@ class View(object):
         M = Mat.lookat(eye, center, up)
         self.model = self.model*M
 
-    def rotate(self, angle, x, y, z, xc=0., yc=0., zc=0.):
+    def rotate(self, angle, x, y, z, xc=0., yc=0., zc=0., passive=True):
         "angle: degrees, about axis (x, y, z)"
         if xc!=0. or yc!=0. or zc!=0.:
             self.translate(xc, yc, zc)
         M = Mat.rotate(angle, x, y, z)
-        self.model = self.model*M
+        if passive:
+            self.model = self.model*M
+        else:
+            self.model = M*self.model
         if xc!=0. or yc!=0. or zc!=0.:
             self.translate(-xc, -yc, -zc)
 
@@ -459,6 +462,7 @@ class View(object):
 
     def restore(self):
         if not self.stack:
+            assert 0, "um..."
             return
         self.model = self.stack.pop()
 
