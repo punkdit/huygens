@@ -659,6 +659,10 @@ class Path(Compound):
         print(t0, t, t1)
         assert 0, "ran out of path: length=%s, total=%s"%(length, total)
 
+    def getat(self, t):
+        x, y, dx, dy = self.tangent(t)
+        return x, y
+
     def normtangent(self, t):
         x, y, dx, dy = self.tangent(t)
         r = sqrt(dx**2 + dy**2)

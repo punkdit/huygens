@@ -737,6 +737,38 @@ def make_torus(view, inner, outer, slices=16, stacks=16, fill=color.rgb.white):
             view.add_mesh(verts, normals, fill)
 
 
+def make_torus_arc(view, inner, outer, 
+        phi0=0., phi1=2*pi, slices=16, stacks=16, fill=color.rgb.white):
+    
+    dphi = (phi1-phi0)/stacks
+    dtheta = 2*pi/slices
+
+    for i in range(stacks):
+        _phi0 = dphi*i + phi0
+        _phi1 = dphi*(i+1) + phi0
+
+        u0 = Mat([cos(_phi0), sin(_phi0), 0.])
+        v0 = Mat([0., 0., 1.])
+        u1 = Mat([cos(_phi1), sin(_phi1), 0.])
+        v1 = Mat([0., 0., 1.])
+
+        for j in range(slices):
+            theta0 = dtheta*j
+            theta1 = dtheta*(j+1)
+
+            n0 = sin(theta0)*u0 + cos(theta0)*v0
+            n1 = sin(theta0)*u1 + cos(theta0)*v1
+            n2 = sin(theta1)*u1 + cos(theta1)*v1
+            n3 = sin(theta1)*u0 + cos(theta1)*v0
+            x0 = outer*u0 + inner*n0
+            x1 = outer*u1 + inner*n1
+            x2 = outer*u1 + inner*n2
+            x3 = outer*u0 + inner*n3
+            verts = [x3, x2, x1, x0]
+            normals = [n3, n2, n1, n0]
+            view.add_mesh(verts, normals, fill)
+
+
 # ----------------------------------------------------------------------
 
 
