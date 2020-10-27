@@ -813,6 +813,10 @@ class LineWidth_Pt(Deco):
     def __init__(self, lw):
         self.lw = lw
 
+    def __rmul__(self, value):
+        return LineWidth_Pt(float(value)*self.lw)
+    __mul__ = __rmul__
+
     def process_cairo(self, cxt):
         cxt.set_line_width(self.lw)
 
