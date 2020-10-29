@@ -208,6 +208,10 @@ deco.marrow = ArrowDeco(_default_astyle, 0.5) # mid arrow
 deco.earrow = ArrowDeco(_default_astyle, 1.0)
 deco.earrow.large = ArrowDeco(_default_astyle, 1.0, _base*sqrt(2))
 deco.earrow.Large = ArrowDeco(_default_astyle, 1.0, _base*sqrt(4))
+deco.earrow.LArge = ArrowDeco(_default_astyle, 1.0, _base*sqrt(8))
+deco.earrow.LARge = ArrowDeco(_default_astyle, 1.0, _base*sqrt(16))
+deco.earrow.LARGe = ArrowDeco(_default_astyle, 1.0, _base*sqrt(32))
+deco.earrow.LARGE = ArrowDeco(_default_astyle, 1.0, _base*sqrt(64))
 
 #bbox = Bound
 
