@@ -436,6 +436,11 @@ class View(object):
         M = Mat.lookat(eye, center, up)
         self.model = self.model*M
 
+    def apply(self, M):
+        assert isinstance(M, Mat)
+        assert M.shape == (4, 4)
+        self.model = self.model*M
+
     def rotate(self, angle, x, y, z, xc=0., yc=0., zc=0., passive=True):
         "angle: degrees, about axis (x, y, z)"
         if xc!=0. or yc!=0. or zc!=0.:
