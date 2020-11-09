@@ -561,7 +561,9 @@ class View(object):
         light = Light(position, color)
         self.lights.append(light)
 
-    def prepare_canvas(self, bg=color.rgb.black, clip=True):
+    def prepare_canvas(self, bg=color.rgb.black, clip=True, cvs=None):
+        if cvs is not None:
+            return cvs
         cvs = canvas.canvas()
         cvs.append(style.linewidth.THick)
     

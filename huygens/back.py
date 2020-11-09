@@ -1054,7 +1054,11 @@ class Image(Item):
 
     def process_cairo(self, cxt):
         import cairo
-        surf = cairo.ImageSurface.create_from_png(self.name)
+        try:
+            surf = cairo.ImageSurface.create_from_png(self.name)
+        except cairo.Error as e:
+            print("ciaro.Error: %s, self.name=%r"%(e, self.name))
+            raise
         cxt.save()
         cxt.set_source_surface(surf, self.x, -self.y)
         cxt.paint()
