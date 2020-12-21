@@ -1236,13 +1236,16 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
 #
 
 class Polygon(Item):
-    def __init__(self, pts, fill=None, stroke=None, 
+    def __init__(self, pts, fill=None, stroke=None, lw=None,
             texture=None, texture_coords=[(0., 0.), (1., 0.), (0., 1.)]):
         Item.__init__(self)
         assert len(pts)>1
         self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
         self.fill = fill
         self.stroke = stroke
+        if lw is not None:
+            lw = lw*SCALE_CM_TO_POINT
+        self.lw = lw
         assert texture is None or isinstance(texture, Item)
         self.texture = texture
         if texture is not None:
@@ -1272,7 +1275,10 @@ class Polygon(Item):
             cxt.close_path()
             cxt.fill()
     
-        cxt.set_line_width(4.0)
+        #cxt.set_line_width(4.0)
+        if self.lw is not None:
+            cxt.set_line_width(self.lw)
+
         stroke = self.stroke # or (1., 1., 1., 1.)
         if stroke is not None:
             cxt.set_source_rgba(*stroke)
