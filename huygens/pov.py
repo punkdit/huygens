@@ -349,7 +349,7 @@ class GPoly(GItem):
         a = v1-v0
         b = v2-v0
         ab = a.cross(b)
-        assert ab.norm() > EPSILON
+        assert ab.norm() > EPSILON, ("degenerate edge: %s, %s, %s" % (v0, v1, v2))
         self.normal = ab.normalized()
 
     def render(self, view, cvs):
@@ -517,7 +517,7 @@ class View(object):
     # -----------------------------------------
     # class Scene ?
 
-    def add_gitem(self, face):
+    def add_gitem_slow(self, face):
         assert isinstance(face, GItem)
         verts = face.verts
         v0, v1, v2 = verts[:3]
@@ -537,6 +537,9 @@ class View(object):
         self.gitems[:] = back + front
         #gitems.append(face)
         #gitems.sort(key = self.get_depth)
+
+    def add_gitem(self, face):
+        self.gitems.append(face)
 
     def add_poly(self, verts, *args, **kw):
         verts = [self.trafo_view(v) for v in verts]
