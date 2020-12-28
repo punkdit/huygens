@@ -30,6 +30,9 @@ class Mat(object):
         s = str(list(v))
         return "Mat(%s)"%(s,)
 
+    def det(self):
+        return numpy.linalg.det(self.A[:3, :3])
+
     def __str__(self):
         if self.shape[1] == 1:
             return self.strvec()
@@ -109,6 +112,9 @@ class Mat(object):
             idx = (idx, 0)
         self.A[idx] = value
 
+    def sum(self):
+        return self.A.sum()
+
     @classmethod
     def frustum(cls, left, right, bottom, top, nearval, farval):
         # mesa/src/mesa/math/m_matrix.c
@@ -178,6 +184,11 @@ class Mat(object):
         M[3,2] = 0.0
         M[3,3] = 1.0
         return M
+
+    @classmethod
+    def rotate3(cls, angle, x, y, z):
+        M = cls.rotate(angle, x, y, z)
+        return M.promote(M[:3, :3])
 
     @classmethod
     def translate(cls, *args):
@@ -338,19 +349,22 @@ class GItem(object):
 
 
 class GPoly(GItem):
-    def __init__(self, verts, fill=None, stroke=None, texture=None, texture_coords=None, epsilon=1e-2):
+    def __init__(self, verts, fill=None, stroke=None, texture=None, texture_coords=None, 
+            normal=None, epsilon=1e-2):
         GItem.__init__(self, verts, epsilon)
         self.fill = fill
         self.stroke = stroke
         self.texture = texture
         self.texture_coords = texture_coords
 
-        v0, v1, v2 = verts[:3]
-        a = v1-v0
-        b = v2-v0
-        ab = a.cross(b)
-        assert ab.norm() > EPSILON, ("degenerate edge: %s, %s, %s" % (v0, v1, v2))
-        self.normal = ab.normalized()
+        if normal is None:
+            v0, v1, v2 = verts[:3]
+            a = v1-v0
+            b = v2-v0
+            ab = a.cross(b)
+            assert ab.norm() > EPSILON, ("degenerate edge: %s, %s, %s" % (v0, v1, v2))
+            normal = ab.normalized()
+        self.normal = normal
 
     def render(self, view, cvs):
         GItem.render(self, cvs)
@@ -403,11 +417,25 @@ class GLine(GItem):
     def render(self, view, cvs):
         GItem.render(self, cvs)
         (x0, y0), (x1, y1) = view.trafo_canvas(self.v0), view.trafo_canvas(self.v1)
-        #cvs.append(RGBA(*self.stroke))
-        #cvs.append(Line(x0, y0, x1, y1))
-        #cvs.append(Stroke())
-        #print(x0, y0, x1, y1)
-        cvs.stroke(path.line(x0, y0, x1, y1))
+        cvs.stroke(path.line(x0, y0, x1, y1), [LineWidth(self.lw)])
+
+        
+class GCurve(GItem):
+    def __init__(self, v0, v1, v2, v3, lw=1., stroke=(0,0,0,0)):
+        GItem.__init__(self, [v0, v1])
+        self.v0 = v0
+        self.v1 = v1
+        self.v2 = v2
+        self.v3 = v3
+        self.lw = lw
+        self.stroke = stroke
+
+    def render(self, view, cvs):
+        GItem.render(self, cvs)
+        (x0, y0), (x1, y1), (x2, y2), (x3, y3) = (
+            view.trafo_canvas(self.v0), view.trafo_canvas(self.v1),
+            view.trafo_canvas(self.v2), view.trafo_canvas(self.v3))
+        cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3), [LineWidth(self.lw)])
 
         
 
@@ -486,7 +514,7 @@ class View(object):
 
     def restore(self):
         if not self.stack:
-            assert 0, "um..."
+            assert 0, "ran out of save stack"
             return
         self.model = self.stack.pop()
 
@@ -502,6 +530,13 @@ class View(object):
         assert abs(v[3]-1.) < EPSILON, "model matrix should not do this.."
         v = v[:3]
         return v
+
+# fail...
+#    def trafo_view_width(self, width):
+#        v = [width, width, width, 1.]
+#        v = self.model * v
+#        v = v[:3]
+#        return v.sum()/3.
 
     def trafo_view_distance(self, point):
         assert isinstance(point, Mat), type(point)
@@ -520,6 +555,13 @@ class View(object):
         x, y, z, w = v
         #return x/w, y/w, z/w
         return x, y, z
+
+    def depth_camera(self, point):
+        assert point.shape == (3, 1)
+        x, y, z = point
+        v = self.proj * [x, y, z, 1.]
+        x, y, z, w = v
+        return w
 
     def trafo_canvas(self, point):
         x, y, z = point
@@ -566,9 +608,20 @@ class View(object):
         self.add_gitem(gitem)
         return gitem
 
-    def add_line(self, v0, v1, lw=1., *args, **kw):
+    def add_line(self, v0, v1, lw=0.2, *args, **kw):
         v0, v1 = self.trafo_view(v0), self.trafo_view(v1)
+        #lw = self.trafo_view_width(lw)
+        lw /= self.depth_camera(v0)
         gitem = GLine(v0, v1, lw, *args, **kw)
+        self.add_gitem(gitem)
+        return gitem
+
+    def add_curve(self, v0, v1, v2, v3, lw=0.2, *args, **kw):
+        v0, v1, v2, v3 = (
+            self.trafo_view(v0), self.trafo_view(v1), self.trafo_view(v2), self.trafo_view(v3))
+        #lw = self.trafo_view_width(lw)
+        lw /= self.depth_camera(v1)
+        gitem = GCurve(v0, v1, v2, v3, lw, *args, **kw)
         self.add_gitem(gitem)
         return gitem
 
