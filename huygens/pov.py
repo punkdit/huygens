@@ -320,7 +320,7 @@ def mkpath(pts, closepath=True):
 
 class GItem(object):
     def __init__(self, verts, epsilon=1e-4):
-        assert len(verts) >= 3
+        assert len(verts)
         v0 = verts[0]
         for v in verts[1:]:
             v0 = v0 + v
@@ -364,7 +364,7 @@ class GPoly(GItem):
             fill = view.illuminate(v, n, fill)
         if stroke is not None:
             stroke = view.illuminate(v, n, stroke)
-        cvs.append(Polygon(verts, fill, stroke, self.texture, self.texture_coords))
+        cvs.append(Polygon(verts, fill, stroke, None, self.texture, self.texture_coords))
         
 
 class GMesh(GItem):
@@ -390,6 +390,25 @@ class GMesh(GItem):
         fills = [view.illuminate(v, n, fill) 
             for (v,n) in zip(self.verts, self.normals)]
         cvs.append(Polymesh(verts, fills))
+
+
+class GLine(GItem):
+    def __init__(self, v0, v1, lw=1., stroke=(0,0,0,0)):
+        GItem.__init__(self, [v0, v1])
+        self.v0 = v0
+        self.v1 = v1
+        self.lw = lw
+        self.stroke = stroke
+
+    def render(self, view, cvs):
+        GItem.render(self, cvs)
+        (x0, y0), (x1, y1) = view.trafo_canvas(self.v0), view.trafo_canvas(self.v1)
+        #cvs.append(RGBA(*self.stroke))
+        #cvs.append(Line(x0, y0, x1, y1))
+        #cvs.append(Stroke())
+        #print(x0, y0, x1, y1)
+        cvs.stroke(path.line(x0, y0, x1, y1))
+
         
 
 #class GBall(GItem):
@@ -544,6 +563,12 @@ class View(object):
     def add_poly(self, verts, *args, **kw):
         verts = [self.trafo_view(v) for v in verts]
         gitem = GPoly(verts, *args, **kw)
+        self.add_gitem(gitem)
+        return gitem
+
+    def add_line(self, v0, v1, lw=1., *args, **kw):
+        v0, v1 = self.trafo_view(v0), self.trafo_view(v1)
+        gitem = GLine(v0, v1, lw, *args, **kw)
         self.add_gitem(gitem)
         return gitem
 
