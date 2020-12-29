@@ -84,8 +84,8 @@ if __name__ == "__main__":
     my = DummySurf(tree, None, 72.)
     from huygens.front import Canvas
     cvs = Canvas(my.paths)
-    for item in cvs:
-        print(item)
+    #for item in cvs:
+    #    print(item)
     cvs.writePDFfile("output.pdf")
     cvs.writeSVGfile("output.svg")
 

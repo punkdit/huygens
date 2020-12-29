@@ -255,6 +255,9 @@ class Context(object):
     def set_line_cap(self, x):
         pass
 
+    def set_fill_rule(self, arg):
+        pass
+
 
 
 def test():

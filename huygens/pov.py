@@ -33,6 +33,9 @@ class Mat(object):
     def det(self):
         return numpy.linalg.det(self.A[:3, :3])
 
+    def __len__(self):
+        return self.shape[0]
+
     def get33(self):
         return Mat(self.A[:3,:3])
 
@@ -537,13 +540,16 @@ class View(object):
     def trafo_view(self, point):
         "apply model transform to point"
         assert isinstance(point, Mat), type(point)
-        assert point.shape == (3, 1), repr(point)
-        x, y, z = point
-        v = [x, y, z, 1.]
-        v = self.model * v
-        assert abs(v[3]-1.) < EPSILON, "model matrix should not do this.."
-        v = v[:3]
-        return v
+        #assert point.shape == (3, 1), repr(point)
+        if len(point)==3:
+            x, y, z = point
+            point = [x, y, z, 1.]
+        assert len(point)==4
+        assert abs(point[3]-1.) < EPSILON
+        point = self.model * point
+        assert abs(point[3]-1.) < EPSILON, ("model matrix should not do this:%s"%point)
+        point = point[:3]
+        return point
 
 # fail...
 #    def trafo_view_width(self, width):

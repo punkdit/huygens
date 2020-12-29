@@ -97,6 +97,8 @@ class Flatten(Context):
         self.path.append(deco)
 
     def set_line_width(self, w):
+        wx, wy = self.matrix.transform_distance(w, w)
+        w = wx
         deco = back.LineWidth_Pt(w)
         self.path.append(deco)
 
@@ -118,6 +120,21 @@ class Flatten(Context):
         self.path = back.Compound()
         self.pos = None
 
+    def set_line_cap(self, arg):
+        import cairo
+        for desc in "butt round square".split():
+            if getattr(cairo, "LINE_CAP_"+(desc.upper())) == arg:
+                self.path.append(back.LineCap(desc))
+                break
+        else:
+            assert 0
+
+    def ignore(self, *args, **kw):
+        pass
+
+    def set_fill_rule(self, arg):
+        print("TODO: Flatten.set_fill_rule", arg)
+        self.set_fill_rule = self.ignore
 
 
 def test():
