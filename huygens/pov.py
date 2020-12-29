@@ -33,6 +33,16 @@ class Mat(object):
     def det(self):
         return numpy.linalg.det(self.A[:3, :3])
 
+    def get33(self):
+        return Mat(self.A[:3,:3])
+
+    def refl_axis(self):
+        A = self.A
+        vals, vecs = numpy.linalg.eig(A)
+        for idx, v in enumerate(vals):
+            if abs(v+1.)<EPSILON: # choose the -1 eigval
+                return vecs[:,idx]
+
     def __str__(self):
         if self.shape[1] == 1:
             return self.strvec()
@@ -379,6 +389,10 @@ class GPoly(GItem):
         if stroke is not None:
             stroke = view.illuminate(v, n, stroke)
         cvs.append(Polygon(verts, fill, stroke, None, self.texture, self.texture_coords))
+        #x, y = verts[0]
+        #cvs.fill(path.circle(x, y, 0.1))
+        #x, y = verts[1]
+        #cvs.stroke(path.circle(x, y, 0.1))
         
 
 class GMesh(GItem):
@@ -407,7 +421,7 @@ class GMesh(GItem):
 
 
 class GLine(GItem):
-    def __init__(self, v0, v1, lw=1., stroke=(0,0,0,0)):
+    def __init__(self, v0, v1, lw=1., stroke=(0,0,0,1)):
         GItem.__init__(self, [v0, v1])
         self.v0 = v0
         self.v1 = v1
@@ -417,7 +431,7 @@ class GLine(GItem):
     def render(self, view, cvs):
         GItem.render(self, cvs)
         (x0, y0), (x1, y1) = view.trafo_canvas(self.v0), view.trafo_canvas(self.v1)
-        cvs.stroke(path.line(x0, y0, x1, y1), [LineWidth(self.lw)])
+        cvs.stroke(path.line(x0, y0, x1, y1), [LineWidth(self.lw),RGBA(*self.stroke)])
 
         
 class GCurve(GItem):
