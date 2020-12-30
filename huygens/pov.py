@@ -254,7 +254,7 @@ class Mat(object):
 
     def normalized(self):
         r = self.norm()
-        assert r>EPSILON
+        assert r>EPSILON, r
         A = self.A / r
         return Mat(A)
 
@@ -377,6 +377,10 @@ class GPoly(GItem):
             ab = a.cross(b)
             assert ab.norm() > EPSILON, ("degenerate edge: %s, %s, %s" % (v0, v1, v2))
             normal = ab.normalized()
+            r = v0.dot(normal)
+            #if r > 0.:
+            #    normal = -normal
+            #    print(r)
         self.normal = normal
 
     def render(self, view, cvs):
@@ -411,7 +415,7 @@ class GMesh(GItem):
         normal = ab.normalized()
         self.normals = normals
         for n in normals:
-            assert normal.dot(n) > 0.
+            assert normal.dot(n) > 0., (normal, n)
         self.fill = fill
 
     def render(self, view, cvs):
@@ -484,7 +488,16 @@ class View(object):
         self.stack = []
         self.gitems = []
         self.lights = []
-        self.sort_gitems = sort_gitems
+        self.sort_gitems = sort_gitems # WARNING: sort_gitems=True does not work very well !!!
+
+    def copy(self):
+        viewport = self.viewport
+        assert not self.gitems, "not implemented"
+        view = View(viewport=viewport)
+        view.proj = self.proj.copy()
+        view.model = self.model.copy()
+        view.lights = list(self.lights)
+        return view
     
     def perspective(self, fovy=45.):
         width, height = self.viewport[2:]
@@ -714,7 +727,8 @@ class View(object):
     def render(self, *args, **kw):
         cvs = self.prepare_canvas(*args, **kw)
 
-        gitems = list(self.gitems)
+        #gitems = list(self.gitems)
+        gitems = self.gitems
 
         if self.sort_gitems:
             # XXX sorting by depth does not always work...

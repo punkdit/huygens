@@ -1331,6 +1331,7 @@ class Polymesh(Item):
         assert len(pts) == len(fills)
         self.pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
         self.fills = fills
+        assert len(pts)<=4, len(pts) # this appears to be a limitation of cairo...
 
     def process_cairo(self, cxt):
         import cairo
@@ -1342,7 +1343,7 @@ class Polymesh(Item):
         if len(pts)==3:
             pts.append(pts[-1])
             fills.append(fills[-1])
-        assert len(pts)==4, len(pts)
+        assert len(pts)==4, len(pts) # this appears to be a limitation of cairo...
         m = cairo.MeshPattern()
         m.begin_patch()
         x, y = pts[0]
