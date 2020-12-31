@@ -84,13 +84,13 @@ class Mat(object):
 
     def __add__(self, other):
         other = Mat.promote(other)
-        assert self.shape == other.shape
+        assert self.shape == other.shape, (self.shape, other.shape)
         A = self.A + other.A
         return Mat(A)
 
     def __sub__(self, other):
         other = Mat.promote(other)
-        assert self.shape == other.shape
+        assert self.shape == other.shape, (self.shape, other.shape)
         A = self.A - other.A
         return Mat(A)
 
@@ -100,7 +100,7 @@ class Mat(object):
 
     def __mul__(self, other):
         other = Mat.promote(other)
-        assert self.shape[1] == other.shape[0]
+        assert self.shape[1] == other.shape[0], (self.shape, other.shape)
         A = numpy.dot(self.A, other.A)
         return Mat(A)
 
@@ -636,9 +636,11 @@ class View(object):
         self.gitems.append(face)
 
     def add_poly(self, verts, *args, **kw):
+        #v0 = verts[0][:3]
         verts = [self.trafo_view(v) for v in verts]
         gitem = GPoly(verts, *args, **kw)
         self.add_gitem(gitem)
+        #self.add_line(v0, v0+gitem.normal)
         return gitem
 
     def add_line(self, v0, v1, lw=0.2, *args, **kw):
