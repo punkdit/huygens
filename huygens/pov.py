@@ -363,7 +363,7 @@ class GItem(object):
 
 class GPoly(GItem):
     def __init__(self, verts, fill=None, stroke=None, texture=None, texture_coords=None, 
-            normal=None, epsilon=1e-2):
+            normal=None, epsilon=1e-2, debug=False):
         GItem.__init__(self, verts, epsilon)
         self.fill = fill
         self.stroke = stroke
@@ -382,6 +382,7 @@ class GPoly(GItem):
             #    normal = -normal
             #    print(r)
         self.normal = normal
+        self.debug = debug
 
     def render(self, view, cvs):
         GItem.render(self, cvs)
@@ -396,10 +397,12 @@ class GPoly(GItem):
         if stroke is not None:
             stroke = view.illuminate(v, n, stroke)
         cvs.append(Polygon(verts, fill, stroke, None, self.texture, self.texture_coords))
-        #x, y = verts[0]
-        #cvs.fill(path.circle(x, y, 0.1))
-        #x, y = verts[1]
-        #cvs.stroke(path.circle(x, y, 0.1))
+
+        if self.debug:
+            x, y = verts[0]
+            cvs.fill(path.circle(x, y, 0.1))
+            x, y = verts[1]
+            cvs.stroke(path.circle(x, y, 0.1))
         
 
 class GMesh(GItem):
@@ -438,7 +441,7 @@ class GLine(GItem):
     def render(self, view, cvs):
         GItem.render(self, cvs)
         (x0, y0), (x1, y1) = view.trafo_canvas(self.v0), view.trafo_canvas(self.v1)
-        cvs.stroke(path.line(x0, y0, x1, y1), [LineWidth(self.lw),RGBA(*self.stroke)])
+        cvs.stroke(path.line(x0, y0, x1, y1), [LineWidth(self.lw),RGBA(*self.stroke), style.linecap.round])
 
         
 class GCurve(GItem):
