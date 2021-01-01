@@ -247,6 +247,19 @@ class Mat(object):
         M = Mat(A)
         return M
 
+    @classmethod
+    def ortho(cls, left, right, bottom, top, nearval, farval):
+        A = numpy.zeros((4, 4), dtype=numpy.float64)
+        A[0, 0] = 2. / (right - left)
+        A[1, 1] = 2. / (top - bottom)
+        A[2, 2] = -2. / (farval - nearval)
+        A[3, 0] = -(right + left) / (right - left)
+        A[3, 1] = -(top + bottom) / (top - bottom)
+        A[3, 2] = -(farval + nearval) / (farval - nearval)
+        A[3, 3] = 1.
+        M = Mat(A)
+        return M
+
     def norm(self):
         A = self.A
         r = (A*A).sum()**0.5
@@ -508,6 +521,20 @@ class View(object):
         M = Mat.perspective(fovy, width/height, 0.1, 100.)
         self.proj = M * self.proj
     
+    def ortho(self):
+        width, height = self.viewport[2:]
+        #perspective(cls, fovy, aspect, z_near, z_far):
+        #M = Mat.perspective(fovy, width/height, 0.1, 100.)
+        #M = Mat.ortho(left, right, bottom, top, nearval, farval)
+        aspect = width/height
+        #M = Mat.ortho(-0.5*width, 0.5*width, -0.5*height, 0.5*height, 0.5, 10.)
+        M = Mat.ortho(-0.5*aspect, 0.5*aspect, -0.5, 0.5, 0.5, 10.)
+        self.proj = M * self.proj
+
+    def iso(self, eye, center, up):
+        M = Mat.lookat(eye, center, up)
+        self.proj = M * self.proj
+
     def translate(self, x, y, z):
         M = Mat.translate(x, y, z)
         self.model = self.model*M
@@ -561,7 +588,7 @@ class View(object):
             x, y, z = point
             point = [x, y, z, 1.]
         assert len(point)==4
-        assert abs(point[3]-1.) < EPSILON
+        assert abs(point[3]-1.) < EPSILON, "homogeneous coordinate should be 1."
         point = self.model * point
         assert abs(point[3]-1.) < EPSILON, ("model matrix should not do this:%s"%point)
         point = point[:3]

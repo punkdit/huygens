@@ -954,7 +954,7 @@ class Transform(Deco):
         cxt.transform(m)
 
     def transform_point(self, x, y):
-        "translate a point, using hugyens coordinates"
+        "translate a point, using huygens coordinates"
         assert 0, "not implemented"
         # TODO
 
@@ -969,7 +969,7 @@ class Translate_Pt(Transform):
         cxt.translate(self.dx, -self.dy)
 
     def transform_point(self, x, y):
-        "translate a point, using hugyens coordinates"
+        "translate a point, using huygens coordinates"
         dx = self.dx/SCALE_CM_TO_POINT
         dy = self.dy/SCALE_CM_TO_POINT
         return (x+dx, y+dy)
@@ -995,7 +995,7 @@ class Scale(Transform):
     def process_cairo(self, cxt):
         sx, sy = self.sx, self.sy
         x, y = self.x, self.y
-        dx, dy = (1.-sx)*x, (1.-sy)*y
+        dx, dy = (1.-sx)*x, (1.-sy)*y # <--- tricky !
         cxt.translate(dx, -dy)
         try:
             cxt.scale(sx, sy)
@@ -1004,7 +1004,7 @@ class Scale(Transform):
             raise
 
     def transform_point(self, x, y):
-        "translate a point, using hugyens coordinates"
+        "translate a point, using huygens coordinates"
         sx, sy = self.sx, self.sy
         x0, y0 = self.x, self.y
         x0 /= SCALE_CM_TO_POINT
@@ -1031,7 +1031,7 @@ class Rotate(Transform):
         cxt.translate(-x, y)
 
     def transform_point(self, x, y):
-        "translate a point, using hugyens coordinates"
+        "translate a point, using huygens coordinates"
         x0, y0 = self.x, self.y
         x0 /= SCALE_CM_TO_POINT
         y0 /= SCALE_CM_TO_POINT
