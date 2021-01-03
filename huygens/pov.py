@@ -8,7 +8,7 @@ https://gamedev.stackexchange.com/questions/153078/what-can-i-do-with-the-4th-co
 """
 
 import sys
-from math import sin, cos, pi, sqrt
+from math import sin, cos, pi, sqrt, atan
 
 import numpy
 
@@ -837,6 +837,48 @@ def make_cylinder(view, radius0, radius1, height, slices=8, fill=color.rgb.white
         n3 = n2
         normals = [n0, n1, n2, n3]
         view.add_mesh(verts, normals, fill)
+
+
+def get_angle(dx, dy):
+    r = (dx**2 + dy**2)**0.5
+    if r < EPSILON:
+        return None
+    if dy > EPSILON:
+        theta = atan(dx/dy)
+    elif dy < -EPSILON:
+        theta = atan(dx/dy) + pi
+    elif dx > EPSILON:
+        theta = 0.5*pi
+    elif dx < -EPSILON:
+        theta = -0.5*pi
+    else:
+        return None
+
+    return theta
+
+
+def make_pipe(view, x0, y0, z0, x1, y1, z1, radius, slices=4, fill=color.rgb.white):
+
+    view.save()
+
+    view.translate(x0, y0, z0)
+    dx, dy, dz = (x1-x0), (y1-y0), (z1-z0)
+    length = sqrt(dx**2 + dy**2 + dz**2)
+
+    theta = get_angle(dy, dz)
+    if theta is not None:
+        view.rotate(180*theta/pi, -1, 0, 0)
+
+    dz = sqrt(dy**2 + dz**2)
+
+    theta = get_angle(dx, dz)
+    if theta is not None:
+        view.rotate(180*theta/pi, 0, 1, -0)
+
+    #make_sphere(view, 2*radius, 4, 4) # debug
+    make_cylinder(view, radius, radius, length, slices, fill)
+
+    view.restore()
 
 
 def make_cone(view, radius, height, slices=8, fill=color.rgb.white):
