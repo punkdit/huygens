@@ -9,6 +9,8 @@ https://gamedev.stackexchange.com/questions/153078/what-can-i-do-with-the-4th-co
 
 import sys
 from math import sin, cos, pi, sqrt, atan
+from operator import add
+from functools import reduce
 
 import numpy
 
@@ -82,6 +84,11 @@ class Mat(object):
         A = numpy.identity(n)
         return cls(A)
 
+    def is_identity(self):
+        n = len(self)
+        A = numpy.identity(n)
+        return numpy.allclose(A, self.A, EPSILON) 
+
     def __add__(self, other):
         other = Mat.promote(other)
         assert self.shape == other.shape, (self.shape, other.shape)
@@ -107,6 +114,16 @@ class Mat(object):
     def __rmul__(self, r):
         A = r*self.A
         return Mat(A)
+
+    def __pow__(self, n):
+        assert n>=0, "inverse not implemented"
+        if n==0:
+            return Mat.identity(len(self))
+        M = self
+        while n>1:
+            M = self*M
+            n -= 1
+        return M
 
     def __getitem__(self, idx):
         if type(idx) is tuple:
@@ -375,11 +392,12 @@ class GItem(object):
 
 
 class GPoly(GItem):
-    def __init__(self, verts, fill=None, stroke=None, texture=None, texture_coords=None, 
+    def __init__(self, verts, fill=None, stroke=None, lw=None, texture=None, texture_coords=None, 
             normal=None, epsilon=1e-2, debug=False):
         GItem.__init__(self, verts, epsilon)
         self.fill = fill
         self.stroke = stroke
+        self.lw = lw
         self.texture = texture
         self.texture_coords = texture_coords
 
@@ -409,7 +427,7 @@ class GPoly(GItem):
             fill = view.illuminate(v, n, fill)
         if stroke is not None:
             stroke = view.illuminate(v, n, stroke)
-        cvs.append(Polygon(verts, fill, stroke, None, self.texture, self.texture_coords))
+        cvs.append(Polygon(verts, fill, stroke, self.lw, self.texture, self.texture_coords))
 
         if self.debug:
             x, y = verts[0]
@@ -489,7 +507,20 @@ class Light(object):
     def __init__(self, position, color):
         assert position.shape == (3, 1)
         self.position = position
-        self.color = color
+        self.color = color # not implemented ... XXX
+
+    def illuminate(self, vert, normal, color):
+        v = (self.position - vert).normalized()
+        x = v.dot(normal)
+        assert x <= 1+EPSILON, x
+        x = max(0.3, x) # XXX diffuse
+        r, g, b, a = color
+        color = (x*r, x*g, x*b, a)
+        return color
+
+class AmbientLight(Light):
+    def illuminate(self, vert, normal, color):
+        return color
 
 
 class View(object):
@@ -742,13 +773,11 @@ class View(object):
 #        return fill, stroke
 
     def illuminate(self, vert, normal, color):
-        light = self.lights[0]
-        v = (light.position - vert).normalized()
-        x = v.dot(normal)
-        assert x <= 1+EPSILON, x
-        x = max(0.3, x) # XXX diffuse
-        r, g, b, a = color
-        color = (x*r, x*g, x*b, a)
+        colors = [light.illuminate(vert, normal, color)
+            for light in self.lights]
+        if colors:
+            color = [reduce(add, [c[i] for c in colors]) for i in range(4)]
+            color = [min(1., c) for c in color]
         return color
 
     def get_depth(self, gitem):
