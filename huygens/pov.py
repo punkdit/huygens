@@ -48,6 +48,54 @@ class Mat(object):
             if abs(v+1.)<EPSILON: # choose the -1 eigval
                 return vecs[:,idx]
 
+    def decompose_rotation(self):
+        "decompose rotation as an angle and an axis"
+        A = self.A
+        assert self.shape == (4, 4)
+        n = 3
+        A = A[:n, :n]
+        assert A.shape == (n, n)
+        I = numpy.identity(n)
+        if numpy.allclose(A, I):
+            return 0., [1., 0., 0.]
+        vals, vecs = numpy.linalg.eig(A)
+        assert len(vals) == n
+        rvecs = vecs.real
+        rvec = None
+        x = y = None
+        for i in range(n):
+            vec = vecs[:,i]
+            val = vals[i]
+            #print('\t', val, vec)
+            if abs(val-1.) < EPSILON:
+                rvec = rvecs[:,i]
+                assert numpy.allclose(vec, rvec)
+                #print(rvec)
+            else:
+                y0, x0 = val.real, val.imag
+        assert rvec is not None, "not a rotation matrix?"
+    
+        for (x, y, sign) in [
+            # it's one of these, just try them all... arf..
+            (x0, y0, 1),
+            (x0, -y0, 1),
+            (x0, y0, -1),
+            (x0, -y0, -1),
+        ]:
+            angle = sign*get_angle(x, y)*180/pi
+            #print("%.1f"%angle, rvec)
+            
+            if angle > 180+EPSILON:
+                angle = angle - 360
+            elif angle < -180-EPSILON:
+                angle = 360. + angle
+                
+            M1 = Mat.rotate(angle, *rvec)
+            #print(M1)
+            if M1==self:
+                return angle, rvec
+        assert 0
+
     def __str__(self):
         if self.shape[1] == 1:
             return self.strvec()
@@ -172,7 +220,7 @@ class Mat(object):
 
     @classmethod
     def rotate(cls, angle, x, y, z):
-        # angle in degrees
+        "rotation matrix along axis (x,y,z), angle is in degrees"
         s = sin(angle * pi / 180.0)
         c = cos(angle * pi / 180.0)
         M = cls.identity(4)
