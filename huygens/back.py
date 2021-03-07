@@ -18,6 +18,7 @@ The api uses the first quadrant coordinate system:
 """
 
 from math import pi, sqrt, sin, cos, sqrt, floor
+from copy import deepcopy
 
 from huygens.base import SCALE_CM_TO_POINT, Base, Matrix
 from huygens.text import make_text
@@ -516,6 +517,9 @@ class Compound(Item):
     def extend(self, items):
         for item in items:
             self.append(item)
+
+    def copy(self):
+        return deepcopy(self)
 
     def __len__(self):
         return len(self.items)
