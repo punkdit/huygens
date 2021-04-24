@@ -243,12 +243,14 @@ input[type=range]:focus::-ms-fill-upper {
 <p>This is a python package for drawing diagrams.
 Intended to have multiple backends, currently the only
 backend implemented uses <a href="https://www.cairographics.org/">cairo</a>.
-Hopefully there will also be a <a href="https://pyx-project.org/">PyX</a> backend.</p>
-<p>It can also include text from <script type="math/tex">\TeX</script> via pdftex, pdflatex, xetex or xelatex.</p>
-<p>Diagrams are able to be composed in various ways, based 
-on a linear constraint solver. Therefore, this system becomes
-a declarative graphics layout package.</p>
-<p>This package is at an early stage of development, so expect
+Perhaps there will also be a <a href="https://pyx-project.org/">PyX</a> backend, or a 
+<a href="https://ctan.org/pkg/pgf?lang=en">TikZ</a> backend.</p>
+<p>The huygens package can also include text from <script type="math/tex">\TeX</script> via pdftex, pdflatex, xetex or xelatex.</p>
+<p>The <a href="test_box.html">huygens.box</a> and <a href="test_diagram.html">huygens.diagram</a> modules build on the basic graphics primitives
+to define composable elements.
+Geometry and layout of these elements is generated using a linear constraint solver.
+Therefore, this system becomes a declarative graphics layout package.</p>
+<p>The huygens package is at an early stage of development, so expect
 things to change drastically and without warning.</p>
 <h2>User guide</h2>
 <p><strong><a href="test_canvas.html">huygens</a></strong>
@@ -298,7 +300,7 @@ an interface to latex. It also is a python library using pycairo.</p>
 
 <hr>
 
-Copyright (c) 2018 - 2020.
+Copyright (c) 2018 - 2021.
 
 </main>
 

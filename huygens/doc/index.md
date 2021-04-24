@@ -7,15 +7,17 @@ huygens
 This is a python package for drawing diagrams.
 Intended to have multiple backends, currently the only
 backend implemented uses [cairo](https://www.cairographics.org/).
-Hopefully there will also be a [PyX](https://pyx-project.org/) backend.
+Perhaps there will also be a [PyX](https://pyx-project.org/) backend, or a 
+[TikZ](https://ctan.org/pkg/pgf?lang=en) backend.
 
-It can also include text from $\TeX$ via pdftex, pdflatex, xetex or xelatex.
+The huygens package can also include text from $\TeX$ via pdftex, pdflatex, xetex or xelatex.
 
-Diagrams are able to be composed in various ways, based 
-on a linear constraint solver. Therefore, this system becomes
-a declarative graphics layout package.
+The [huygens.box](test_box.html) and [huygens.diagram](test_diagram.html) modules build on the basic graphics primitives
+to define composable elements.
+Geometry and layout of these elements is generated using a linear constraint solver.
+Therefore, this system becomes a declarative graphics layout package.
 
-This package is at an early stage of development, so expect
+The huygens package is at an early stage of development, so expect
 things to change drastically and without warning.
 
 User guide
