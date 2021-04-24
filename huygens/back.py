@@ -53,13 +53,6 @@ class Bound(Base):
         self.urx = urx
         self.ury = ury
 
-    def scale_point_to_cm(self):
-        llx = self.llx / SCALE_CM_TO_POINT
-        lly = self.lly / SCALE_CM_TO_POINT
-        urx = self.urx / SCALE_CM_TO_POINT
-        ury = self.ury / SCALE_CM_TO_POINT
-        return Bound(llx, lly, urx, ury)
-
     def union(self, other):
         "union"
         llx = n_min(self.llx, other.llx)
@@ -75,6 +68,13 @@ class Bound(Base):
         self.lly = n_min(self.lly, other.lly)
         self.urx = n_max(self.urx, other.urx)
         self.ury = n_max(self.ury, other.ury)
+
+    def scale_point_to_cm(self):
+        llx = self.llx / SCALE_CM_TO_POINT
+        lly = self.lly / SCALE_CM_TO_POINT
+        urx = self.urx / SCALE_CM_TO_POINT
+        ury = self.ury / SCALE_CM_TO_POINT
+        return Bound(llx, lly, urx, ury)
 
     def nonempty(self):
         return (self.llx is not None or self.lly is not None or 
@@ -117,7 +117,8 @@ class DumpVisitor(Visitor):
 class BoundVisitor(Visitor):
     def __init__(self):
         self.pos = None
-        self.lw = _defaultlinewidth*SCALE_CM_TO_POINT
+        #self.lw = _defaultlinewidth*SCALE_CM_TO_POINT
+        self.lw = _defaultlinewidth
         self.bound = Bound()
 
     def on_visit(self, item):
@@ -261,17 +262,13 @@ class MoveTo_Pt(PathItem):
         return (self.x, self.y), 0.
 
     def process_cairo(self, cxt):
+        x = SCALE_CM_TO_POINT*self.x
+        y = SCALE_CM_TO_POINT*self.y
         if self.DEBUG:
-            print("ctx.move_to", self.x, self.y)
-        cxt.move_to(self.x, -self.y)
+            print("ctx.move_to", x, y)
+        cxt.move_to(x, -y)
 
-
-class MoveTo(MoveTo_Pt):
-    def __init__(self, x, y):
-        x, y = float(x), float(y)
-        self.x = SCALE_CM_TO_POINT*x
-        self.y = SCALE_CM_TO_POINT*y
-
+MoveTo = MoveTo_Pt
 
 class LineTo_Pt(PathItem):
     def __init__(self, x, y):
@@ -305,17 +302,14 @@ class LineTo_Pt(PathItem):
         return Bound(self.x, self.y, self.x, self.y)
 
     def process_cairo(self, cxt):
+        x = SCALE_CM_TO_POINT*self.x
+        y = SCALE_CM_TO_POINT*self.y
         if self.DEBUG:
-            print("ctx.line_to", self.x, self.y)
-        cxt.line_to(self.x, -self.y)
+            print("ctx.line_to", x, y)
+        cxt.line_to(x, -y)
 
 
-class LineTo(LineTo_Pt):
-    def __init__(self, x, y):
-        x, y = float(x), float(y)
-        self.x = SCALE_CM_TO_POINT*x
-        self.y = SCALE_CM_TO_POINT*y
-
+LineTo = LineTo_Pt
 
 class CurveTo_Pt(PathItem):
     def __init__(self, x0, y0, x1, y1, x2, y2):
@@ -370,19 +364,18 @@ class CurveTo_Pt(PathItem):
         return Bound(x0, y0, x1, y1)
 
     def process_cairo(self, cxt):
+        x0 = SCALE_CM_TO_POINT*self.x0
+        y0 = SCALE_CM_TO_POINT*self.y0
+        x1 = SCALE_CM_TO_POINT*self.x1
+        y1 = SCALE_CM_TO_POINT*self.y1
+        x2 = SCALE_CM_TO_POINT*self.x2
+        y2 = SCALE_CM_TO_POINT*self.y2
         if self.DEBUG:
-            print("ctx.curve_to", self.x0, self.y0, self.x1, self.y1, self.x2, self.y2)
-        cxt.curve_to(self.x0, -self.y0, self.x1, -self.y1, self.x2, -self.y2)
+            print("ctx.curve_to", x0, y0, x1, y1, x2, y2)
+        cxt.curve_to(x0, -y0, x1, -y1, x2, -y2)
 
+CurveTo = CurveTo_Pt
 
-class CurveTo(CurveTo_Pt):
-    def __init__(self, x0, y0, x1, y1, x2, y2):
-        self.x0 = SCALE_CM_TO_POINT*x0
-        self.y0 = SCALE_CM_TO_POINT*y0
-        self.x1 = SCALE_CM_TO_POINT*x1
-        self.y1 = SCALE_CM_TO_POINT*y1
-        self.x2 = SCALE_CM_TO_POINT*x2
-        self.y2 = SCALE_CM_TO_POINT*y2
 
 
 class Arc_Pt(PathItem):
@@ -437,19 +430,14 @@ class Arc_Pt(PathItem):
         return Bound(self.x-r, self.y-r, self.x+r, self.y+r) # XXX TODO XXX
 
     def process_cairo(self, cxt):
+        x = SCALE_CM_TO_POINT*self.x
+        y = SCALE_CM_TO_POINT*self.y
+        r = SCALE_CM_TO_POINT*self.r
         #print("cxt.arc_negative", self.__class__)
-        cxt.arc_negative(self.x, -self.y, self.r, 2*pi-self.angle1, 2*pi-self.angle2)
+        cxt.arc_negative(x, -y, r, 2*pi-self.angle1, 2*pi-self.angle2)
 
 
-class Arc(Arc_Pt):
-    def __init__(self, x, y, r, angle1, angle2):
-        "angle in radians"
-        self.x = SCALE_CM_TO_POINT*x
-        self.y = SCALE_CM_TO_POINT*y
-        self.r = SCALE_CM_TO_POINT*r
-        self.angle1 = angle1
-        self.angle2 = angle2
-
+Arc = Arc_Pt
 
 class _ArcnMixin(object):
     def get_at(self, curpos, startpos, t):
@@ -484,7 +472,10 @@ class _ArcnMixin(object):
 
     def process_cairo(self, cxt):
         #print("cxt.arc", self.__class__)
-        cxt.arc(self.x, -self.y, self.r, 2*pi-self.angle1, 2*pi-self.angle2)
+        x = SCALE_CM_TO_POINT*self.x
+        y = SCALE_CM_TO_POINT*self.y
+        r = SCALE_CM_TO_POINT*self.r
+        cxt.arc(x, -y, r, 2*pi-self.angle1, 2*pi-self.angle2)
 
 
 class Arcn(_ArcnMixin, Arc):
@@ -626,7 +617,8 @@ class Path(Compound):
         return length
 
     def get_length(self):
-        length = self.get_length_pt() / SCALE_CM_TO_POINT
+        #length = self.get_length_pt() / SCALE_CM_TO_POINT
+        length = self.get_length_pt()
         return length
 
     def tangent(self, t):
@@ -652,11 +644,11 @@ class Path(Compound):
             if t0 <= t <= t1+EPSILON:
                 t = (t-t0) / (t1-t0)
                 x, y = item.get_at(curpos, startpos, t)
-                x = x/SCALE_CM_TO_POINT
-                y = y/SCALE_CM_TO_POINT
+                #x = x/SCALE_CM_TO_POINT
+                #y = y/SCALE_CM_TO_POINT
                 dx, dy = item.diff_at(curpos, startpos, t)
-                dx = dx/SCALE_CM_TO_POINT
-                dy = dy/SCALE_CM_TO_POINT
+                #dx = dx/SCALE_CM_TO_POINT
+                #dy = dy/SCALE_CM_TO_POINT
                 return x, y, dx, dy # <------------ return
             length += _length
             curpos = _curpos
@@ -822,12 +814,10 @@ class LineWidth_Pt(Deco):
     __mul__ = __rmul__
 
     def process_cairo(self, cxt):
-        cxt.set_line_width(self.lw)
+        lw = self.lw*SCALE_CM_TO_POINT
+        cxt.set_line_width(lw)
 
-
-class LineWidth(LineWidth_Pt):
-    def __init__(self, lw):
-        self.lw = lw*SCALE_CM_TO_POINT
+LineWidth = LineWidth_Pt
 
 
 # cairo constants:
@@ -947,13 +937,15 @@ class Transform(Deco):
         self.yx = float(yx)
         self.xy = float(xy)
         self.yy = float(yy)
-        self.x0 = float(x0) * SCALE_CM_TO_POINT
-        self.y0 = float(y0) * SCALE_CM_TO_POINT
+        self.x0 = float(x0) # * SCALE_CM_TO_POINT
+        self.y0 = float(y0) # * SCALE_CM_TO_POINT
 
     def process_cairo(self, cxt):
         import cairo
+        x0 = float(self.x0) * SCALE_CM_TO_POINT
+        y0 = float(self.y0) * SCALE_CM_TO_POINT
         #m = cairo.Matrix(self.xx, -self.yx, self.xy, -self.yy, self.x0, -self.y0)
-        m = cairo.Matrix(self.xx, -self.yx, -self.xy, self.yy, self.x0, -self.y0)
+        m = cairo.Matrix(self.xx, -self.yx, -self.xy, self.yy, x0, -y0)
         #print(m)
         cxt.transform(m)
 
@@ -970,19 +962,22 @@ class Translate_Pt(Transform):
         self.dy = dy
 
     def process_cairo(self, cxt):
-        cxt.translate(self.dx, -self.dy)
+        dx = self.dx*SCALE_CM_TO_POINT
+        dy = self.dy*SCALE_CM_TO_POINT
+        cxt.translate(dx, -dy)
 
     def transform_point(self, x, y):
         "translate a point, using huygens coordinates"
-        dx = self.dx/SCALE_CM_TO_POINT
-        dy = self.dy/SCALE_CM_TO_POINT
+        dx = self.dx
+        dy = self.dy
         return (x+dx, y+dy)
 
+Translate = Translate_Pt
 
-class Translate(Translate_Pt):
-    def __init__(self, dx, dy):
-        self.dx = dx*SCALE_CM_TO_POINT
-        self.dy = dy*SCALE_CM_TO_POINT
+#class Translate(Translate_Pt):
+#    def __init__(self, dx, dy):
+#        self.dx = dx*SCALE_CM_TO_POINT
+#        self.dy = dy*SCALE_CM_TO_POINT
 
 
 
@@ -993,12 +988,13 @@ class Scale(Transform):
         assert abs(sx*sy) > EPSILON
         self.sx = float(sx)
         self.sy = float(sy)
-        self.x = float(x) * SCALE_CM_TO_POINT
-        self.y = float(y) * SCALE_CM_TO_POINT
+        self.x = float(x) # * SCALE_CM_TO_POINT
+        self.y = float(y) # * SCALE_CM_TO_POINT
 
     def process_cairo(self, cxt):
         sx, sy = self.sx, self.sy
-        x, y = self.x, self.y
+        x = self.x*SCALE_CM_TO_POINT
+        y = self.y*SCALE_CM_TO_POINT
         dx, dy = (1.-sx)*x, (1.-sy)*y # <--- tricky !
         cxt.translate(dx, -dy)
         try:
@@ -1011,8 +1007,8 @@ class Scale(Transform):
         "translate a point, using huygens coordinates"
         sx, sy = self.sx, self.sy
         x0, y0 = self.x, self.y
-        x0 /= SCALE_CM_TO_POINT
-        y0 /= SCALE_CM_TO_POINT
+        #x0 /= SCALE_CM_TO_POINT
+        #y0 /= SCALE_CM_TO_POINT
         dx, dy = (1.-sx)*x0, (1.-sy)*y0
         x += dx
         y += dy
@@ -1025,11 +1021,13 @@ class Rotate(Transform):
     def __init__(self, angle, x=0., y=0.):
         "rotate by angle in radians around point at x,y"
         self.angle = angle
-        self.x = float(x) * SCALE_CM_TO_POINT
-        self.y = float(y) * SCALE_CM_TO_POINT
+        self.x = float(x) # * SCALE_CM_TO_POINT
+        self.y = float(y) # * SCALE_CM_TO_POINT
 
     def process_cairo(self, cxt):
-        x, y = self.x, self.y
+        #x, y = self.x, self.y
+        x = self.x*SCALE_CM_TO_POINT
+        y = self.y*SCALE_CM_TO_POINT
         cxt.translate(x, -y)
         cxt.rotate(self.angle)
         cxt.translate(-x, y)
@@ -1037,8 +1035,8 @@ class Rotate(Transform):
     def transform_point(self, x, y):
         "translate a point, using huygens coordinates"
         x0, y0 = self.x, self.y
-        x0 /= SCALE_CM_TO_POINT
-        y0 /= SCALE_CM_TO_POINT
+        #x0 /= SCALE_CM_TO_POINT
+        #y0 /= SCALE_CM_TO_POINT
         x, y = x-x0, y-y0
         s, c = sin(self.angle), cos(self.angle)
         x, y = (c*x+s*y, -s*x+c*y)
@@ -1053,8 +1051,8 @@ class Rotate(Transform):
 class Image(Item):
     def __init__(self, name, x=0, y=0):
         self.name = name
-        self.x = x*SCALE_CM_TO_POINT
-        self.y = y*SCALE_CM_TO_POINT
+        self.x = x # *SCALE_CM_TO_POINT
+        self.y = y # *SCALE_CM_TO_POINT
 
     def process_cairo(self, cxt):
         import cairo
@@ -1063,8 +1061,10 @@ class Image(Item):
         except cairo.Error as e:
             print("ciaro.Error: %s, self.name=%r"%(e, self.name))
             raise
+        x = self.x*SCALE_CM_TO_POINT
+        y = self.y*SCALE_CM_TO_POINT
         cxt.save()
-        cxt.set_source_surface(surf, self.x, -self.y)
+        cxt.set_source_surface(surf, x, -y)
         cxt.paint()
         cxt.restore()
 
@@ -1097,18 +1097,20 @@ class Text(object):
     def text_extents(self):
         bound = self.get_bound()
         llx, lly, urx, ury = bound
-        llx /= SCALE_CM_TO_POINT
-        lly /= SCALE_CM_TO_POINT
-        urx /= SCALE_CM_TO_POINT
-        ury /= SCALE_CM_TO_POINT
+#        llx /= SCALE_CM_TO_POINT
+#        lly /= SCALE_CM_TO_POINT
+#        urx /= SCALE_CM_TO_POINT
+#        ury /= SCALE_CM_TO_POINT
         return (0., ury, urx-llx, ury-lly) # 0., ury, width, height
 
 
 
 class CairoText(Item, Text):
     def __init__(self, x, y, text, color=None, size=None, **kw):
-        self.x = SCALE_CM_TO_POINT*x
-        self.y = SCALE_CM_TO_POINT*y
+        #self.x = SCALE_CM_TO_POINT*x
+        #self.y = SCALE_CM_TO_POINT*y
+        self.x = x
+        self.y = y
         self.text = text
         self.color = color
 
@@ -1117,10 +1119,10 @@ class CairoText(Item, Text):
         (dx, dy, width, height, x1, y1) = extents
         #print("CairoText.get_bound", repr(self.text), dx, dy, width, height, x1, y1)
         #assert dx>=0, dx
-        x, y = self.x, self.y
+        x, y = self.x*SCALE_CM_TO_POINT, self.y*SCALE_CM_TO_POINT
         llx, lly = x, y-dy-height
         urx, ury = llx+dx+width, lly+height
-        b = Bound(llx, lly, urx, ury)
+        b = Bound(llx/SCALE_CM_TO_POINT, lly/SCALE_CM_TO_POINT, urx/SCALE_CM_TO_POINT, ury/SCALE_CM_TO_POINT)
         #print("CairoText.get_bound", b)
         return b
 
@@ -1128,7 +1130,9 @@ class CairoText(Item, Text):
         cxt.save()
         if self.color:
             cxt.set_source_rgba(*self.color)
-        cxt.move_to(self.x, -self.y)
+        x = self.x*SCALE_CM_TO_POINT
+        y = self.y*SCALE_CM_TO_POINT
+        cxt.move_to(x, -y)
         cxt.show_text(self.text)
         #cxt.set_font_size(10.)
         cxt.restore()
@@ -1150,8 +1154,8 @@ class MkText(Compound, Text):
 
     def __init__(self, x, y, text, color=None, size=None, **kw):
         assert text
-        self.x = x = SCALE_CM_TO_POINT*x
-        self.y = y = SCALE_CM_TO_POINT*y
+        self.x = x # = SCALE_CM_TO_POINT*x
+        self.y = y # = SCALE_CM_TO_POINT*y
         self.text = text
         item = make_text(text, self.tex_engine)
         if color is not None:
@@ -1206,12 +1210,12 @@ def arc_to_curve_pt(x_pt, y_pt, r_pt, angle1, angle2):
     return items
 
 
-def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
-    x_pt = x*SCALE_CM_TO_POINT
-    y_pt = y*SCALE_CM_TO_POINT
-    r_pt = r*SCALE_CM_TO_POINT
-    p = arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax)
-    return p
+#def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
+#    x_pt = x*SCALE_CM_TO_POINT
+#    y_pt = y*SCALE_CM_TO_POINT
+#    r_pt = r*SCALE_CM_TO_POINT
+#    p = arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax)
+#    return p
 
 
 def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
@@ -1234,6 +1238,7 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
     p = Path(items)
     return p
 
+arc_to_bezier = arc_to_bezier_pt
 
 # ----------------------------------------------------------------------------
 # 

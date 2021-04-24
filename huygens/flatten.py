@@ -10,8 +10,9 @@ from math import sin, cos, pi
 
 from huygens import argv
 from huygens import back
-from huygens.base import Context
+from huygens.base import Context, SCALE_CM_TO_POINT
 
+# Internally huygens uses cm units, even though we are exposing a cairo interface:
 
 class Flatten(Context):
 
@@ -21,18 +22,28 @@ class Flatten(Context):
         self.paths = []
 
     def move_to(self, x, y):
+        x = x/SCALE_CM_TO_POINT # scale to cm units
+        y = y/SCALE_CM_TO_POINT # scale to cm units
         x, y = self.matrix(x, y)
         item = back.MoveTo_Pt(x, -y)
         self.path.append(item)
         self.pos = x, y
 
     def line_to(self, x, y):
+        x = x/SCALE_CM_TO_POINT # etc..
+        y = y/SCALE_CM_TO_POINT
         x, y = self.matrix(x, y)
         item = back.LineTo_Pt(x, -y)
         self.path.append(item)
         self.pos = x, y
 
     def curve_to(self, x0, y0, x1, y1, x2, y2):
+        x0 = x0/SCALE_CM_TO_POINT
+        y0 = y0/SCALE_CM_TO_POINT
+        x1 = x1/SCALE_CM_TO_POINT
+        y1 = y1/SCALE_CM_TO_POINT
+        x2 = x2/SCALE_CM_TO_POINT
+        y2 = y2/SCALE_CM_TO_POINT
         x0, y0 = self.matrix(x0, y0)
         x1, y1 = self.matrix(x1, y1)
         x2, y2 = self.matrix(x2, y2)
@@ -42,6 +53,8 @@ class Flatten(Context):
 
     def rel_move_to(self, dx, dy):
         assert self.pos is not None, "no current point"
+        dx = dx/SCALE_CM_TO_POINT
+        dy = dy/SCALE_CM_TO_POINT
         x, y = self.pos
         dx, dy = self.matrix.transform_distance(dx, dy)
         x, y = x+dx, y+dy
@@ -51,6 +64,8 @@ class Flatten(Context):
 
     def rel_line_to(self, dx, dy):
         assert self.pos is not None, "no current point"
+        dx = dx/SCALE_CM_TO_POINT
+        dy = dy/SCALE_CM_TO_POINT
         x, y = self.pos
         dx, dy = self.matrix.transform_distance(dx, dy)
         x, y = x+dx, y+dy
@@ -60,6 +75,12 @@ class Flatten(Context):
 
     def rel_curve_to(self, dx0, dy0, dx1, dy1, dx2, dy2):
         assert self.pos is not None, "no current point"
+        dx0 = dx0/SCALE_CM_TO_POINT
+        dy0 = dy0/SCALE_CM_TO_POINT
+        dx1 = dx1/SCALE_CM_TO_POINT
+        dy1 = dy1/SCALE_CM_TO_POINT
+        dx2 = dx2/SCALE_CM_TO_POINT
+        dy2 = dy2/SCALE_CM_TO_POINT
         x, y = self.pos
         dx0, dy0 = self.matrix.transform_distance(dx0, dy0)
         dx1, dy1 = self.matrix.transform_distance(dx1, dy1)
@@ -73,6 +94,9 @@ class Flatten(Context):
 
     def arc(self, x, y, radius, angle1, angle2):
         # stay in user space coordinates
+        x = x/SCALE_CM_TO_POINT
+        y = y/SCALE_CM_TO_POINT
+        radius = radius/SCALE_CM_TO_POINT
         if self.pos is None:
             x1, y1 = x+radius*cos(angle1), y+radius*sin(angle1)
             self.move_to(x1, y1)
@@ -82,6 +106,9 @@ class Flatten(Context):
 
     def arc_negative(self, x, y, radius, angle1, angle2):
         # stay in user space coordinates
+        x = x/SCALE_CM_TO_POINT
+        y = y/SCALE_CM_TO_POINT
+        radius = radius/SCALE_CM_TO_POINT
         if self.pos is None:
             x1, y1 = x+radius*cos(angle1), y+radius*sin(angle1)
             self.move_to(x1, y1)
@@ -97,6 +124,7 @@ class Flatten(Context):
         self.path.append(deco)
 
     def set_line_width(self, w):
+        w /= SCALE_CM_TO_POINT
         wx, wy = self.matrix.transform_distance(w, w)
         w = wx
         deco = back.LineWidth_Pt(w)
@@ -140,6 +168,9 @@ class Flatten(Context):
 def test():
 
     def draw_test(cxt):
+        cxt.move_to(10, 10)
+        cxt.line_to(50, 50)
+
         cxt.translate(100., 0.)
         cxt.scale(0.8, 0.7)
 
@@ -153,6 +184,11 @@ def test():
         cxt.line_to(300., 300.)
         cxt.arc_negative(400., 300., 60., 0., -1.8*pi)
         cxt.line_to(600.-10, 400.-10)
+        cxt.stroke()
+
+    def _draw_test(cxt):
+        cxt.move_to(10, 10)
+        cxt.line_to(50, 50)
         cxt.stroke()
 
     import cairo

@@ -106,6 +106,8 @@ class Method(object):
         return self.context
 
 
+# Internally huygens uses cm units, even though we are exposing a cairo interface:
+
 class Context(object):
 
     save_attrs = 'pos matrix linewidth'.split()
@@ -113,7 +115,7 @@ class Context(object):
     def __init__(self):
         self.stack = []
         self.pos = None # current point
-        self.linewidth = _defaultlinewidth*SCALE_CM_TO_POINT
+        self.linewidth = _defaultlinewidth # *SCALE_CM_TO_POINT
         self.matrix = Matrix()
 
     def save(self):
@@ -155,6 +157,8 @@ class Context(object):
         self.matrix = matrix * self.matrix
 
     def translate(self, dx, dy):
+        dx /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        dy /= SCALE_CM_TO_POINT # internally huygens uses cm units
         #dx, dy = self.matrix.transform_distance(dx, dy)
         matrix = Matrix.translate(dx, dy) 
         self.matrix = matrix * self.matrix
@@ -172,14 +176,24 @@ class Context(object):
         self.pos = None
 
     def move_to(self, x, y):
+        x /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        y /= SCALE_CM_TO_POINT # internally huygens uses cm units
         x, y = self.matrix(x, y)
         self.pos = x, y
 
     def line_to(self, x, y):
+        x /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        y /= SCALE_CM_TO_POINT # internally huygens uses cm units
         x, y = self.matrix(x, y)
         self.pos = (x, y)
 
     def curve_to(self, x0, y0, x1, y1, x2, y2):
+        x0 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        y0 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        x1 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        y1 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        x2 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        y2 /= SCALE_CM_TO_POINT # internally huygens uses cm units
         x0, y0 = self.matrix(x0, y0)
         x1, y1 = self.matrix(x1, y1)
         x2, y2 = self.matrix(x2, y2)
@@ -187,18 +201,28 @@ class Context(object):
 
     def rel_move_to(self, dx, dy):
         assert self.pos is not None, "no current point"
+        dx /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        dy /= SCALE_CM_TO_POINT # internally huygens uses cm units
         x, y = self.pos
         dx, dy = self.matrix.transform_distance(dx, dy)
         self.pos = x+dx, y+dy
 
     def rel_line_to(self, dx, dy):
         assert self.pos is not None, "no current point"
+        dx /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        dy /= SCALE_CM_TO_POINT # internally huygens uses cm units
         x, y = self.pos
         dx, dy = self.matrix.transform_distance(dx, dy)
         self.pos = x+dx, y+dy
 
     def rel_curve_to(self, dx0, dy0, dx1, dy1, dx2, dy2):
         assert self.pos is not None, "no current point"
+        dx0 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        dy0 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        dx1 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        dy1 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        dx2 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        dy2 /= SCALE_CM_TO_POINT # internally huygens uses cm units
         x, y = self.pos
         dx0, dy0 = self.matrix.transform_distance(dx0, dy0)
         dx1, dy1 = self.matrix.transform_distance(dx1, dy1)
@@ -206,10 +230,14 @@ class Context(object):
         self.pos = (x+dx2, y+dy2)
 
     def arc(self, x, y, radius, angle1, angle2):
+        x /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        y /= SCALE_CM_TO_POINT # internally huygens uses cm units
         x1, y1 = x+radius*cos(angle2), y+radius*sin(angle2)
         self.move_to(x1, y1)
 
     def arc_negative(self, x, y, radius, angle1, angle2):
+        x /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        y /= SCALE_CM_TO_POINT # internally huygens uses cm units
         x1, y1 = x+radius*cos(angle2), y+radius*sin(angle2)
         self.move_to(x1, y1)
 
