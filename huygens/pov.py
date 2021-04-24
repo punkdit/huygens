@@ -520,7 +520,28 @@ class GLine(GItem):
     def render(self, view, cvs):
         GItem.render(self, cvs)
         (x0, y0), (x1, y1) = view.trafo_canvas(self.v0), view.trafo_canvas(self.v1)
-        cvs.stroke(path.line(x0, y0, x1, y1), [LineWidth(self.lw),RGBA(*self.stroke), style.linecap.round])
+        cvs.stroke(path.line(x0, y0, x1, y1), 
+            [LineWidth(self.lw),RGBA(*self.stroke), style.linecap.round])
+
+        
+class GCircle(GItem):
+    def __init__(self, v0, radius, lw=1., fill=(0,0,0,1), stroke=None):
+        GItem.__init__(self, [v0,])
+        self.v0 = v0
+        self.radius = radius
+        self.lw = lw
+        self.fill = fill
+        self.stroke = stroke
+
+    def render(self, view, cvs):
+        GItem.render(self, cvs)
+        (x0, y0) = view.trafo_canvas(self.v0)
+        r = self.radius # scale how?
+        p = path.circle(x0, y0, r)
+        if self.fill is not None:
+            cvs.fill(p, [RGBA(*self.fill), style.linecap.round])
+        if self.stroke is not None:
+            cvs.stroke(p, [LineWidth(self.lw), RGBA(*self.stroke), style.linecap.round])
 
         
 class GCurve(GItem):
@@ -566,7 +587,11 @@ class Light(object):
         color = (x*r, x*g, x*b, a)
         return color
 
+
 class AmbientLight(Light):
+    def __init__(self):
+        pass
+
     def illuminate(self, vert, normal, color):
         return color
 
@@ -716,6 +741,8 @@ class View(object):
         x = x0 + w2 + x*w2
         y = y0 + h2 + y*h2
         return x, y
+
+    #def trafo_canvas_distance(self, delta): # ??
     
     # -----------------------------------------
     # class Scene ?
@@ -757,6 +784,15 @@ class View(object):
         #lw = self.trafo_view_width(lw)
         lw /= self.depth_camera(v0)
         gitem = GLine(v0, v1, lw, *args, **kw)
+        self.add_gitem(gitem)
+        return gitem
+
+    def add_circle(self, v0, radius, lw=0.2, *args, **kw):
+        v0 = self.trafo_view(v0)
+        #lw = self.trafo_view_width(lw)
+        lw /= self.depth_camera(v0)
+        radius /= self.depth_camera(v0)
+        gitem = GCircle(v0, radius, lw, *args, **kw)
         self.add_gitem(gitem)
         return gitem
 
