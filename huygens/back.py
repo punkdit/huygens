@@ -560,6 +560,11 @@ class Compound(Item):
         urx, ury = llx+width, lly+height
         return Bound(llx, lly, urx, ury)
 
+    def get_bound_box(self):
+        bb = self.get_bound_cairo()
+        bb = bb.scale_point_to_cm()
+        return bb
+
     def process_cairo(self, cxt):
         cxt.save()
         for item in self.items:

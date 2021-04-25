@@ -168,8 +168,11 @@ class Context(object):
         self.matrix = matrix * self.matrix
 
     def transform(self, matrix):
-        #print(matrix)
-        matrix = Matrix(*tuple(matrix))
+        matrix = tuple(matrix)
+        xx, yx, xy, yy, x0, y0 = matrix
+        x0 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        y0 /= SCALE_CM_TO_POINT # internally huygens uses cm units
+        matrix = Matrix(xx, yx, xy, yy, x0, y0)
         self.matrix = matrix * self.matrix
 
     def new_sub_path(self):

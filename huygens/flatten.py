@@ -38,12 +38,14 @@ class Flatten(Context):
         self.pos = x, y
 
     def curve_to(self, x0, y0, x1, y1, x2, y2):
+        #print("curve_to", x0, y0, x1, y1, x2, y2)
         x0 = x0/SCALE_CM_TO_POINT
         y0 = y0/SCALE_CM_TO_POINT
         x1 = x1/SCALE_CM_TO_POINT
         y1 = y1/SCALE_CM_TO_POINT
         x2 = x2/SCALE_CM_TO_POINT
         y2 = y2/SCALE_CM_TO_POINT
+        #print("\t", x0, y0, x1, y1, x2, y2)
         x0, y0 = self.matrix(x0, y0)
         x1, y1 = self.matrix(x1, y1)
         x2, y2 = self.matrix(x2, y2)

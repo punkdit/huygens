@@ -313,6 +313,7 @@ class Canvas(Compound):
 
         else:
             bound = self.get_bound_cairo()
+        #print("_write_cairo", bound)
 
         import cairo
 
