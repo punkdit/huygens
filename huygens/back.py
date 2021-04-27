@@ -122,17 +122,17 @@ class BoundVisitor(Visitor):
         self.bound = Bound()
 
     def on_visit(self, item):
-        if isinstance(item, (Scale, Rotate, Translate_Pt)):
+        if isinstance(item, (Scale, Rotate, Translate)):
             assert 0, "trafo %s not implemented"%item
         elif isinstance(item, Compound):
             assert 0, "%s: save restore not implemented"%item
-        elif isinstance(item, MoveTo_Pt):
+        elif isinstance(item, MoveTo):
             self.pos = item.x, item.y
         elif isinstance(item, (Stroke, Fill)):
             self.pos = None
-        elif isinstance(item, LineWidth_Pt):
+        elif isinstance(item, LineWidth):
             self.lw = item.lw
-        elif isinstance(item, (LineTo_Pt, CurveTo_Pt)):
+        elif isinstance(item, (LineTo, CurveTo)):
             b = item.get_bound()
             if b.is_empty():
                 assert 0
@@ -210,7 +210,7 @@ class Empty(Item):
 
 class PathItem(Item):
     "belongs in a Path"
-    def get_length_pt(self, curpos, startpos):
+    def get_length(self, curpos, startpos):
         assert 0, self.__class__
 
     def get_at(self, curpos, startpos, t):
@@ -221,7 +221,7 @@ class PathItem(Item):
 
 
 class ClosePath(PathItem):
-    def get_length_pt(self, curpos, startpos):
+    def get_length(self, curpos, startpos):
         assert curpos is not None
         assert startpos is not None
         x0, y0 = curpos
@@ -233,7 +233,7 @@ class ClosePath(PathItem):
         assert curpos is not None, "no current point"
         assert startpos is not None
         assert 0.<=t<=1.
-        #print("LineTo_Pt.get_at", t, curpos, self)
+        #print("LineTo.get_at", t, curpos, self)
         x0, y0 = curpos
         x1, y1 = startpos
         return (1.-t)*x0 + t*x1, (1.-t)*y0 + t*y1
@@ -241,7 +241,7 @@ class ClosePath(PathItem):
     def diff_at(self, curpos, startpos, t):
         assert curpos is not None, "no current point"
         assert 0.<=t<=1.
-        #print("LineTo_Pt.get_at", t, curpos, self)
+        #print("LineTo.get_at", t, curpos, self)
         x0, y0 = curpos
         x1, y1 = startpos
         return (x1-x0), (y1-y0)
@@ -250,7 +250,7 @@ class ClosePath(PathItem):
         cxt.close_path()
 
 
-class MoveTo_Pt(PathItem):
+class MoveTo(PathItem):
     def __init__(self, x, y):
         self.x = float(x)
         self.y = float(y)
@@ -258,7 +258,7 @@ class MoveTo_Pt(PathItem):
     def get_bound(self):
         return Bound(self.x, self.y, self.x, self.y)
 
-    def get_length_pt(self, curpos, startpos):
+    def get_length(self, curpos, startpos):
         return (self.x, self.y), 0.
 
     def process_cairo(self, cxt):
@@ -268,14 +268,12 @@ class MoveTo_Pt(PathItem):
             print("ctx.move_to", x, y)
         cxt.move_to(x, -y)
 
-MoveTo = MoveTo_Pt
-
-class LineTo_Pt(PathItem):
+class LineTo(PathItem):
     def __init__(self, x, y):
         self.x = float(x)
         self.y = float(y)
 
-    def get_length_pt(self, curpos, startpos):
+    def get_length(self, curpos, startpos):
         assert curpos is not None, "no current point"
         x0, y0 = curpos
         x1, y1 = self.x, self.y
@@ -285,7 +283,7 @@ class LineTo_Pt(PathItem):
     def get_at(self, curpos, startpos, t):
         assert curpos is not None, "no current point"
         assert 0.<=t<=1.
-        #print("LineTo_Pt.get_at", t, curpos, self)
+        #print("LineTo.get_at", t, curpos, self)
         x0, y0 = curpos
         x1, y1 = self.x, self.y
         return (1.-t)*x0 + t*x1, (1.-t)*y0 + t*y1
@@ -293,7 +291,7 @@ class LineTo_Pt(PathItem):
     def diff_at(self, curpos, startpos, t):
         assert curpos is not None, "no current point"
         assert 0.<=t<=1.
-        #print("LineTo_Pt.get_at", t, curpos, self)
+        #print("LineTo.get_at", t, curpos, self)
         x0, y0 = curpos
         x1, y1 = self.x, self.y
         return (x1-x0), (y1-y0)
@@ -309,9 +307,7 @@ class LineTo_Pt(PathItem):
         cxt.line_to(x, -y)
 
 
-LineTo = LineTo_Pt
-
-class CurveTo_Pt(PathItem):
+class CurveTo(PathItem):
     def __init__(self, x0, y0, x1, y1, x2, y2):
         self.x0 = x0
         self.y0 = y0
@@ -320,7 +316,7 @@ class CurveTo_Pt(PathItem):
         self.x2 = x2
         self.y2 = y2
 
-    def get_length_pt(self, curpos, startpos):
+    def get_length(self, curpos, startpos):
         assert curpos is not None, "no current point"
         # Totally fake the length... shameless!
         x0, y0 = curpos
@@ -374,11 +370,9 @@ class CurveTo_Pt(PathItem):
             print("ctx.curve_to", x0, y0, x1, y1, x2, y2)
         cxt.curve_to(x0, -y0, x1, -y1, x2, -y2)
 
-CurveTo = CurveTo_Pt
 
 
-
-class Arc_Pt(PathItem):
+class Arc(PathItem):
     def __init__(self, x, y, r, angle1, angle2):
         "angle in radians"
         self.x = x
@@ -387,7 +381,7 @@ class Arc_Pt(PathItem):
         self.angle1 = angle1
         self.angle2 = angle2
 
-    def get_length_pt(self, curpos, startpos):
+    def get_length(self, curpos, startpos):
         r, x, y = self.r, self.x, self.y
         angle1, angle2 = self.angle1, self.angle2
         dangle = abs(angle1 - angle2)
@@ -437,8 +431,6 @@ class Arc_Pt(PathItem):
         cxt.arc_negative(x, -y, r, 2*pi-self.angle1, 2*pi-self.angle2)
 
 
-Arc = Arc_Pt
-
 class _ArcnMixin(object):
     def get_at(self, curpos, startpos, t):
         assert curpos is not None, "no current point"
@@ -482,7 +474,7 @@ class Arcn(_ArcnMixin, Arc):
     pass
 
 
-class Arcn_Pt(_ArcnMixin, Arc_Pt):
+class Arcn(_ArcnMixin, Arc):
     pass
 
 
@@ -597,33 +589,28 @@ class Path(Compound):
         idx = n-2
         while idx>=0:
             item = self[idx]
-            assert isinstance(item, LineTo_Pt), "not implemented"
+            assert isinstance(item, LineTo), "not implemented"
             x, y = item.x, item.y
             item = self[idx+1]
-            assert isinstance(item, CurveTo_Pt), "not implemented"
+            assert isinstance(item, CurveTo), "not implemented"
             x0, y0 = item.x0, item.y0
             x1, y1 = item.x1, item.y1
             x2, y2 = item.x2, item.y2
-            items.append(LineTo_Pt(x2, y2))
-            items.append(CurveTo_Pt(x1, y1, x0, y0, x, y))
+            items.append(LineTo(x2, y2))
+            items.append(CurveTo(x1, y1, x0, y0, x, y))
             idx -= 2
         p = Path(items)
         return p
 
-    def get_length_pt(self):
+    def get_length(self):
         curpos = None
         startpos = None
         length = 0.
         for item in self:
             assert isinstance(item, PathItem)
-            curpos, _length = item.get_length_pt(curpos, startpos)
+            curpos, _length = item.get_length(curpos, startpos)
             startpos = startpos or curpos
             length += _length
-        return length
-
-    def get_length(self):
-        #length = self.get_length_pt() / SCALE_CM_TO_POINT
-        length = self.get_length_pt()
         return length
 
     def tangent(self, t):
@@ -632,14 +619,14 @@ class Path(Compound):
         curpos = None
         startpos = None
         length = 0.
-        total = self.get_length_pt()
+        total = self.get_length()
         assert total > EPSILON, "empty path"
         closed = False
         for item in self:
             assert isinstance(item, PathItem)
             assert not closed, "only contiguous paths supported"
             closed = isinstance(item, ClosePath)
-            _curpos, _length = item.get_length_pt(curpos, startpos)
+            _curpos, _length = item.get_length(curpos, startpos)
             startpos = startpos or curpos
             if _length < EPSILON:
                 curpos = _curpos
@@ -810,19 +797,17 @@ class RGBA(Deco):
 _defaultlinewidth = 0.02 # cm
 
 
-class LineWidth_Pt(Deco):
+class LineWidth(Deco):
     def __init__(self, lw):
         self.lw = lw
 
     def __rmul__(self, value):
-        return LineWidth_Pt(float(value)*self.lw)
+        return LineWidth(float(value)*self.lw)
     __mul__ = __rmul__
 
     def process_cairo(self, cxt):
         lw = self.lw*SCALE_CM_TO_POINT
         cxt.set_line_width(lw)
-
-LineWidth = LineWidth_Pt
 
 
 # cairo constants:
@@ -858,7 +843,7 @@ class LineJoin(Deco):
         cxt.set_line_join(cap)
 
 
-class LineDash_Pt(Deco):
+class LineDash(Deco):
     def __init__(self, dashes, offset=0):
         self.dashes = dashes
         self.offset = offset
@@ -868,10 +853,10 @@ class LineDash_Pt(Deco):
         cxt.set_dash(self.dashes, self.offset)
 
 
-#class LineDash(LineDash_Pt):
+#class LineDash(LineDash):
 #    def __init__(self, dashes, offset=0):
 #        dashes = [sz*SCALE_CM_TO_POINT for sz in dashes]
-#        LineDash_Pt.__init__(self, dashes, offset)
+#        LineDash.__init__(self, dashes, offset)
 
 
 class LineDash(Deco):
@@ -960,8 +945,8 @@ class Transform(Deco):
         # TODO
 
 
-#class Translate_Pt(Deco):
-class Translate_Pt(Transform):
+#class Translate(Deco):
+class Translate(Transform):
     def __init__(self, dx, dy):
         self.dx = dx
         self.dy = dy
@@ -977,12 +962,6 @@ class Translate_Pt(Transform):
         dy = self.dy
         return (x+dx, y+dy)
 
-Translate = Translate_Pt
-
-#class Translate(Translate_Pt):
-#    def __init__(self, dx, dy):
-#        self.dx = dx*SCALE_CM_TO_POINT
-#        self.dy = dy*SCALE_CM_TO_POINT
 
 
 
@@ -1172,7 +1151,7 @@ class MkText(Compound, Text):
         #print("Text.__init__", x, y, bound)
         y0 = self._get_baseline()
         self.bot = y0 - bound.lly
-        trafo = Translate_Pt(x-llx, y-lly-self.bot)
+        trafo = Translate(x-llx, y-lly-self.bot)
         #print("Text.__init__ trafo:", trafo)
         self.bound = Bound(x, y-self.bot, x+bound.width, y+bound.height-self.bot)
         items = list(item.items)
@@ -1195,41 +1174,33 @@ the_text_cls = CairoText
 #
 
 
-def arc_to_curve_pt(x_pt, y_pt, r_pt, angle1, angle2):
+def arc_to_curve(x, y, r, angle1, angle2):
     dangle = angle2-angle1
 
     if dangle==0:
         return None
 
-    x0_pt, y0_pt = x_pt+r_pt*cos(angle1), y_pt+r_pt*sin(angle1)
-    x3_pt, y3_pt = x_pt+r_pt*cos(angle2), y_pt+r_pt*sin(angle2)
+    x0, y0 = x+r*cos(angle1), y+r*sin(angle1)
+    x3, y3 = x+r*cos(angle2), y+r*sin(angle2)
 
-    l = r_pt*4*(1-cos(dangle/2))/(3*sin(dangle/2))
+    l = r*4*(1-cos(dangle/2))/(3*sin(dangle/2))
 
-    x1_pt, y1_pt = x0_pt-l*sin(angle1), y0_pt+l*cos(angle1)
-    x2_pt, y2_pt = x3_pt+l*sin(angle2), y3_pt-l*cos(angle2)
+    x1, y1 = x0-l*sin(angle1), y0+l*cos(angle1)
+    x2, y2 = x3+l*sin(angle2), y3-l*cos(angle2)
 
     items = [
-        LineTo_Pt(x0_pt, y0_pt), 
-        CurveTo_Pt(x1_pt, y1_pt, x2_pt, y2_pt, x3_pt, y3_pt)]
+        LineTo(x0, y0), 
+        CurveTo(x1, y1, x2, y2, x3, y3)]
     return items
 
 
-#def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
-#    x_pt = x*SCALE_CM_TO_POINT
-#    y_pt = y*SCALE_CM_TO_POINT
-#    r_pt = r*SCALE_CM_TO_POINT
-#    p = arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax)
-#    return p
-
-
-def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
+def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
     if angle2<angle1:
         angle2 = angle2 + (floor((angle1-angle2)/(2*pi))+1)*2*pi
     elif angle2>angle1+2*pi:
         angle2 = angle2 - (floor((angle2-angle1)/(2*pi))-1)*2*pi
 
-    if r_pt == 0 or angle1-angle2 == 0:
+    if r == 0 or angle1-angle2 == 0:
         return []
 
     subdivisions = int((angle2-angle1)/danglemax)+1
@@ -1238,12 +1209,11 @@ def arc_to_bezier_pt(x_pt, y_pt, r_pt, angle1, angle2, danglemax=0.5*pi):
 
     items = []
     for i in range(subdivisions):
-        items += arc_to_curve_pt(x_pt, y_pt, r_pt, angle1+i*dangle, angle1+(i+1)*dangle)
+        items += arc_to_curve(x, y, r, angle1+i*dangle, angle1+(i+1)*dangle)
 
     p = Path(items)
     return p
 
-arc_to_bezier = arc_to_bezier_pt
 
 # ----------------------------------------------------------------------------
 # 

@@ -25,7 +25,7 @@ class Flatten(Context):
         x = x/SCALE_CM_TO_POINT # scale to cm units
         y = y/SCALE_CM_TO_POINT # scale to cm units
         x, y = self.matrix(x, y)
-        item = back.MoveTo_Pt(x, -y)
+        item = back.MoveTo(x, -y)
         self.path.append(item)
         self.pos = x, y
 
@@ -33,7 +33,7 @@ class Flatten(Context):
         x = x/SCALE_CM_TO_POINT # etc..
         y = y/SCALE_CM_TO_POINT
         x, y = self.matrix(x, y)
-        item = back.LineTo_Pt(x, -y)
+        item = back.LineTo(x, -y)
         self.path.append(item)
         self.pos = x, y
 
@@ -49,7 +49,7 @@ class Flatten(Context):
         x0, y0 = self.matrix(x0, y0)
         x1, y1 = self.matrix(x1, y1)
         x2, y2 = self.matrix(x2, y2)
-        item = back.CurveTo_Pt(x0, -y0, x1, -y1, x2, -y2)
+        item = back.CurveTo(x0, -y0, x1, -y1, x2, -y2)
         self.path.append(item)
         self.pos = x2, y2
 
@@ -60,7 +60,7 @@ class Flatten(Context):
         x, y = self.pos
         dx, dy = self.matrix.transform_distance(dx, dy)
         x, y = x+dx, y+dy
-        item = back.MoveTo_Pt(x, -y)
+        item = back.MoveTo(x, -y)
         self.path.append(item)
         self.pos = x, y
 
@@ -71,7 +71,7 @@ class Flatten(Context):
         x, y = self.pos
         dx, dy = self.matrix.transform_distance(dx, dy)
         x, y = x+dx, y+dy
-        item = back.LineTo_Pt(x, -y)
+        item = back.LineTo(x, -y)
         self.path.append(item)
         self.pos = x, y
 
@@ -90,7 +90,7 @@ class Flatten(Context):
         x0, y0 = x+dx0, y+dy0
         x1, y1 = x+dx1, y+dy1
         x2, y2 = x+dx2, y+dy2
-        item = back.CurveTo_Pt(x0, -y0, x1, -y1, x2, -y2)
+        item = back.CurveTo(x0, -y0, x1, -y1, x2, -y2)
         self.path.append(item)
         self.pos = x2, y2
 
@@ -102,7 +102,7 @@ class Flatten(Context):
         if self.pos is None:
             x1, y1 = x+radius*cos(angle1), y+radius*sin(angle1)
             self.move_to(x1, y1)
-        p = back.arc_to_bezier_pt(x, -y, radius, -angle2, -angle1)
+        p = back.arc_to_bezier(x, -y, radius, -angle2, -angle1)
         p = p.reversed()
         p.process_cairo(self)
 
@@ -114,7 +114,7 @@ class Flatten(Context):
         if self.pos is None:
             x1, y1 = x+radius*cos(angle1), y+radius*sin(angle1)
             self.move_to(x1, y1)
-        p = back.arc_to_bezier_pt(x, -y, radius, -angle1, -angle2)
+        p = back.arc_to_bezier(x, -y, radius, -angle1, -angle2)
         p.process_cairo(self)
 
     def close_path(self):
@@ -129,7 +129,7 @@ class Flatten(Context):
         w /= SCALE_CM_TO_POINT
         wx, wy = self.matrix.transform_distance(w, w)
         w = wx
-        deco = back.LineWidth_Pt(w)
+        deco = back.LineWidth(w)
         self.path.append(deco)
 
     def stroke(self):
