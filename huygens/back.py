@@ -1053,6 +1053,35 @@ class Image(Item):
         cxt.restore()
 
 
+class PngImage(Image):
+    pass
+
+
+class NumpyImage(Item):
+    def __init__(self, source, x=0, y=0):
+        import numpy
+        assert isinstance(source, numpy.ndarray)
+        assert len(source.shape) == 3 # (height, width, 4)
+        assert source.shape[2] == 4 # (blue, green, red, alpha)
+        self.source = source.copy()
+        self.x = x
+        self.y = y
+
+    def process_cairo(self, cxt):
+        import cairo
+        source = self.source
+        height, width = source.shape[:2]
+        surf = cairo.ImageSurface.create_for_data(
+            source, cairo.FORMAT_ARGB32, width, height)
+        x = self.x*SCALE_CM_TO_POINT
+        y = self.y*SCALE_CM_TO_POINT
+        cxt.save()
+        cxt.set_source_surface(surf, x, -y)
+        cxt.paint()
+        cxt.restore()
+
+
+
 # ----------------------------------------------------------------------------
 # 
 #
