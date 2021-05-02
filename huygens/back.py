@@ -1034,9 +1034,10 @@ class Rotate(Transform):
 
 class Image(Item):
     def __init__(self, name, x=0, y=0):
+        "x, y: bottom left coordinates of image"
         self.name = name
-        self.x = x # *SCALE_CM_TO_POINT
-        self.y = y # *SCALE_CM_TO_POINT
+        self.x = x
+        self.y = y
 
     def process_cairo(self, cxt):
         import cairo
@@ -1047,8 +1048,9 @@ class Image(Item):
             raise
         x = self.x*SCALE_CM_TO_POINT
         y = self.y*SCALE_CM_TO_POINT
+        height = surf.get_height()
         cxt.save()
-        cxt.set_source_surface(surf, x, -y)
+        cxt.set_source_surface(surf, x, -y-height)
         cxt.paint()
         cxt.restore()
 
@@ -1056,9 +1058,12 @@ class Image(Item):
 class PngImage(Image):
     pass
 
+PNGImage = PngImage
+
 
 class NumpyImage(Item):
     def __init__(self, source, x=0, y=0):
+        "x, y: bottom left coordinates of image"
         import numpy
         assert isinstance(source, numpy.ndarray)
         assert len(source.shape) == 3 # (height, width, 4)
@@ -1076,7 +1081,7 @@ class NumpyImage(Item):
         x = self.x*SCALE_CM_TO_POINT
         y = self.y*SCALE_CM_TO_POINT
         cxt.save()
-        cxt.set_source_surface(surf, x, -y)
+        cxt.set_source_surface(surf, x, -y-height)
         cxt.paint()
         cxt.restore()
 

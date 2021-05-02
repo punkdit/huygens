@@ -295,7 +295,7 @@ class Canvas(Compound):
         self.append(im)
         return self # yes...
 
-    def _write_cairo(self, method, name):
+    def _write_cairo(self, method, name=None):
 
         if 0:
             #self.dump()
@@ -365,6 +365,23 @@ class Canvas(Compound):
         surface = self._write_cairo(method, name)
         surface.write_to_png(name)
         surface.finish()
+
+    def get_data(self):
+        import cairo, numpy
+        def method(name, W, H):
+            W = int(round(W))
+            H = int(round(H))
+            surface = cairo.ImageSurface(cairo.Format.ARGB32, W, H)
+            return surface
+        surface = self._write_cairo(method)
+        width = surface.get_width()
+        height = surface.get_height()
+        buf = surface.get_data()
+        data = numpy.ndarray(shape=(height, width, 4), dtype=numpy.uint8, buffer=buf)
+        data = data.copy()
+        surface.finish()
+        return data
+    
 
 
 canvas = NS(canvas=Canvas)
