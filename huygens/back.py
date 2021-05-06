@@ -1032,58 +1032,71 @@ class Rotate(Transform):
 # 
 #
 
-class Image(Item):
-    def __init__(self, name, x=0, y=0):
+class Image(Item): # abstract base class
+    def __init__(self, x=0, y=0, alpha=1.):
         "x, y: bottom left coordinates of image"
-        self.name = name
         self.x = x
         self.y = y
+        self.alpha = alpha
+
+    def get_surf_cairo(self):
+        return None
 
     def process_cairo(self, cxt):
-        import cairo
-        try:
-            surf = cairo.ImageSurface.create_from_png(self.name)
-        except cairo.Error as e:
-            print("ciaro.Error: %s, self.name=%r"%(e, self.name))
-            raise
+        surf = self.get_surf_cairo()
         x = self.x*SCALE_CM_TO_POINT
         y = self.y*SCALE_CM_TO_POINT
         height = surf.get_height()
         cxt.save()
         cxt.set_source_surface(surf, x, -y-height)
-        cxt.paint()
+        cxt.paint_with_alpha(self.alpha)
         cxt.restore()
 
 
-class PngImage(Image):
-    pass
+class PNGImage(Image):
+    def __init__(self, name, x=0, y=0, alpha=1.):
+        "x, y: bottom left coordinates of image"
+        Image.__init__(self, x, y, alpha)
+        self.name = name
 
-PNGImage = PngImage
+    surf = None
+    def get_surf_cairo(self):
+        import cairo
+        if self.surf is not None:
+            return self.surf
+        try:
+            surf = cairo.ImageSurface.create_from_png(self.name)
+        except cairo.Error as e:
+            print("ciaro.Error: %s, self.name=%r"%(e, self.name))
+            raise
+        self.surf = surf
+        return self.surf
 
 
-class NumpyImage(Item):
-    def __init__(self, source, x=0, y=0):
+
+
+class NumpyImage(Image):
+    def __init__(self, source, x=0, y=0, alpha=1.):
         "x, y: bottom left coordinates of image"
         import numpy
         assert isinstance(source, numpy.ndarray)
         assert len(source.shape) == 3 # (height, width, 4)
         assert source.shape[2] == 4 # (blue, green, red, alpha)
+        Image.__init__(self, x, y, alpha)
         self.source = source.copy()
-        self.x = x
-        self.y = y
 
-    def process_cairo(self, cxt):
+    surf = None
+    def get_surf_cairo(self):
+        import cairo
+        if self.surf is not None:
+            return self.surf
         import cairo
         source = self.source
         height, width = source.shape[:2]
         surf = cairo.ImageSurface.create_for_data(
             source, cairo.FORMAT_ARGB32, width, height)
-        x = self.x*SCALE_CM_TO_POINT
-        y = self.y*SCALE_CM_TO_POINT
-        cxt.save()
-        cxt.set_source_surface(surf, x, -y-height)
-        cxt.paint()
-        cxt.restore()
+        self.surf = surf
+        return self.surf
 
 
 
