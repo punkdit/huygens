@@ -291,7 +291,7 @@ class Canvas(Compound):
         return self # yes...
 
     def image(self, name, x=0, y=0):
-        im = Image(name, x, y)
+        im = PNGImage(name, x, y)
         self.append(im)
         return self # yes...
 

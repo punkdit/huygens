@@ -180,6 +180,23 @@ class Item(Base):
     def get_bound(self):
         return Bound()
 
+    def get_bound_cairo(self):
+        # Not as tight as it could be.... ?
+        import cairo
+        surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
+        cxt = cairo.Context(surface)
+        self.process_cairo(cxt)
+        extents = surface.ink_extents()
+        (ulx, uly, width, height) = extents
+        llx, lly = ulx, -uly-height
+        urx, ury = llx+width, lly+height
+        return Bound(llx, lly, urx, ury)
+
+    def get_bound_box(self): # cache this ?
+        bb = self.get_bound_cairo()
+        bb = bb.scale_point_to_cm()
+        return bb
+
     def process_cairo(self, cxt):
         pass
 
@@ -539,23 +556,6 @@ class Compound(Item):
         visitor = BoundVisitor()
         self.visit(visitor)
         return visitor.bound
-
-    def get_bound_cairo(self):
-        # Not as tight as it could be.... ?
-        import cairo
-        surface = cairo.RecordingSurface(cairo.Content.COLOR_ALPHA, None)
-        cxt = cairo.Context(surface)
-        self.process_cairo(cxt)
-        extents = surface.ink_extents()
-        (ulx, uly, width, height) = extents
-        llx, lly = ulx, -uly-height
-        urx, ury = llx+width, lly+height
-        return Bound(llx, lly, urx, ury)
-
-    def get_bound_box(self):
-        bb = self.get_bound_cairo()
-        bb = bb.scale_point_to_cm()
-        return bb
 
     def process_cairo(self, cxt):
         cxt.save()

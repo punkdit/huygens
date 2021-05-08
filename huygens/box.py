@@ -301,8 +301,7 @@ class MinBox(Box):
 
 class CanBox(Box):
     def __init__(self, cvs):
-        bound = cvs.get_bound_cairo()
-        bound = bound.scale_point_to_cm()
+        bound = cvs.get_bound_box()
         self.top = 0.
         self.left = 0.
         self.right = bound.width
