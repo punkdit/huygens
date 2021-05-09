@@ -794,6 +794,11 @@ class RGBA(Deco):
         cxt.set_source_rgba(*self.cl)
 
 
+class Paint(Item):
+    def process_cairo(self, cxt):
+        cxt.paint()
+
+
 _defaultlinewidth = 0.02 # cm
 
 
@@ -1051,6 +1056,7 @@ class Image(Item): # abstract base class
         cxt.set_source_surface(surf, x, -y-height)
         cxt.paint_with_alpha(self.alpha)
         cxt.restore()
+
 
 
 class PNGImage(Image):
