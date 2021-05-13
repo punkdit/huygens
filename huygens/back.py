@@ -88,6 +88,10 @@ class Bound(Base):
         return (self.llx, self.lly, self.urx, self.ury)[idx]
 
     @property
+    def center(self):
+        return 0.5*(self.llx + self.urx), 0.5*(self.lly + self.ury)
+
+    @property
     def width(self):
         return self.urx - self.llx
 
@@ -176,6 +180,9 @@ class Replacer(Visitor):
 class Item(Base):
 
     DEBUG = False
+
+    def pstr(self, indent=0):
+        return "  "*indent + str(self)
 
     def get_bound(self):
         return Bound()
@@ -540,6 +547,15 @@ class Compound(Item):
         for item in self.items:
             item.visit(visitor)
 
+    def pstr(self, indent=0):
+        lines = []
+        lines.append("  "*indent + self.__class__.__name__+"(")
+        for item in self.items:
+            lines.append(item.pstr(indent+1)+",")
+        s = '\n'.join(lines) + ")"
+        s = s.replace(",)", ")")
+        return s
+
     def rewrite(self, visitor):
         items = self.items
         idx = 0
@@ -782,6 +798,9 @@ class Clip(Deco):
 class RGBA(Deco):
     def __init__(self, r, g, b, a=1.0):
         self.cl = (r, g, b, a)
+
+    def __str__(self):
+        return "RGBA(%s, %s, %s, %s)"%self.cl
 
     def __getitem__(self, idx):
         return self.cl[idx]
@@ -1128,24 +1147,18 @@ def text_extents_cairo(text):
 
 class Text(object):
     def __new__(cls, *args, **kw):
-        ob = object.__new__(the_text_cls)
+        ob = object.__new__(the_text_cls) # pay attention here !
         return ob
 
     def text_extents(self):
         bound = self.get_bound()
         llx, lly, urx, ury = bound
-#        llx /= SCALE_CM_TO_POINT
-#        lly /= SCALE_CM_TO_POINT
-#        urx /= SCALE_CM_TO_POINT
-#        ury /= SCALE_CM_TO_POINT
         return (0., ury, urx-llx, ury-lly) # 0., ury, width, height
 
 
 
 class CairoText(Item, Text):
     def __init__(self, x, y, text, color=None, size=None, **kw):
-        #self.x = SCALE_CM_TO_POINT*x
-        #self.y = SCALE_CM_TO_POINT*y
         self.x = x
         self.y = y
         self.text = text
@@ -1173,6 +1186,25 @@ class CairoText(Item, Text):
         cxt.show_text(self.text)
         #cxt.set_font_size(10.)
         cxt.restore()
+
+
+class CleanupMkText(Visitor):
+
+    def __init__(self):
+        self.flag = False
+
+    def on_visit(self, item):
+        cls = item.__class__
+        #print(cls.__name__, end="")
+        if cls is ClosePath:
+            self.flag = True
+        elif cls is Compound:
+            if self.flag:
+                self.flag = False
+            else:
+                item = None
+        #print("*" if item is not None else "")
+        return item
 
 
 class MkText(Compound, Text):
@@ -1213,6 +1245,9 @@ class MkText(Compound, Text):
 
     def get_bound(self):
         return self.bound
+
+    def cleanup(self):
+        self.rewrite(CleanupMkText())
 
 
 the_text_cls = CairoText
