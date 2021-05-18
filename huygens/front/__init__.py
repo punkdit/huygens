@@ -251,6 +251,11 @@ class Canvas(Compound):
         self.append(pre + post)
         return self # yes...
 
+    def paint(self, decos=[]):
+        item = Compound(decos + [Paint()])
+        self.append(item)
+        return self
+
     def clip(self, path):
         self.append(path)
         self.append(Clip())

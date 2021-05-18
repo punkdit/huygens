@@ -179,11 +179,13 @@ def test():
         cxt.move_to(10., 10.)
         cxt.line_to(100., 100.)
         cxt.arc(200., 200., 80., 0., 1.1*pi)
+        cxt.rotate(0.3)
 
         cxt.scale(0.7, 1.2)
         cxt.translate(50., 50.)
 
         cxt.line_to(300., 300.)
+        cxt.rotate(-0.3)
         cxt.arc_negative(400., 300., 60., 0., -1.8*pi)
         cxt.line_to(600.-10, 400.-10)
         cxt.stroke()

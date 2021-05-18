@@ -70,11 +70,24 @@ class Matrix(Base):
         xx = right.xx*left.xx + right.xy*left.yx
         yx = right.yx*left.xx + right.yy*left.yx
         xy = right.xx*left.xy + right.xy*left.yy
-        yy = right.xy*left.xy + right.yy*left.yy
+        yy = right.xy*left.yx + right.yy*left.yy
         x0 = right.xx*left.x0 + right.xy*left.y0 + right.x0
         y0 = right.yx*left.x0 + right.yy*left.y0 + right.y0
         return Matrix(xx, yx, xy, yy, x0, y0)
     __mul__ = multiply
+
+    def inv(self):
+        import numpy
+        M = [
+            [self.xx, self.xy, self.x0],
+            [self.yx, self.yy, self.y0],
+            [      0,       0,       1]]
+        Mi = numpy.linalg.inv(M)
+        assert abs(Mi[2,0]) < EPSILON
+        assert abs(Mi[2,1]) < EPSILON
+        assert abs(Mi[2,2]-1.) < EPSILON
+        m = Matrix(Mi[0,0], Mi[1,0], Mi[0,1], Mi[1,1], Mi[0,2], Mi[1,2])
+        return m
 
     @classmethod
     def translate(cls, dx, dy):

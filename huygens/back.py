@@ -544,8 +544,10 @@ class Compound(Item):
         return self
 
     def visit(self, visitor):
+        # depth first visit
         for item in self.items:
             item.visit(visitor)
+        #Item.visit(self, visitor) # ???
 
     def pstr(self, indent=0):
         lines = []
@@ -578,6 +580,39 @@ class Compound(Item):
         for item in self.items:
             item.process_cairo(cxt)
         cxt.restore()
+
+    def outline(self, lw=0.01):
+        # Brittle code, & only works on text (from latex etc.)
+        self.rewrite(OutlineRewrite(lw))
+
+    def get_path(self):
+        visitor = PathVisitor()
+        self.visit(visitor)
+        return Path(*visitor.items)
+
+
+class PathVisitor(Visitor):
+    def __init__(self):
+        self.items = []
+
+    def on_visit(self, item):
+        if isinstance(item, PathItem):
+            self.items.append(item)
+
+
+class OutlineRewrite(Visitor):
+    def __init__(self, lw=0.01):
+        self.lw = lw
+
+    def on_visit(self, item):
+        if isinstance(item, FillPreserve):
+            return None # delete this Item
+        elif isinstance(item, RGBA) and item.cl==(0,0,0,0):
+            return None # delete this Item
+        elif isinstance(item, LineWidth):
+            item.lw = self.lw # mutate Item
+        return item
+
 
 
 class Path(Compound):
@@ -776,7 +811,12 @@ class Fill(Deco):
         post.append(self)
 
     def process_cairo(self, cxt):
+        import cairo
+        cxt.set_fill_rule(cairo.FillRule.EVEN_ODD) # XXX where does this belong ?
         cxt.fill()
+
+
+#class FillEvenOdd(Deco):
 
 
 class FillPreserve(Deco):
@@ -951,34 +991,68 @@ class Transform(Deco):
         self.yx = float(yx)
         self.xy = float(xy)
         self.yy = float(yy)
-        self.x0 = float(x0) # * SCALE_CM_TO_POINT
-        self.y0 = float(y0) # * SCALE_CM_TO_POINT
+        self.x0 = float(x0)
+        self.y0 = float(y0)
 
-    def process_cairo(self, cxt):
-        import cairo
-        x0 = float(self.x0) * SCALE_CM_TO_POINT
-        y0 = float(self.y0) * SCALE_CM_TO_POINT
-        #m = cairo.Matrix(self.xx, -self.yx, self.xy, -self.yy, self.x0, -self.y0)
-        m = cairo.Matrix(self.xx, -self.yx, -self.xy, self.yy, x0, -y0)
-        #print(m)
-        cxt.transform(m)
+    def __getitem__(self, idx):
+        return [self.xx, self.yx, self.xy, self.yy, self.x0, self.y0][idx]
+
+    def __str__(self):
+        return "Transform%s"%(tuple(self.get_matrix()),)
+
+    def __eq__(self, other):
+        if not isinstance(other, Transform):
+            return False
+        lhs = tuple(self.get_matrix())
+        rhs = tuple(other.get_matrix())
+        d = sum(abs(lhs[i] - rhs[i]) for i in range(6))
+        #print("d =", d)
+        return d < EPSILON
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def transform_point(self, x, y):
         "translate a point, using huygens coordinates"
-        assert 0, "not implemented"
-        # TODO
+        m = self.get_matrix()
+        return m.transform_point(x, y)
+
+    def get_matrix(self):
+        return Matrix(self.xx, self.yx, self.xy, self.yy, self.x0, self.y0)
+
+    def inv(self):
+        m = self.get_matrix()
+        mi = m.inv()
+        return Transform(*mi)
+
+    def __mul__(self, other):
+        left = self.get_matrix()
+        right = other.get_matrix()
+        m = left * right
+        return Transform(*m)
+
+    def __pow__(self, n):
+        assert n>=0, "not implemented.."
+        if n==0:
+            return Transform()
+        op = self
+        while n>1:
+            op = self*op
+            n -= 1
+        return op
+
+    def process_cairo(self, cxt):
+        import cairo
+        x0 = self.x0*SCALE_CM_TO_POINT
+        y0 = self.y0*SCALE_CM_TO_POINT
+        m = cairo.Matrix(self.xx, -self.yx, -self.xy, self.yy, x0, -y0)
+        cxt.transform(m)
 
 
-#class Translate(Deco):
 class Translate(Transform):
     def __init__(self, dx, dy):
         self.dx = dx
         self.dy = dy
-
-    def process_cairo(self, cxt):
-        dx = self.dx*SCALE_CM_TO_POINT
-        dy = self.dy*SCALE_CM_TO_POINT
-        cxt.translate(dx, -dy)
 
     def transform_point(self, x, y):
         "translate a point, using huygens coordinates"
@@ -986,7 +1060,13 @@ class Translate(Transform):
         dy = self.dy
         return (x+dx, y+dy)
 
+    def get_matrix(self):
+        return Matrix.translate(self.dx, self.dy)
 
+    def process_cairo(self, cxt):
+        dx = self.dx*SCALE_CM_TO_POINT
+        dy = self.dy*SCALE_CM_TO_POINT
+        cxt.translate(dx, -dy)
 
 
 class Scale(Transform):
@@ -996,8 +1076,27 @@ class Scale(Transform):
         assert abs(sx*sy) > EPSILON
         self.sx = float(sx)
         self.sy = float(sy)
-        self.x = float(x) # * SCALE_CM_TO_POINT
-        self.y = float(y) # * SCALE_CM_TO_POINT
+        self.x = float(x)
+        self.y = float(y)
+
+    def transform_point(self, x, y):
+        "translate a point, using huygens coordinates"
+        sx, sy = self.sx, self.sy
+        x0, y0 = self.x, self.y
+        dx, dy = (1.-sx)*x0, (1.-sy)*y0
+        x += dx
+        y += dy
+        x *= sx
+        y *= sy
+        return (x, y)
+
+    def get_matrix(self):
+        sx, sy = self.sx, self.sy
+        x, y = self.x, self.y
+        dx, dy = (1.-sx)*x, (1.-sy)*y # <--- tricky !
+        m = Matrix.translate(dx, -dy)
+        m = Matrix.scale(sx, sy) * m
+        return m
 
     def process_cairo(self, cxt):
         sx, sy = self.sx, self.sy
@@ -1011,45 +1110,33 @@ class Scale(Transform):
             print("Scale.process_cairo", sx, sy)
             raise
 
-    def transform_point(self, x, y):
-        "translate a point, using huygens coordinates"
-        sx, sy = self.sx, self.sy
-        x0, y0 = self.x, self.y
-        #x0 /= SCALE_CM_TO_POINT
-        #y0 /= SCALE_CM_TO_POINT
-        dx, dy = (1.-sx)*x0, (1.-sy)*y0
-        x += dx
-        y += dy
-        x *= sx
-        y *= sy
-        return (x, y)
-
 
 class Rotate(Transform):
     def __init__(self, angle, x=0., y=0.):
         "rotate by angle in radians around point at x,y"
         self.angle = angle
-        self.x = float(x) # * SCALE_CM_TO_POINT
-        self.y = float(y) # * SCALE_CM_TO_POINT
-
-    def process_cairo(self, cxt):
-        #x, y = self.x, self.y
-        x = self.x*SCALE_CM_TO_POINT
-        y = self.y*SCALE_CM_TO_POINT
-        cxt.translate(x, -y)
-        cxt.rotate(self.angle)
-        cxt.translate(-x, y)
+        self.x = float(x)
+        self.y = float(y)
 
     def transform_point(self, x, y):
         "translate a point, using huygens coordinates"
         x0, y0 = self.x, self.y
-        #x0 /= SCALE_CM_TO_POINT
-        #y0 /= SCALE_CM_TO_POINT
         x, y = x-x0, y-y0
         s, c = sin(self.angle), cos(self.angle)
         x, y = (c*x+s*y, -s*x+c*y)
         x, y = x+x0, y+y0
         return (x, y)
+
+    def get_matrix(self):
+        m = Matrix.rotate(self.angle, self.x, self.y)
+        return m
+
+    def process_cairo(self, cxt):
+        x = self.x*SCALE_CM_TO_POINT
+        y = self.y*SCALE_CM_TO_POINT
+        cxt.translate(x, -y)
+        cxt.rotate(self.angle)
+        cxt.translate(-x, y)
 
 
 # ----------------------------------------------------------------------------
