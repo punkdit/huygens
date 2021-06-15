@@ -99,6 +99,10 @@ class Bound(Base):
     def height(self):
         return self.ury - self.lly
 
+    def contains(self, x, y, epsilon=1e-6):
+        return (self.llx-epsilon <= x and self.lly-epsilon <= y and
+            self.urx+epsilon >= x and self.ury+epsilon >= y)
+
 
 
 
@@ -533,6 +537,10 @@ class Compound(Item):
 
     def __getitem__(self, idx):
         return self.items[idx]
+
+    def __setitem__(self, idx, item):
+        assert isinstance(item, Item)
+        self.items[idx] = item
 
     def __add__(self, other):
         assert isinstance(other, self.__class__), repr(other)
@@ -1074,6 +1082,8 @@ class Scale(Transform):
         if sy is None:
             sy = sx
         assert abs(sx*sy) > EPSILON
+        assert sx < 1e5, "scale %s too big, probably ?"%sx
+        assert sy < 1e5, "scale %s too big, probably ?"%sy
         self.sx = float(sx)
         self.sy = float(sy)
         self.x = float(x)
@@ -1522,6 +1532,40 @@ class Polymesh(Item):
         cxt.fill()
 
         cxt.restore() # <------- restore
+
+
+class Gradient(Item):
+    def __init__(self, x, y, radius, rgb0=None, rgb1=None):
+        Item.__init__(self)
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.rgb0 = rgb0
+        self.rgb1 = rgb1
+
+    def process_cairo(self, cxt):
+        import cairo
+        x, y, radius = self.x, -self.y, self.radius
+        x = x*SCALE_CM_TO_POINT
+        y = y*SCALE_CM_TO_POINT
+        radius = radius*SCALE_CM_TO_POINT
+        cxt.save()
+        cx0, cy0 = cx1, cy1 = x, y
+        radius0 = 0.2*radius
+        radius1 = 1.0*radius
+        p = cairo.RadialGradient(cx0, cy0, radius0, cx1, cy1, radius1)
+        if self.rgb0 is not None:
+            p.add_color_stop_rgba(0, *self.rgb0)
+        else:
+            p.add_color_stop_rgba(0, 0.9, 0.9, 0.9, 1)
+        if self.rgb1 is not None:
+            p.add_color_stop_rgba(1, *self.rgb1)
+        else:
+            p.add_color_stop_rgba(1, 0.6, 0.6, 0.6, 1.)
+        cxt.set_source(p)
+        cxt.arc(x, y, radius, 0., pi*2)
+        cxt.fill()
+        cxt.restore()
 
 
 class Ball(Item):

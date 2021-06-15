@@ -76,12 +76,18 @@ class Matrix(Base):
         return Matrix(xx, yx, xy, yy, x0, y0)
     __mul__ = multiply
 
-    def inv(self):
+    def asnumpy(self):
         import numpy
         M = [
             [self.xx, self.xy, self.x0],
             [self.yx, self.yy, self.y0],
             [      0,       0,       1]]
+        M = numpy.array(M)
+        return M
+
+    def inv(self):
+        import numpy
+        M = self.asnumpy()
         Mi = numpy.linalg.inv(M)
         assert abs(Mi[2,0]) < EPSILON
         assert abs(Mi[2,1]) < EPSILON
