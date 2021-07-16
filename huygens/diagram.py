@@ -11,10 +11,36 @@ from huygens.front import canvas, path, trafo, style, color, deco
 from huygens.box import (Box, EmptyBox, HBox, VBox, AlignBox, 
     StrictVBox, StrictHBox, TextBox, RectBox, MarginBox, BoxDeco, CanBox)
 
-
-
+# For now we live with some globals... 
+HFLOW = "right"
+VFLOW = "down"
 SIZE = 2.0
 PIP = 0.001
+
+class Config(object):
+
+    @classmethod
+    def config(cls, vflow="down", hflow="right", size=None):
+        global VFLOW, HFLOW, SIZE
+        assert vflow in "up down".split()
+        assert hflow in "left right".split()
+        VFLOW = vflow
+        HFLOW = hflow
+        if size is not None:
+            size = float(size)
+            SIZE = size
+        return cls()
+
+    def pop(self):
+        pass # TODO: make a Config stack etc...
+
+    def __del__(self):
+        self.pop()
+
+
+config = Config.config
+
+
 
 conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
 
@@ -36,10 +62,20 @@ class Dia(Base): # Mixin
         pass
 
     def __mul__(self, other):
-        return VDia([self, other])
+        if VFLOW == "down":
+            return VDia([self, other])
+        elif VFLOW == "up":
+            return VDia([other, self])
+        else:
+            assert 0, VFLOW
 
     def __matmul__(self, other):
-        return HDia([self, other])
+        if HFLOW == "right":
+            return HDia([self, other])
+        elif HFLOW == "left":
+            return HDia([other, self])
+        else:
+            assert 0, HFLOW
 
 
 class Atom(Dia):
@@ -83,7 +119,7 @@ class HDia(StrictHBox, Dia):
     def __init__(self, dias):
         assert len(dias)
         for dia in dias:
-            assert isinstance(dia, Dia)
+            assert isinstance(dia, Dia), type(dia)
         i = 0
         while i+1<len(dias):
             left = dias[i]
@@ -272,6 +308,8 @@ class Multi(Box, Atom):
             weight=1.0, min_width=None, min_height=None,
             top_attrs=None, bot_attrs=None, **kw
         ):
+        if VFLOW == "up":
+            n_top, n_bot = n_bot, n_top # i hope i don't regret this
         if top_attrs is None:
             top_attrs = [[] for i in range(n_top)]
         if bot_attrs is None:
@@ -338,8 +376,14 @@ class Spider(Multi):
         self.trace = {}
 
     def _get_pipx(self, x_top, x_bot): # override in TBone below
-        n = self.n_top + self.n_bot
-        x0 = (1./n)*sum(x_top + x_bot)
+        n_top, n_bot = self.n_top, self.n_bot
+        if n_bot == 1 and n_top > 1:
+            x0 = x_bot[0]
+        elif n_top == 1 and n_bot > 1:
+            x0 = x_top[0]
+        else:
+            n = n_top + n_bot
+            x0 = (1./n)*sum(x_top + x_bot)
         return x0
 
     def on_render(self, cvs, system):
@@ -414,7 +458,9 @@ class TBone(Spider):
 
 
 class Relation(Multi):
-    def __init__(self, n_top, n_bot, toptop=[], topbot=[], botbot=[], weight=1.0):
+    def __init__(self, n_top, n_bot, toptop=[], topbot=[], botbot=[], weight=1.0, attrs=[]):
+        if VFLOW == "up":
+            n_top, n_bot = n_bot, n_top # i hope i don't regret this
         min_width = 0.5*SIZE
         if n_top > 1 or n_bot > 1:
             min_width = 1.0*SIZE
@@ -427,6 +473,7 @@ class Relation(Multi):
         self.topbot = list(topbot)
         self.toptop = list(toptop)
         self.botbot = list(botbot)
+        self.attrs = attrs
         Atom.__init__(self, n_top=n_top, n_bot=n_bot,
             min_width=min_width, min_height=min_height)
 
@@ -453,6 +500,7 @@ class Relation(Multi):
         x_bot = [system[x] for x in self.x_bot]
         x_avg = (1./n)*sum(x_top + x_bot)
 
+        attrs = self.attrs
         conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
 
         for (i_top, j_top) in self.toptop:
@@ -461,19 +509,19 @@ class Relation(Multi):
             #cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top))
             x = conv(x0, x1)
             r = 0.5*(x1-x0)
-            cvs.stroke(path.arc(x, y_top, r, pi, 2*pi))
+            cvs.stroke(path.arc(x, y_top, r, pi, 2*pi), attrs)
 
         for (i_top, i_bot) in self.topbot:
             x0 = x_bot[i_bot]
             x1 = x_top[i_top]
-            cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top))
+            cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top), attrs)
 
         for (i_bot, j_bot) in self.botbot:
             x0 = x_bot[i_bot]
             x1 = x_bot[j_bot]
             x = conv(x0, x1)
             r = 0.5*(x1-x0)
-            cvs.stroke(path.arc(x, y_bot, r, 0, pi))
+            cvs.stroke(path.arc(x, y_bot, r, 0, pi), attrs)
 
 
 

@@ -2,6 +2,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="184pt" height="127pt" viewBox="0 0 184 127" version="1.1">
 <g id="surface12">
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(0%,0%,0%);stroke-opacity:1;stroke-miterlimit:10;" d="M 0 0 L 85.039062 -56.693359 " transform="matrix(2,0,0,2,2,125)"/>
-<path style=" stroke:none;fill-rule:nonzero;fill:rgb(100%,0%,0%);fill-opacity:1;" d="M 183.417969 11.613281 C 183.417969 5.351562 178.339844 0.277344 172.078125 0.277344 C 165.816406 0.277344 160.738281 5.351562 160.738281 11.613281 C 160.738281 17.875 165.816406 22.953125 172.078125 22.953125 C 178.339844 22.953125 183.417969 17.875 183.417969 11.613281 Z M 183.417969 11.613281 "/>
+<path style=" stroke:none;fill-rule:evenodd;fill:rgb(100%,0%,0%);fill-opacity:1;" d="M 183.417969 11.613281 C 183.417969 5.351562 178.339844 0.277344 172.078125 0.277344 C 165.816406 0.277344 160.738281 5.351562 160.738281 11.613281 C 160.738281 17.875 165.816406 22.953125 172.078125 22.953125 C 178.339844 22.953125 183.417969 17.875 183.417969 11.613281 Z M 183.417969 11.613281 "/>
 </g>
 </svg>

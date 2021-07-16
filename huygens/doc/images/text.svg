@@ -34,7 +34,7 @@
 <g id="surface135">
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M -2.833984 2.833984 L 2.833984 -2.833984 " transform="matrix(2,0,0,2,8,18)"/>
 <path style="fill:none;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 2.833984 2.833984 L -2.833984 -2.833984 " transform="matrix(2,0,0,2,8,18)"/>
-<path style="fill-rule:nonzero;fill:rgb(50%,50%,0%);fill-opacity:0.1;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 0 2 L 52 2 L 52 -8 L 0 -8 Z M 0 2 " transform="matrix(2,0,0,2,8,18)"/>
+<path style="fill-rule:evenodd;fill:rgb(50%,50%,0%);fill-opacity:0.1;stroke-width:0.566929;stroke-linecap:butt;stroke-linejoin:miter;stroke:rgb(100%,0%,0%);stroke-opacity:0.5;stroke-miterlimit:10;" d="M 0 2 L 52 2 L 52 -8 L 0 -8 Z M 0 2 " transform="matrix(2,0,0,2,8,18)"/>
 <g style="fill:rgb(0%,0%,0%);fill-opacity:1;">
   <use xlink:href="#glyph0-1" x="8" y="18"/>
   <use xlink:href="#glyph0-2" x="23.039062" y="18"/>
