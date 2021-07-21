@@ -144,7 +144,7 @@ constraints specifying that the position of the ports agree.</p>
 also <code>Box</code>'s so we can stick them anywhere we can use a <code>Box</code>.</p>
 <div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huygens</span> <span class="k">import</span> <span class="n">config</span><span class="p">,</span> <span class="n">canvas</span>
 <span class="kn">from</span> <span class="nn">huygens.box</span> <span class="k">import</span> <span class="n">Box</span><span class="p">,</span> <span class="n">HBox</span>
-<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">HDia</span><span class="p">,</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">SIZE</span>
+<span class="kn">from</span> <span class="nn">huygens.diagram</span> <span class="k">import</span> <span class="n">HDia</span><span class="p">,</span> <span class="n">VDia</span><span class="p">,</span> <span class="n">VWire</span><span class="p">,</span> <span class="n">Cap</span><span class="p">,</span> <span class="n">Cup</span><span class="p">,</span> <span class="n">get_size</span>
 <span class="n">Box</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="kc">False</span>
 
 <span class="n">config</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;pdftex&quot;</span><span class="p">)</span>
@@ -157,7 +157,7 @@ also <code>Box</code>'s so we can stick them anywhere we can use a <code>Box</co
 <span class="n">bot</span> <span class="o">=</span> <span class="n">HDia</span><span class="p">([</span><span class="n">VWire</span><span class="p">(),</span> <span class="n">Cup</span><span class="p">()])</span>
 <span class="n">rsnake</span> <span class="o">=</span> <span class="n">VDia</span><span class="p">([</span><span class="n">top</span><span class="p">,</span> <span class="n">bot</span><span class="p">])</span>
 
-<span class="n">boxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lsnake</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">VWire</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">SIZE</span><span class="p">),</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rsnake</span><span class="p">]</span>
+<span class="n">boxs</span> <span class="o">=</span> <span class="p">[</span><span class="n">lsnake</span><span class="p">,</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">VWire</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">get_size</span><span class="p">()),</span> <span class="s2">&quot;$=$&quot;</span><span class="p">,</span> <span class="n">rsnake</span><span class="p">]</span>
 <span class="n">dia</span> <span class="o">=</span> <span class="n">HBox</span><span class="p">(</span><span class="n">boxs</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
 </pre></div>
 
@@ -244,7 +244,7 @@ inside its large box.</p>
 
 <span class="n">scale</span> <span class="o">=</span> <span class="mf">2.0</span>
 <span class="n">w</span> <span class="o">=</span> <span class="mf">1.5</span><span class="o">*</span><span class="n">scale</span>
-<span class="n">h</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">h</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">*</span><span class="n">scale</span>
 <span class="n">s12</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
 <span class="n">s23</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
 
@@ -265,7 +265,7 @@ inside its large box.</p>
 
 <span class="n">Id</span> <span class="o">=</span> <span class="n">VWire</span>
 
-<span class="n">scale</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">scale</span> <span class="o">=</span> <span class="mf">2.0</span>
 <span class="n">w</span> <span class="o">=</span> <span class="mf">0.8</span><span class="o">*</span><span class="n">scale</span>
 <span class="n">h</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">scale</span>
 <span class="n">s1</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">Braid</span><span class="p">(</span><span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">)</span> <span class="o">@</span> <span class="n">Id</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
@@ -296,8 +296,8 @@ inside its large box.</p>
 
 <span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
-<span class="n">scale</span> <span class="o">=</span> <span class="mf">0.3</span>
-<span class="n">w</span> <span class="o">=</span> <span class="mf">1.4</span><span class="o">*</span><span class="n">scale</span>
+<span class="n">scale</span> <span class="o">=</span> <span class="mf">0.7</span>
+<span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">*</span><span class="n">scale</span>
 <span class="n">h</span> <span class="o">=</span> <span class="mf">1.8</span><span class="o">*</span><span class="n">scale</span>
 <span class="n">Id</span> <span class="o">=</span> <span class="k">lambda</span> <span class="p">:</span> <span class="n">VWire</span><span class="p">(</span><span class="n">min_height</span><span class="o">=</span><span class="n">scale</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
 <span class="n">Swap</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">inverse</span> <span class="p">:</span> <span class="n">Braid</span><span class="p">(</span><span class="n">inverse</span><span class="o">=</span><span class="n">inverse</span><span class="p">,</span> <span class="n">min_width</span><span class="o">=</span><span class="n">w</span><span class="p">,</span> <span class="n">min_height</span><span class="o">=</span><span class="n">h</span><span class="p">,</span> <span class="n">space</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>

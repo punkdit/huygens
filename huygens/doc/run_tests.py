@@ -84,7 +84,7 @@ def run_test(func, dummy=False):
                 cvs = Canvas([Scale(2.0), cvs])
             
             cvs.writeSVGfile(svgname)
-            cvs.writePDFfile(pdfname)
+            #cvs.writePDFfile(pdfname) # pdf's change on every write :-(
             print()
         except:
             print("run_tests: render failed for", 

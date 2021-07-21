@@ -300,6 +300,9 @@ class MinBox(Box):
 
 
 class CanBox(Box):
+    """
+    Wrap a canvas in a box, put the anchor at top-left of canvas.
+    """
     def __init__(self, cvs):
         bound = cvs.get_bound_box()
         self.top = 0.
@@ -318,6 +321,29 @@ class CanBox(Box):
         x0, y0 = self.x0, self.y0
         dx, dy = x-x0, y-y0
         item = Compound([Translate(dx, dy), self.cvs])
+        cvs.append(item)
+
+    
+class CVSBox(Box):
+    """
+    Wrap a canvas in a box, include the anchor at canvas coords (0,0).
+    """
+    def __init__(self, cvs):
+        bound = cvs.get_bound_box()
+        llx, lly, urx, ury = bound.llx, bound.lly, bound.urx, bound.ury
+        llx, lly = min(llx, 0.), min(lly, 0.) # include anchor
+        urx, ury = max(urx, 0.), max(ury, 0.) # include anchor
+        self.bot = lly
+        self.top = ury
+        self.left = llx
+        self.right = urx
+        self.cvs = cvs
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        x = system[self.x]
+        y = system[self.y]
+        item = Compound([Translate(x, y), self.cvs])
         cvs.append(item)
 
     

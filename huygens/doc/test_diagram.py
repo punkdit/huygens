@@ -58,7 +58,7 @@ def test_snake():
 
     from huygens import config, canvas
     from huygens.box import Box, HBox
-    from huygens.diagram import HDia, VDia, VWire, Cap, Cup, SIZE
+    from huygens.diagram import HDia, VDia, VWire, Cap, Cup, get_size
     Box.DEBUG = False
 
     config(text="pdftex")
@@ -72,7 +72,7 @@ def test_snake():
     bot = HDia([VWire(), Cup()])
     rsnake = VDia([top, bot])
 
-    boxs = [lsnake, "$=$", VWire(min_height=SIZE), "$=$", rsnake]
+    boxs = [lsnake, "$=$", VWire(min_height=get_size()), "$=$", rsnake]
     dia = HBox(boxs, align="center")
 
     yield dia
@@ -152,7 +152,7 @@ def test_yang_baxter():
 
     scale = 2.0
     w = 1.5*scale
-    h = 0.5*scale
+    h = 1.0*scale
     s12 = lambda : Braid(min_width=w, min_height=h) @ Id(min_height=h, min_width=h)
     s23 = lambda : Id(min_height=h, min_width=h) @ Braid(min_width=w, min_height=h)
 
@@ -171,7 +171,7 @@ def test_braid_3():
 
     Id = VWire
 
-    scale = 1.0
+    scale = 2.0
     w = 0.8*scale
     h = 0.5*scale
     s1 = lambda : Braid(min_width=w, min_height=h) @ Id(min_height=h, min_width=h)
@@ -201,8 +201,8 @@ def test_braid():
 
     seed(1)
 
-    scale = 0.3
-    w = 1.4*scale
+    scale = 0.7
+    w = 1.0*scale
     h = 1.8*scale
     Id = lambda : VWire(min_height=scale, min_width=scale)
     Swap = lambda inverse : Braid(inverse=inverse, min_width=w, min_height=h, space=0.5)

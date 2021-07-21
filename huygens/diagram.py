@@ -11,35 +11,62 @@ from huygens.front import canvas, path, trafo, style, color, deco
 from huygens.box import (Box, EmptyBox, HBox, VBox, AlignBox, 
     StrictVBox, StrictHBox, TextBox, RectBox, MarginBox, BoxDeco, CanBox)
 
-# For now we live with some globals... 
-HFLOW = "right"
-VFLOW = "down"
-SIZE = 2.0
 PIP = 0.001
+SCALE_SIZE = 2.0
 
 class Config(object):
 
-    @classmethod
-    def config(cls, vflow="down", hflow="right", size=None):
-        global VFLOW, HFLOW, SIZE
-        assert vflow in "up down".split()
-        assert hflow in "left right".split()
-        VFLOW = vflow
-        HFLOW = hflow
+    stack = []
+
+    def __init__(self, hflow=None, vflow=None, size=None, **kw):
         if size is not None:
-            size = float(size)
-            SIZE = size
-        return cls()
+            size *= SCALE_SIZE
+        if self.stack:
+            hflow = get_hflow(hflow)
+            vflow = get_vflow(vflow)
+            size = get_size(size)
+        assert hflow in "left right".split()
+        assert vflow in "up down".split()
+        self.hflow = hflow
+        self.vflow = vflow
+        self.size = size
+        self.__dict__.update(kw)
+        self.stack.append(self)
 
-    def pop(self):
-        pass # TODO: make a Config stack etc...
+    @classmethod
+    def get_size(cls, size=None):
+        conf = cls.stack[-1]
+        size = conf.size if size is None else size
+        return size
 
-    def __del__(self):
-        self.pop()
+    @classmethod
+    def get_hflow(cls, hflow=None):
+        conf = cls.stack[-1]
+        hflow = conf.hflow if hflow is None else hflow
+        return hflow
+
+    @classmethod
+    def get_vflow(cls, vflow=None):
+        conf = cls.stack[-1]
+        vflow = conf.vflow if vflow is None else vflow
+        return vflow
+
+    @classmethod
+    def restore(cls):
+        assert cls.stack, "empty stack!"
+        conf = cls.stack.pop()
+
+    #def __del__(self):
+    #    self.restore()
 
 
-config = Config.config
-
+#config = Config.config
+config = Config
+config(hflow="right", vflow="down", size=1.0)
+restore = Config.restore
+get_size = Config.get_size
+get_hflow = Config.get_hflow
+get_vflow = Config.get_vflow
 
 
 conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
@@ -47,13 +74,13 @@ conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
 
 class Dia(Base): # Mixin
     def __init__(self, n_top=0, n_bot=0, n_left=0, n_right=0, 
-        min_width=SIZE, min_height=SIZE):
+        min_width=None, min_height=None):
         self.n_top = n_top
         self.n_bot = n_bot
         self.n_left = n_left
         self.n_right = n_right
-        self.min_width = min_width
-        self.min_height = min_height
+        self.min_width = get_size(min_width)
+        self.min_height = get_size(min_height)
 
     def on_layout(self, cvs, system):
         pass
@@ -62,20 +89,22 @@ class Dia(Base): # Mixin
         pass
 
     def __mul__(self, other):
-        if VFLOW == "down":
+        vflow = get_vflow()
+        if vflow == "down":
             return VDia([self, other])
-        elif VFLOW == "up":
+        elif vflow == "up":
             return VDia([other, self])
         else:
-            assert 0, VFLOW
+            assert 0, vflow
 
     def __matmul__(self, other):
-        if HFLOW == "right":
+        hflow = get_hflow()
+        if hflow == "right":
             return HDia([self, other])
-        elif HFLOW == "left":
+        elif hflow == "left":
             return HDia([other, self])
         else:
-            assert 0, HFLOW
+            assert 0, hflow
 
 
 class Atom(Dia):
@@ -221,7 +250,9 @@ class VDia(StrictVBox, Dia):
 
 
 class VWire(Box, Atom):
-    def __init__(self, min_width=0.5*SIZE, min_height=0.5*SIZE, attrs=[]):
+    def __init__(self, min_width=None, min_height=None, attrs=[]):
+        min_width = 0.5*get_size(min_width)
+        min_height = 0.5*get_size(min_height)
         Atom.__init__(self, n_top=1, n_bot=1, 
             min_width=min_width, min_height=min_height)
         self.attrs = attrs
@@ -247,7 +278,7 @@ class VWire(Box, Atom):
 
 class Cap(Box, Atom):
     def __init__(self, weight=1.0):
-        Atom.__init__(self, n_bot=2, min_height=0.5*SIZE)
+        Atom.__init__(self, n_bot=2, min_height=0.5*get_size())
         self.weight = weight
 
     def on_layout(self, cvs, system):
@@ -276,7 +307,7 @@ class Cap(Box, Atom):
 
 class Cup(Box, Atom):
     def __init__(self, weight=1.0):
-        Atom.__init__(self, n_top=2, min_height=0.5*SIZE)
+        Atom.__init__(self, n_top=2, min_height=0.5*get_size())
         self.weight = weight
 
     def on_layout(self, cvs, system):
@@ -304,22 +335,25 @@ class Cup(Box, Atom):
 
 
 class Multi(Box, Atom):
+    """
+    Even layout of top and bot ports.
+    """
     def __init__(self, n_top, n_bot,
             weight=1.0, min_width=None, min_height=None,
             top_attrs=None, bot_attrs=None, **kw
         ):
-        if VFLOW == "up":
+        if get_vflow() == "up":
             n_top, n_bot = n_bot, n_top # i hope i don't regret this
         if top_attrs is None:
             top_attrs = [[] for i in range(n_top)]
         if bot_attrs is None:
             bot_attrs = [[] for i in range(n_bot)]
         if min_width is None:
-            min_width = 0.5*SIZE
+            min_width = 0.5*get_size()
             if n_top > 1 or n_bot > 1:
-                min_width = 1.0*SIZE
+                min_width = 1.0*get_size()
         if min_height is None:
-            min_height = 0.5*SIZE
+            min_height = 0.5*get_size()
         self.weight = weight
         self.top_attrs = top_attrs
         self.bot_attrs = bot_attrs
@@ -458,22 +492,39 @@ class TBone(Spider):
 
 
 class Relation(Multi):
-    def __init__(self, n_top, n_bot, toptop=[], topbot=[], botbot=[], weight=1.0, attrs=[]):
-        if VFLOW == "up":
+    def __init__(self, n_top, n_bot, toptop=[], topbot=[], botbot=[], weight=1.0, 
+            attrs=[], top_attrs=None, bot_attrs=None):
+        if get_vflow() == "up":
             n_top, n_bot = n_bot, n_top # i hope i don't regret this
-        min_width = 0.5*SIZE
+        min_width = 0.5*get_size()
         if n_top > 1 or n_bot > 1:
-            min_width = 1.0*SIZE
-        min_height = 0.5*SIZE
+            min_width = 1.0*get_size()
+        if top_attrs is None:
+            top_attrs = [[]]*n_top
+        if bot_attrs is None:
+            bot_attrs = [[]]*n_bot
+        assert len(top_attrs) == n_top
+        assert len(bot_attrs) == n_bot
+        min_height = 0.5*get_size()
         self.weight = weight
         for (a, b) in topbot:
             assert 0<=a<n_top
             assert 0<=b<n_bot
-        assert len(set(topbot)) == len(topbot)
+        for (a, b) in toptop:
+            assert 0<=a<n_top
+            assert 0<=b<n_top
+        for (a, b) in botbot:
+            assert 0<=a<n_bot
+            assert 0<=b<n_bot
+        assert len(set(topbot)) == len(topbot), "non unique relation"
+        assert len(set(toptop)) == len(toptop), "non unique relation"
+        assert len(set(botbot)) == len(botbot), "non unique relation"
         self.topbot = list(topbot)
         self.toptop = list(toptop)
         self.botbot = list(botbot)
-        self.attrs = attrs
+        self.attrs = attrs # applies to all strings
+        self.top_attrs = list(top_attrs) # applies to top strings
+        self.bot_attrs = list(bot_attrs) # applies to bot strings
         Atom.__init__(self, n_top=n_top, n_bot=n_bot,
             min_width=min_width, min_height=min_height)
 
@@ -501,6 +552,8 @@ class Relation(Multi):
         x_avg = (1./n)*sum(x_top + x_bot)
 
         attrs = self.attrs
+        top_attrs = self.top_attrs
+        bot_attrs = self.bot_attrs
         conv = lambda x0, x1, t=0.5: (1.-t)*x0 + t*x1
 
         for (i_top, j_top) in self.toptop:
@@ -509,25 +562,29 @@ class Relation(Multi):
             #cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top))
             x = conv(x0, x1)
             r = 0.5*(x1-x0)
-            cvs.stroke(path.arc(x, y_top, r, pi, 2*pi), attrs)
+            cvs.stroke(path.arc(x, y_top, r, pi, 2*pi), 
+                attrs + top_attrs[i_top])
 
         for (i_top, i_bot) in self.topbot:
             x0 = x_bot[i_bot]
             x1 = x_top[i_top]
-            cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top), attrs)
+            cvs.stroke(path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top), 
+                attrs + top_attrs[i_top] + bot_attrs[i_bot])
 
         for (i_bot, j_bot) in self.botbot:
             x0 = x_bot[i_bot]
             x1 = x_bot[j_bot]
             x = conv(x0, x1)
             r = 0.5*(x1-x0)
-            cvs.stroke(path.arc(x, y_bot, r, 0, pi), attrs)
+            cvs.stroke(path.arc(x, y_bot, r, 0, pi), 
+                attrs + bot_attrs[i_bot])
 
 
 
 class Braid(Multi):
-    def __init__(self, inverse=False, space=0.5, weight=1.0, 
-            min_width=SIZE, min_height=0.5*SIZE):
+    def __init__(self, inverse=False, space=0.5, weight=1.0, min_width=None, min_height=None):
+        min_width = get_size(min_width)
+        min_height = 0.5*get_size(min_height)
         Multi.__init__(self, 2, 2, weight, min_width=min_width, min_height=min_height)
         self.inverse = inverse
         self.space = space
