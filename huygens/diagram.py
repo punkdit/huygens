@@ -108,6 +108,10 @@ class Dia(Base): # Mixin
 
 
 class Atom(Dia):
+    """
+        Has ports at the top and bot: n_top, n_bot
+        TODO: n_left and n_right ports
+    """
 
     DEBUG = False
 
@@ -138,6 +142,8 @@ class Atom(Dia):
             system.add(x0 <= self.urx)
 
         # TODO: top to bot for the left and right ports XXX
+        assert self.n_left == 0, "not implemented"
+        assert self.n_right == 0, "not implemented"
 
     def on_render(self, cvs, system):
         pass
@@ -406,15 +412,32 @@ class Spider(Multi):
         if pip is not None:
             pip_align = kw.get("pip_align")
             pip = Box.promote(pip, pip_align)
+        self.clamp = kw.get("clamp", 0.3)
         self.pip = pip
         self.trace = {}
 
+#    def on_layout(self, cvs, system):
+#        Multi.on_layout(self, cvs, system)
+#        get_var = system.get_var
+#        pipx = get_var("pipx")
+#        system.add(x_bot[i] == x, weight=self.weight)
+#        self.pipx = pipx
+
     def _get_pipx(self, x_top, x_bot): # override in TBone below
         n_top, n_bot = self.n_top, self.n_bot
+        clamp = self.clamp
         if n_bot == 1 and n_top > 1:
             x0 = x_bot[0]
+            xmin, xmax = x_top[0], x_top[1]
+            assert xmin <= xmax, "wup?"
+            x0 = max(x0, conv(xmin, xmax, clamp)) # clamp
+            x0 = min(x0, conv(xmin, xmax, 1.0-clamp)) # clamp
         elif n_top == 1 and n_bot > 1:
             x0 = x_top[0]
+            xmin, xmax = x_bot[0], x_bot[1]
+            assert xmin <= xmax, "wup?"
+            x0 = max(x0, conv(xmin, xmax, clamp)) # clamp
+            x0 = min(x0, conv(xmin, xmax, 1.0-clamp)) # clamp
         else:
             n = n_top + n_bot
             x0 = (1./n)*sum(x_top + x_bot)
