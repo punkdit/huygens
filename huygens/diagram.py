@@ -428,13 +428,13 @@ class Spider(Multi):
         clamp = self.clamp
         if n_bot == 1 and n_top > 1:
             x0 = x_bot[0]
-            xmin, xmax = x_top[0], x_top[1]
+            xmin, xmax = x_top[0], x_top[-1]
             assert xmin <= xmax, "wup?"
             x0 = max(x0, conv(xmin, xmax, clamp)) # clamp
             x0 = min(x0, conv(xmin, xmax, 1.0-clamp)) # clamp
         elif n_top == 1 and n_bot > 1:
             x0 = x_top[0]
-            xmin, xmax = x_bot[0], x_bot[1]
+            xmin, xmax = x_bot[0], x_bot[-1]
             assert xmin <= xmax, "wup?"
             x0 = max(x0, conv(xmin, xmax, clamp)) # clamp
             x0 = min(x0, conv(xmin, xmax, 1.0-clamp)) # clamp
