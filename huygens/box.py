@@ -228,6 +228,7 @@ class Box(Magic):
     def render(self, cvs=None, x=0, y=0):
         if cvs is None:
             cvs = canvas.canvas()
+        #assert (x,y) == (0, 0) # put the anchor here, not used ???
         self.layout(cvs, x, y)
         self.on_render(cvs, self.system)
         self.system.refresh()

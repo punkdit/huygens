@@ -8,8 +8,16 @@ tex_header = None
 latex_header = None
 xelatex_header = None
 
+_prev = {} # previous config
 
 def config(text=None, tex_header=None, latex_header=None, xelatex_header=None):
+
+    args = {
+        "text":text, 
+        "tex_header":tex_header, 
+        "latex_header":latex_header,
+        "xelatex_header":xelatex_header,
+    }
 
     if text is None:
         pass
@@ -24,5 +32,11 @@ def config(text=None, tex_header=None, latex_header=None, xelatex_header=None):
     huygens.text.tex_header = tex_header
     huygens.text.latex_header = latex_header
     huygens.text.xelatex_header = xelatex_header
+
+    global _prev
+    prev = _prev
+    _prev = args
+
+    return prev
 
 

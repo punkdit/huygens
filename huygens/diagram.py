@@ -423,6 +423,9 @@ class Spider(Multi):
 #        system.add(x_bot[i] == x, weight=self.weight)
 #        self.pipx = pipx
 
+    # XXX the pip should be at the anchor... right now
+    # the anchor is just free to float XXX
+
     def _get_pipx(self, x_top, x_bot): # override in TBone below
         n_top, n_bot = self.n_top, self.n_bot
         clamp = self.clamp
