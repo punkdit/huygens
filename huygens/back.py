@@ -1049,6 +1049,17 @@ class Transform(Deco):
             n -= 1
         return op
 
+    def interpolate(self, other, alpha=0.):
+        assert other.__class__ is Transform
+        conv = lambda a, b, alpha : (1-alpha)*a+alpha*b
+        xx = conv(self.xx, other.xx, alpha)
+        yx = conv(self.yx, other.yx, alpha)
+        xy = conv(self.xy, other.xy, alpha)
+        yy = conv(self.yy, other.yy, alpha)
+        x0 = conv(self.x0, other.x0, alpha)
+        y0 = conv(self.y0, other.y0, alpha)
+        return Transform(xx, yx, xy, yy, x0, y0)
+
     def process_cairo(self, cxt):
         import cairo
         x0 = self.x0*SCALE_CM_TO_POINT
