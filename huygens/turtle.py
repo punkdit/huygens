@@ -250,7 +250,12 @@ class Turtle(object):
             if len(ps)>1:
                 p = mkpath(ps, closepath)
                 method = getattr(cvs, name)
-                method(p, attrs)
+                if name=="stroke":
+                    method(p, attrs)
+                elif name=="fill":
+                    method(p, attrs)
+                else:
+                    method(p)
         if not preserve:
             self.paths = []
             if self.ps is not None:
@@ -263,6 +268,10 @@ class Turtle(object):
 
     def fill(self, *args, **kw):
         kw["name"] = "fill"
+        self._render(*args, **kw)
+
+    def clip(self, *args, **kw):
+        kw["name"] = "clip"
         self._render(*args, **kw)
 
     def stroke_preserve(self, *args, **kw):
