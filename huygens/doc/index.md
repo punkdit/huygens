@@ -80,6 +80,9 @@ See also
 Possibly the most widely used package for creating
 graphics for integration with latex documents.
 
+[Asymptote](https://asymptote.sourceforge.io/)
+A custom language for doing vector graphics inspired by MetaPost.
+
 [manim](https://github.com/3b1b/manim)
 Primarily used for animations, this library also has
 an interface to latex. It also is a python library using pycairo.
