@@ -66,7 +66,7 @@ class Matrix(Base):
     def __getitem__(self, idx):
         return [self.xx, self.yx, self.xy, self.yy, self.x0, self.y0][idx]
 
-    def multiply(left, right):
+    def multiply(left, right): # UGH this is twisted multiply: right*left !!
         xx = right.xx*left.xx + right.xy*left.yx
         yx = right.yx*left.xx + right.yy*left.yx
         xy = right.xx*left.xy + right.xy*left.yy
@@ -75,6 +75,18 @@ class Matrix(Base):
         y0 = right.yx*left.x0 + right.yy*left.y0 + right.y0
         return Matrix(xx, yx, xy, yy, x0, y0)
     __mul__ = multiply
+
+    #def __mul__(left, right):
+    #    return right.multiply(left) # ???
+
+    def __pow__(self, n):
+        if n==0:
+            return Matrix()
+        A = self
+        while n>1:
+            A = self*A
+            n -= 1
+        return A
 
     def asnumpy(self):
         import numpy
@@ -95,6 +107,10 @@ class Matrix(Base):
         m = Matrix(Mi[0,0], Mi[1,0], Mi[0,1], Mi[1,1], Mi[0,2], Mi[1,2])
         return m
 
+    the_identity = None
+    def is_identity(self):
+        return self==Matrix.the_identity
+
     @classmethod
     def translate(cls, dx, dy):
         return cls(1., 0., 0., 1., dx, dy)
@@ -107,6 +123,8 @@ class Matrix(Base):
     def rotate(cls, radians, x=0., y=0.):
         s, c = sin(radians), cos(radians)
         return cls(c, s, -s, c, x-c*x+s*y, y-s*x-c*y)
+
+Matrix.the_identity = Matrix()
 
 
 class State(object):
