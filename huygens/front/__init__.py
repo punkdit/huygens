@@ -225,6 +225,24 @@ class Canvas(Compound):
         # (Lord help me, this is getting hairy.)
         #self.trace = {} 
 
+    def translate(self, x, y):
+        self.append(Translate(x, y))
+        return self # yes...
+
+    def scale(self, sx, sy=None, x=0., y=0.):
+        self.append(Scale(x, y))
+        return self # yes...
+
+    def rotate(self, angle, x=0., y=0.):
+        self.append(Rotate(angle, x, y))
+        return self # yes...
+
+    # Argh! This method already means something else for list's...
+    def insert(self, x, y, cvs): 
+        cvs = Canvas([Translate(x, y), cvs])
+        self.append(cvs)
+        return self 
+
     def stroke(self, path, decos=[]):
         assert type(decos) is list
         assert isinstance(path, Item), repr(path)
