@@ -109,7 +109,7 @@ class Mat(object):
 
     def __eq__(self, other):
         other = Mat.promote(other)
-        assert self.shape == other.shape
+        assert self.shape == other.shape, ("%s != %s"%(self.shape, other.shape))
         err = numpy.abs(self.A - other.A).sum()
         return err < EPSILON
 
@@ -279,12 +279,12 @@ class Mat(object):
         return M
 
     @classmethod
-    def scale(cls, sx, sy, sz):
+    def scale(cls, sx, sy=None, sz=None):
         "modelled after glScale"
         A = numpy.identity(4)
         A[0, 0] = sx
-        A[1, 1] = sy
-        A[2, 2] = sz
+        A[1, 1] = sy if sy is not None else sx
+        A[2, 2] = sz if sz is not None else sx
         M = cls(A)
         return M
 
