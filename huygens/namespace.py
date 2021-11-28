@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
 from huygens.front import *
+from huygens.turtle import mkpath
+
+
+def conv(alpha, a, b):
+    return (1.-alpha)*a + alpha*b
 
 
 red = color.rgb(1.0, 0.0, 0.0)
