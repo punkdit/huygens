@@ -627,6 +627,11 @@ class VBox(CompoundBox):
                 system.add(box.right <= self.right)
         system.add(self.y - self.bot == y)
 
+        # try to make all our boxes the same width
+        #for box in boxs:
+        #    w = (1./len(boxs))*self.height
+        #    system.add(box.height == w, 2.0)
+
 
 class StrictVBox(VBox):
     strict = True

@@ -106,6 +106,13 @@ class Dia(Base): # Mixin
         else:
             assert 0, hflow
 
+    def get_hunits(self):
+        return 1
+
+    def get_vunits(self):
+        return 1
+
+
 
 class Atom(Dia):
     """
@@ -201,6 +208,14 @@ class HDia(StrictHBox, Dia):
                 system.add(left.y_right[j] == right.y_left[j])
             i+=1
 
+    def get_hunits(self):
+        hunits = sum([dia.get_hunits() for dia in self.boxs])
+        return hunits
+
+    def get_vunits(self):
+        vunits = max([dia.get_vunits() for dia in self.boxs])
+        return vunits
+
 
 class VDia(StrictVBox, Dia):
     "top down arrangement of dias"
@@ -253,6 +268,17 @@ class VDia(StrictVBox, Dia):
             for j in range(n):
                 system.add(top.x_bot[j] == bot.x_top[j])
             i+=1
+
+    def get_hunits(self):
+        #for dia in self.boxs:
+        #    dia.get_hunits()
+        hunits = max([dia.get_hunits() for dia in self.boxs])
+        return hunits
+
+    def get_vunits(self):
+        vunits = sum([dia.get_vunits() for dia in self.boxs])
+        return vunits
+
 
 
 class VWire(Box, Atom):
