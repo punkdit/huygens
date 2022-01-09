@@ -554,14 +554,51 @@ class GCurve(GItem):
         self.lw = lw
         self.stroke = stroke
 
+    def get_path(self, view):
+        (x0, y0), (x1, y1), (x2, y2), (x3, y3) = (
+            view.trafo_canvas(self.v0), view.trafo_canvas(self.v1),
+            view.trafo_canvas(self.v2), view.trafo_canvas(self.v3))
+        return (x0, y0), (x1, y1), (x2, y2), (x3, y3)
+
     def render(self, view, cvs):
         GItem.render(self, cvs)
         (x0, y0), (x1, y1), (x2, y2), (x3, y3) = (
             view.trafo_canvas(self.v0), view.trafo_canvas(self.v1),
-            view.trafo_canvas(self.v2), view.trafo_canvas(self.v3))
+            view.trafo_canvas(self.v2), view.trafo_canvas(self.v3)) # D.R.Y.
         cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3), [LineWidth(self.lw)])
 
-        
+
+class GSurface(GItem):
+    def __init__(self, segments, fill=None, stroke=None):
+        verts = []
+        for seg in segments:
+            assert isinstance(seg, tuple)
+            assert len(seg) == 4 # bezier
+            verts += [seg[0], seg[-1]]
+        GItem.__init__(self, verts)
+        self.segments = segments
+        self.fill = fill
+        self.stroke = stroke
+
+    def render(self, view, cvs):
+        GItem.render(self, cvs)
+        items = []
+        for seg in self.segments:
+            #p0, p1, p2, p3 = gitem.get_path(view)
+            p0, p1, p2, p3 = [view.trafo_canvas(v) for v in seg]
+            if not items:
+                items.append(path.moveto(*p0))
+            else:
+                items.append(path.lineto(*p0))
+            items.append(path.curveto(*p1, *p2, *p3))
+        items += [ClosePath()]
+        p = path.path(items)
+        #cvs.stroke(p, [RGBA(1,0,0,0.5), LineWidth(0.1)]) 
+        if self.fill is not None:
+            cvs.fill(p, [RGBA(*self.fill)])
+        if self.stroke is not None:
+            cvs.stroke(p, [RGBA(*self.stroke)])
+
 
 #class GBall(GItem):
 #    def __init__(self, point, radius):
@@ -759,7 +796,7 @@ class View(object):
         for gi in gitems:
             vc = gi.center
             other_side = (vc-v0).dot(n)
-            if (other_side>-EPSILON) == (eye_side>-EPSILON):
+            if (other_side > -EPSILON) == (eye_side > -EPSILON):
                 front.append(gi)
             else:
                 back.append(gi)
@@ -802,6 +839,17 @@ class View(object):
         #lw = self.trafo_view_width(lw)
         lw /= self.depth_camera(v1)
         gitem = GCurve(v0, v1, v2, v3, lw, *args, **kw)
+        self.add_gitem(gitem)
+        return gitem
+
+#    def add_surface(self, gitems, *args, **kw):
+#        gitem = GSurface(gitems, *args, **kw)
+#        self.add_gitem(gitem)
+#        return gitem
+
+    def add_surface(self, segments, *args, **kw):
+        segments = [tuple(self.trafo_view(v) for v in seg) for seg in segments]
+        gitem = GSurface(segments, *args, **kw)
         self.add_gitem(gitem)
         return gitem
 

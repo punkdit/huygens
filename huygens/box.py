@@ -238,6 +238,9 @@ class Box(Magic):
         other = Box.promote(other)
         return OBox([self, other])
 
+    def traverse(self, callback):
+        callback(self)
+
 
 class BoxDeco(Deco):
     def __init__(self, box, t, *args, **kw):
@@ -409,6 +412,10 @@ class ChildBox(Box):
         Box.on_render(self, cvs, system)
         self.child.on_render(cvs, system)
 
+    def traverse(self, callback):
+        self.child.traverse(callback)
+        Box.traverse(self, callback) 
+
 
 class MarginBox(ChildBox):
     def __init__(self, child, xmargin, ymargin=None):
@@ -509,6 +516,11 @@ class CompoundBox(Box):
         for box in self.boxs:
             box.on_render(cvs, system)
 
+    def traverse(self, callback):
+        for child in self.boxs:
+            child.traverse(callback)
+        Box.traverse(self, callback) 
+
 # FAIL:
 #
 #class MultiBox(CompoundBox):
@@ -564,6 +576,10 @@ class OBox(CompoundBox):
                 system.add(box.right <= self.right)
                 system.add(box.top <= self.top)
                 system.add(box.bot <= self.bot)
+
+
+class StrictOBox(OBox):
+    strict = True
 
 
 class HBox(CompoundBox):
