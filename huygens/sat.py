@@ -430,7 +430,7 @@ class System(object):
         # notify the listeners
         for v in self.all_vars:
           for listener, name, expr in v.listeners:
-            value = self[expr]
+            value = self[expr] # if KeyError: did this expr participate in the system ?
             listener.on_update(name, value)
 
     def __getitem__(self, v):

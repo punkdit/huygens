@@ -36,6 +36,7 @@ EPSILON = 1e-6
 class Box(Magic):
 
     DEBUG = False
+    shrink_weight = 1.0 # how hard to we try to shrink this box ?
 
     @classmethod
     def promote(cls, item, align=None, margin=None, xmargin=None, ymargin=None):
@@ -157,7 +158,7 @@ class Box(Magic):
 
             else:
                 # We don't try to minimize the absolute coordinate values.
-                weight = 1.0 if attr not in 'xy' else 0.0
+                weight = self.shrink_weight if attr not in 'xy' else 0.0
                 vmin = None if attr in 'xy' else 0.
                 #v = system.get_var(stem, weight, vmin=vmin)
                 v = system.listen_var(self, attr, stem, weight, vmin=vmin)
@@ -238,8 +239,19 @@ class Box(Magic):
         other = Box.promote(other)
         return OBox([self, other])
 
-    def traverse(self, callback):
-        callback(self)
+    def visit(self, callback, instance=None, **kw):
+        if instance is None or isinstance(self, instance):
+            callback(self)
+
+    def search(self, **kw):
+        boxs = []
+        def cb(box):
+            boxs.append(box)
+        self.visit(cb, **kw)
+        return boxs
+
+    def get_shape(self):
+        return self.__class__.__name__
 
 
 class BoxDeco(Deco):
@@ -412,9 +424,12 @@ class ChildBox(Box):
         Box.on_render(self, cvs, system)
         self.child.on_render(cvs, system)
 
-    def traverse(self, callback):
-        self.child.traverse(callback)
-        Box.traverse(self, callback) 
+    def visit(self, callback, **kw):
+        self.child.visit(callback, **kw)
+        Box.visit(self, callback, **kw) 
+
+    def get_shape(self):
+        return (self.__class__.__name__, self.child.get_shape())
 
 
 class MarginBox(ChildBox):
@@ -516,10 +531,16 @@ class CompoundBox(Box):
         for box in self.boxs:
             box.on_render(cvs, system)
 
-    def traverse(self, callback):
+    def visit(self, callback, **kw):
         for child in self.boxs:
-            child.traverse(callback)
-        Box.traverse(self, callback) 
+            child.visit(callback, **kw)
+        Box.visit(self, callback, **kw) 
+
+    def get_shape(self):
+        shape = [self.__class__.__name__]
+        for child in self.boxs:
+            shape.append(child.get_shape())
+        return tuple(shape)
 
 # FAIL:
 #
@@ -631,6 +652,14 @@ class VBox(CompoundBox):
         #for box in boxs:
         #    w = (1./len(boxs))*self.height
         #    system.add(box.height == w, 2.0)
+
+    def visit(self, callback, top=False, bot=False, **kw):
+        if top:
+            self.boxs[0].visit(callback, **kw)
+        elif bot:
+            self.boxs[-1].visit(callback, **kw)
+        else:
+            CompoundBox.visit(self, callback, **kw)
 
 
 class StrictVBox(VBox):

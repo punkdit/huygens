@@ -5,6 +5,8 @@ string diagram's
 """
 
 from math import pi
+from functools import reduce
+from operator import add
 
 from huygens.base import Base
 from huygens.front import canvas, path, trafo, style, color, deco
@@ -176,6 +178,17 @@ class HDia(StrictHBox, Dia):
         #self.boxs = list(dias)
         StrictHBox.__init__(self, dias)
 
+#    # this is just too tricky ... better to just set attributes in on_layout
+#    @property
+#    def x_top(self):
+#        x_top = reduce(add, [dia.x_top for dia in self.boxs])
+#        return x_top
+#
+#    @property
+#    def x_bot(self):
+#        x_bot = reduce(add, [dia.x_bot for dia in self.boxs])
+#        return x_bot
+
     def on_layout(self, cvs, system):
         HBox.on_layout(self, cvs, system)
         Dia.on_layout(self, cvs, system)
@@ -193,8 +206,8 @@ class HDia(StrictHBox, Dia):
         assert len(x_bot) == self.n_bot
         assert len(y_left) == self.n_left
         assert len(y_right) == self.n_right
-        self.x_top = x_top
-        self.x_bot = x_bot
+        self.x_top = x_top # could also make this a property ...
+        self.x_bot = x_bot # could also make this a property ...
         self.y_left = y_left
         self.y_right = y_right
                 
@@ -237,6 +250,15 @@ class VDia(StrictVBox, Dia):
         #self.boxs = list(dias)
         StrictVBox.__init__(self, dias)
 
+#    # this is just too tricky ... better to just set attributes in on_layout
+#    @property
+#    def x_top(self):
+#        return self.boxs[0].x_top
+#
+#    @property
+#    def x_bot(self):
+#        return self.boxs[-1].x_bot
+
     def on_layout(self, cvs, system):
         VBox.on_layout(self, cvs, system)
         Dia.on_layout(self, cvs, system)
@@ -254,8 +276,8 @@ class VDia(StrictVBox, Dia):
         assert len(x_bot) == self.n_bot
         assert len(y_left) == self.n_left
         assert len(y_right) == self.n_right
-        self.x_top = x_top
-        self.x_bot = x_bot
+        self.x_top = x_top # could also make this a property ...
+        self.x_bot = x_bot # could also make this a property ...
         self.y_left = y_left
         self.y_right = y_right
                 
@@ -393,6 +415,9 @@ class Multi(Box, Atom):
         assert len(bot_attrs) == n_bot
         Atom.__init__(self, n_top=n_top, n_bot=n_bot,
             min_width=min_width, min_height=min_height)
+
+    def get_shape(self):
+        return (self.__class__.__name__, self.n_top, self.n_bot)
 
     def on_layout(self, cvs, system):
         Box.on_layout(self, cvs, system)
