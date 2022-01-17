@@ -545,8 +545,8 @@ class GCircle(GItem):
 
         
 class GCurve(GItem):
-    def __init__(self, v0, v1, v2, v3, lw=1., stroke=(0,0,0,0)):
-        GItem.__init__(self, [v0, v1])
+    def __init__(self, v0, v1, v2, v3, lw=1., stroke=(0,0,0,0), **kw):
+        GItem.__init__(self, [v0, v1], **kw)
         self.v0 = v0
         self.v1 = v1
         self.v2 = v2
@@ -565,7 +565,8 @@ class GCurve(GItem):
         (x0, y0), (x1, y1), (x2, y2), (x3, y3) = (
             view.trafo_canvas(self.v0), view.trafo_canvas(self.v1),
             view.trafo_canvas(self.v2), view.trafo_canvas(self.v3)) # D.R.Y.
-        cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3), [LineWidth(self.lw)])
+        cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3),
+            [LineWidth(self.lw), RGBA(*self.stroke), style.linecap.round])
 
 
 class GSurface(GItem):
@@ -818,7 +819,6 @@ class View(object):
 
     def add_line(self, v0, v1, lw=0.2, *args, **kw):
         v0, v1 = self.trafo_view(v0), self.trafo_view(v1)
-        #lw = self.trafo_view_width(lw)
         lw /= self.depth_camera(v0)
         gitem = GLine(v0, v1, lw, *args, **kw)
         self.add_gitem(gitem)
@@ -826,7 +826,6 @@ class View(object):
 
     def add_circle(self, v0, radius, lw=0.2, *args, **kw):
         v0 = self.trafo_view(v0)
-        #lw = self.trafo_view_width(lw)
         lw /= self.depth_camera(v0)
         radius /= self.depth_camera(v0)
         gitem = GCircle(v0, radius, lw, *args, **kw)
@@ -836,7 +835,6 @@ class View(object):
     def add_curve(self, v0, v1, v2, v3, lw=0.2, *args, **kw):
         v0, v1, v2, v3 = (
             self.trafo_view(v0), self.trafo_view(v1), self.trafo_view(v2), self.trafo_view(v3))
-        #lw = self.trafo_view_width(lw)
         lw /= self.depth_camera(v1)
         gitem = GCurve(v0, v1, v2, v3, lw, *args, **kw)
         self.add_gitem(gitem)

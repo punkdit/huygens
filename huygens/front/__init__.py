@@ -17,6 +17,8 @@ The api uses the first quadrant coordinate system:
     
 """
 
+import os
+from tempfile import mkstemp
 from math import pi, sqrt, sin, cos, sqrt, floor
 
 from huygens.base import EPSILON, NS, SCALE_CM_TO_POINT
@@ -404,6 +406,13 @@ class Canvas(Compound):
         data = data.copy()
         surface.finish()
         return data
+
+    def _repr_svg_(self):
+        fd, name = mkstemp(suffix=".svg")
+        self.writeSVGfile(name)
+        os.close(fd)
+        s = open(name).read()
+        return s
     
 
 
