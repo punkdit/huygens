@@ -438,6 +438,14 @@ class GItem(object):
     def render(self, cvs):
         pass
 
+    def incident(self, other, epsilon=1e-6):
+        for w in self.verts:
+          for v in other.verts:
+            err = numpy.abs(v.A - w.A).sum()
+            if err < epsilon:
+                return True
+        return False
+
 
 class GPoly(GItem):
     def __init__(self, verts, fill=None, stroke=None, lw=None, texture=None, texture_coords=None, 
@@ -546,7 +554,7 @@ class GCircle(GItem):
         
 class GCurve(GItem):
     def __init__(self, v0, v1, v2, v3, lw=1., stroke=(0,0,0,0), **kw):
-        GItem.__init__(self, [v0, v1], **kw)
+        GItem.__init__(self, [v0, v3], **kw)
         self.v0 = v0
         self.v1 = v1
         self.v2 = v2
@@ -915,14 +923,19 @@ class View(object):
         x, y, z = self.trafo_camera(v)
         return -z
 
-    def render(self, *args, **kw):
+    def render(self, *args, less_than=None, **kw):
         cvs = self.prepare_canvas(*args, **kw)
 
         #gitems = list(self.gitems)
         gitems = self.gitems
 
-        if self.sort_gitems:
-            # XXX sorting by depth does not always work...
+        if less_than is not None:
+            GItem.__lt__ = less_than
+            gitems.sort()
+            del GItem.__lt__
+
+        elif self.sort_gitems:
+            # XXX sorting by depth is very crude & does not always work...
             # XXX try subdividing your GItem's ?
             gitems.sort(key = self.get_depth)
 

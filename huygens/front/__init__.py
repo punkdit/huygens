@@ -385,7 +385,8 @@ class Canvas(Compound):
         def method(name, W, H):
             W = int(round(W))
             H = int(round(H))
-            surface = cairo.ImageSurface(cairo.Format.RGB24, W, H)
+            #surface = cairo.ImageSurface(cairo.Format.RGB24, W, H)
+            surface = cairo.ImageSurface(cairo.Format.ARGB32, W, H)
             return surface
         surface = self._write_cairo(method, name)
         surface.write_to_png(name)
@@ -407,7 +408,8 @@ class Canvas(Compound):
         surface.finish()
         return data
 
-    def _repr_svg_(self):
+    # svg output does not work on github  :P 
+    def X_repr_svg_(self):
         fd, name = mkstemp(suffix=".svg")
         self.writeSVGfile(name)
         os.close(fd)
