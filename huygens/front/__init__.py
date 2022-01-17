@@ -407,7 +407,7 @@ class Canvas(Compound):
         surface.finish()
         return data
 
-    def X_repr_svg_(self):
+    def _repr_svg_(self):
         fd, name = mkstemp(suffix=".svg")
         self.writeSVGfile(name)
         os.close(fd)
