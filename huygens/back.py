@@ -211,7 +211,7 @@ class Item(Base):
     def process_cairo(self, cxt):
         pass
 
-    def visit(self, visitor):
+    def visit(self, visitor, leaves_only=True):
         return visitor.on_visit(self)
 
     def rewrite(self, visitor):
@@ -551,11 +551,12 @@ class Compound(Item):
         self.items += other.items
         return self
 
-    def visit(self, visitor):
+    def visit(self, visitor, leaves_only=True):
         # depth first visit
         for item in self.items:
-            item.visit(visitor)
-        #Item.visit(self, visitor) # ???
+            item.visit(visitor, leaves_only) # recurse
+        if not leaves_only:
+            Item.visit(self, visitor, leaves_only)
 
     def pstr(self, indent=0):
         lines = []

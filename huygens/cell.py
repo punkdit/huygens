@@ -15,8 +15,9 @@ from math import pi, sin, cos
 from time import sleep
 
 from huygens.sat import System, Listener, Variable
-from huygens.front import Compound, Deco, Path, Canvas, Transform, Scale
-from huygens.front import path, style, canvas, color
+from huygens.back import Compound, Deco, Path, Transform, Scale
+from huygens.front import path, style, canvas, color, Canvas
+from huygens.back import Visitor
 from huygens.argv import argv
 
 from huygens import pov
@@ -48,6 +49,9 @@ grey = (0,0,0,0.2)
 PIP = 0.001
 
 class Shape(Listener):
+
+    address = None
+
     def __init__(self, name, weight=1.0, no_constrain=False, **kw):
         self.name = name
         self.weight = weight
@@ -57,18 +61,18 @@ class Shape(Listener):
     def __str__(self):
         return self.name
 
-    def __eq__(self, other):
-        assert isinstance(other, Shape)
-        assert 0, "this is just too weak..."
-        return self.name == other.name
+#    def __eq__(self, other):
+#        assert isinstance(other, Shape)
+#        assert 0, "this is just too weak..."
+#        return self.name == other.name
 
     @property
     def key(self):
         return id(self)
 
     def clone(self, alias=False):
-        for v in self.__dict__.values():
-            assert not isinstance(v, Variable), "wup"
+        #for v in self.__dict__.values():
+        #    assert not isinstance(v, Variable), "wup"
         if alias:
             return self
         image = copy.deepcopy(self)
@@ -139,9 +143,13 @@ class Shape(Listener):
             system.add(self.depth == 0.5*self.dunits)
         return system
 
+    did_layout = None
     def layout(self, *args, **kw):
+        if self.did_layout:
+            return self.did_layout
         system = self.constrain(*args, **kw)
         system.solve()
+        self.did_layout = system
         return system
 
     def longstr(self):
@@ -194,6 +202,20 @@ class Shape(Listener):
             self.format("top"), self.format("bot"),
         )
         return s
+
+    def vflip(self, alias=False):
+        return self.clone(alias)
+
+    def save_dbg(self, name):
+        #self.layout()
+        cvs = Canvas()
+        self.dbg_render(cvs)
+        cvs.writePDFfile(name)
+
+    def __call__(self, alias=False, **kw):
+        item = self.clone(alias)
+        item.__dict__.update(kw)
+        return item
 
 
 class Compound(object):
@@ -589,9 +611,10 @@ class Segment(object):
 
 
 class Surface(object):
-    def __init__(self, segments, colour=(0,0,0,1)):
+    def __init__(self, segments, colour=(0,0,0,1), address=None):
         self.segments = list(segments)
         self.colour = colour
+        self.address = address
 
     def __getitem__(self, idx):
         return self.segments[idx]
@@ -662,10 +685,10 @@ class Surface(object):
         return srfs
 
     def render(self, view):
-        view.add_surface(self.segments, fill=self.colour)
-        if Cell2.DEBUG:
+        view.add_surface(self.segments, fill=self.colour, address=self.address)
+        if Cell2.DEBUG or 0:
             for seg in self.segments:
-                view.add_curve(*seg, stroke=(0,0,1,0.2), lw=1.0, epsilon=None)
+                view.add_curve(*seg, stroke=(0,0,1,0.2), lw=0.2, epsilon=None)
 
 
 # -------------------------------------------------------
@@ -807,14 +830,13 @@ class Cell2(Shape):
                 leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
                 line2 = seg_over(v, pip2).reversed
                 triangle = Surface([
-                    #Segment.mk_line(pip2, v),
                     line2,
                     leg, 
                     line,  # pip1 --> pip2
-                ], colour)
+                ], colour, address=None)
                 surfaces.append(triangle)
                 if abs(cell.pip_x - x0) < 2*PIP:
-                    l_ports.append( (triangle[0], colour) )
+                    l_ports.append( (triangle[0], cell) )
                 view.add_curve(*leg, stroke=black)
 
             for cell in src:
@@ -824,14 +846,13 @@ class Cell2(Shape):
                 line2 = seg_over(v, pip2).reversed
                 leg = Segment(v, conv(v, vpip1), vpip1, pip1)
                 triangle = Surface([
-                    #Segment.mk_line(pip2, v),
                     line2,
                     leg, 
                     line,  # pip1 --> pip2
-                ], colour)
+                ], colour, address=None)
                 surfaces.append(triangle)
                 if abs(cell.pip_x - x1) < 2*PIP:
-                    r_ports.append( (triangle[0], colour) )
+                    r_ports.append( (triangle[0], cell) )
                 view.add_curve(*leg, stroke=black)
 
         # left and right ports
@@ -863,17 +884,17 @@ class Cell2(Shape):
         assert len(r_src) == len(r_tgt)
 
         for (p_src, p_tgt) in zip(l_src, l_tgt):
-            colour = p_src[1]
+            cell = p_src[1]
             seg_src, seg_tgt = p_src[0], p_tgt[0]
             seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
-            surf = Surface([seg_src, seg, seg_tgt.reversed], colour)
+            surf = Surface([seg_src, seg, seg_tgt.reversed], cell.colour, address=cell)
             surfaces.append(surf)
 
         for (p_src, p_tgt) in zip(r_src, r_tgt):
-            colour = p_tgt[1]
+            cell = p_tgt[1]
             seg_src, seg_tgt = p_src[0], p_tgt[0]
             seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
-            surf = Surface([seg_src, seg, seg_tgt.reversed], colour)
+            surf = Surface([seg_src, seg, seg_tgt.reversed], cell.colour, address=cell)
             surfaces.append(surf)
 
         #surfaces = Surface.merge(surfaces)
@@ -881,7 +902,7 @@ class Cell2(Shape):
             surface.render(view)
 
         if self.colour is not None and self.show_pip:
-            view.add_circle(Mat(pip2), self.pip_radius, fill=self.colour)
+            view.add_circle(Mat(pip2), self.pip_radius, fill=self.colour, address=self)
 
     @classmethod
     def random(cls, tgt0, src0, depth=0):
@@ -889,6 +910,46 @@ class Cell2(Shape):
         src = Cell1.random(tgt0, src0, depth)
         return Cell2(tgt, src)
 
+    def vflip(self, alias=False):
+        tgt, src = self.src, self.tgt
+        return Cell2(tgt, src, alias=alias)
+
+
+    def render_cvs(self):
+        view = View(400, 400, sort_gitems=False)
+        view.ortho()
+        x0, y0, z0 = self.center
+        theta = -0.2*pi
+        R = 3.
+        x = 2*sin(theta) + x0
+        y = -R
+        z = 1*cos(theta) + z0 + self.top + 0.
+        pos = [x, y, z]
+        view.lookat(pos, [x0, y0, z0], [0, 0, 1]) # eyepos, lookat, up
+
+        self.render(view)
+
+        # just does not work well enough...
+        # we have to sort: GCurve, GSurface, GCircle
+        def less_than(lhs, rhs):
+            to_sort = [pov.GSurface, pov.GCurve, pov.GCircle]
+            # lhs < rhs means draw lhs before rhs, lhs is *behind* rhs
+            depth = view.get_depth(lhs) < view.get_depth(rhs)
+            ltp, rtp = type(lhs), type(rhs)
+            if ltp == rtp:
+                return depth
+            elif lhs.incident(rhs, 0.1):
+                #print("*", end=" ")
+                idx, jdx = to_sort.index(ltp), to_sort.index(rtp)
+                return idx < jdx
+            return depth
+
+        #shuffle(view.gitems)
+        cvs = Canvas()
+        view.render(cvs=cvs, less_than=less_than)
+        return cvs
+
+    
 
 class DCell2(Compound, Cell2):
     def __init__(self, cells, alias=False, **kw):
@@ -932,6 +993,10 @@ class DCell2(Compound, Cell2):
         Shape.render(self, view)
         for cell in reversed(self.cells):
             cell.render(view)
+
+    def vflip(self, alias=False):
+        cells = [cell.vflip(alias) for cell in self.cells]
+        return DCell2(cells, alias)
 
 
 class HCell2(Compound, Cell2):
@@ -992,6 +1057,10 @@ class HCell2(Compound, Cell2):
                     add(l.pip_y == r.pip_y) # hard eq !
             i += 1
 
+    def vflip(self, alias=False):
+        cells = [cell.vflip(alias) for cell in self.cells]
+        return HCell2(cells, alias)
+
 
 class VCell2(Compound, Cell2):
     def __init__(self, cells, alias=False, **kw):
@@ -1004,7 +1073,7 @@ class VCell2(Compound, Cell2):
             if cells[i].src.name != cells[i+1].tgt.name:
                 msg = ("can't compose\n%s and\n%s"%(cells[i], cells[i+1]))
                 #raise TypeError(msg)
-                print("VCell2.__init__: WARNING", msg)
+                #print("VCell2.__init__: WARNING", msg)
             i += 1
         name = "*".join(cell.name for cell in cells)
         Cell2.__init__(self, tgt, src, name, alias=True, **kw)
@@ -1043,27 +1112,57 @@ class VCell2(Compound, Cell2):
 
         i = 0
         while i+1 < len(cells):
-            src, tgt = cells[i:i+2]
-            src, tgt = src.tgt, tgt.src
+            src, tgt = cells[i:i+2] # Cell2's
+            src, tgt = src.tgt, tgt.src # Cell1's
             #print(src.deepstr())
             #print(tgt.deepstr())
-            for (s, t) in match(src, tgt):
+            for (t, s) in match(tgt, src):
+                # t, s are Cell1's
                 add(s.pip_x == t.pip_x) # hard equal
                 add(s.pip_y == t.pip_y) # hard equal
             i += 1
 
+    def vflip(self, alias=False):
+        cells = [cell.vflip(alias) for cell in reversed(self.cells)]
+        return VCell2(cells, alias)
 
 
-def match(src, tgt):
-    if src.name == tgt.name:
-        src = src.search(instance=Cell1)
+
+def match(tgt, src):
+    if tgt.name == src.name:
         tgt = tgt.search(instance=Cell1)
+        src = src.search(instance=Cell1)
         assert len(src) == len(tgt)
-        for (s,t) in zip(src, tgt):
-            yield (s, t)
+        for (t,s) in zip(tgt, src):
+            yield (t,s)
         return # <---------- return
-    assert 0, "todo"
     # hopefully we can use Cell1.get_paths ?!!??
+    send = {} 
+    lhs = list(tgt.get_paths())
+    rhs = list(src.get_paths())
+    fail = "cannot match %s and %s"%(tgt, src)
+    if len(lhs) != len(rhs):
+        cvs = Canvas()
+        tgt.dbg_render(cvs)
+        tgt.writePDFfile("tgt-debug.pdf")
+        cvs = Canvas()
+        src.dbg_render(cvs)
+        src.writePDFfile("src-debug.pdf")
+
+        raise TypeError(fail)
+
+    for (left,right) in zip(lhs, rhs):
+        if len(left)!=len(right):
+            raise TypeError(fail)
+        for (l,r) in zip(left, right):
+            if l in send:
+                assert send[l] == r, fail
+            send[l] = r
+            assert type(l) == type(r), fail
+            assert l.name == r.name, fail
+            if isinstance(l, Cell1):
+                yield (l,r)
+    
 
 
 setop(Cell2, "__matmul__", DCell2)
@@ -1071,9 +1170,6 @@ setop(Cell2, "__lshift__", HCell2)
 setop(Cell2, "__mul__", VCell2)
 
 # -------------------------------------------------------
-
-
-#class DCell1(Cell1):
 
 
 def test():
@@ -1119,36 +1215,36 @@ def test():
     A2, B2 = Cell1(m@n, p@l), Cell1(p@l, p)
 
     AB = A << B
-    print(A@A)
-    print(AB)
+    str(A@A)
+    str(AB)
 
     f = Cell2(A, A)
     g = Cell2(B, B)
-    print(f)
-    print(f@f)
-    print(f << g)
+    str(f)
+    str(f@f)
+    str(f << g)
 
     f = Cell2(A<<B, A1<<B1)
     g = Cell2(A1<<B1, A2<<B2)
-    print(f*g)
+    str(f*g)
 
 
-def main(state):
+def more_test():
 
-    # https://coolors.co
     scheme = "ff5e5b-d8d8d8-ffffea-00cecb-ffed66"
     scheme = scheme.split("-")
     scheme = [color.rgbhex(rgb).alpha(0.5) for rgb in scheme]
 
     names = 'lmnop'
-    l, m, n, o, p = [Cell0(name, colour=scheme[i%len(scheme)]) for i, name in enumerate('lmnop')]
+    l, m, n, o, p = [
+        Cell0(name, colour=scheme[i%len(scheme)], address=name) 
+        for i, name in enumerate('lmnop')]
     i0 = Cell0("i", colour=None)
 
-    ident = lambda top, bot : Cell2(Cell1(top, bot), Cell1(top, bot))
-
-    #bot = Cell2(Cell1(m@m,i0)*Cell1(i0,m@m), Cell1(m,m)@Cell1(m,m))
-    #top = Cell2(Cell1(m,m)@Cell1(m,m), Cell1(m@m,i0)*Cell1(i0,m@m))
-    #morph = top*bot
+    I_l = Cell1(l, l, show_pip=False, colour=None)
+    I_m = Cell1(m, m, show_pip=False, colour=None)
+    I_n = Cell1(n, n, show_pip=False, colour=None)
+    I_o = Cell1(o, o, show_pip=False, colour=None)
 
     cell = Cell1(m, m@m) << Cell1(m@m, n)
     assert len(list(cell.get_paths())) == 2
@@ -1171,276 +1267,124 @@ def main(state):
     cell = Cell1(m, m) @ bubble
     assert len(list(cell.get_paths())) == 3
 
-    morphisms = []
 
-    Cell0.colour = (0,0,0,0.1)
+    l_mn = Cell1(l, m@n)
+    mn_l = Cell1(m@n, l)
+    o_mn = Cell1(o, m@n)
+    mn_o = Cell1(m@n, o)
+    l_l = Cell1(l, l)
+    o_o = Cell1(o, o)
+    left = (o_mn << mn_o << o_o) @ (l_mn << mn_l << l_l)
+    right = (o_mn @ l_mn) << (mn_o @ mn_l) << (o_o @ l_l)
 
-    cell = None
-    tgt = None
-    for i in range(3):
-        src = Cell1.random(m@m@m, m@m, depth=randint(1,3))
-        if tgt is None:
-            tgt = Cell1.random(m@m@m, m@m, depth=randint(1,3))
+    top = left.extrude()
+    #bot = right.extrude()
+    #cell = top * bot
+    cell = top
+
+    o_mn = Cell1(o, m@n)
+    cell = Cell2(I_o<<o_mn, o_mn<<(I_m@I_n), cone=1.)
+
+    cell.layout()
+    print()
+
+    from huygens import config
+    config(text="pdflatex")
+    cvs = cell.render_cvs()
+
+    def find(cvs, address=None):
+        items = []
+        class Find(Visitor):
+            def on_visit(self, item):
+                #print("on_visit:", item)
+                if not hasattr(item, "address"):
+                    return
+                if address is None or item.address == address:
+                    items.append(item)
+        cvs.visit(Find(), leaves_only=False)
+        return items
+
+    #for item in find(cvs, "cell2"):
+    #    x, y = item.getat(0)
+    #    cvs.text(x, y, r"$\eta$")
+    for item in find(cvs):
+        cell = item.address
         if cell is None:
-            cell = Cell2(tgt, src)
-        else:
-            cell = cell * Cell2(tgt, src)
-        tgt = src
-    #cell.layout(0,0,0,3,3,3)
-    #morphisms.append(cell)
+            continue
+        if cell.__class__ != Cell0:
+            continue
+        x, y = item.getat(0.5)
+        cvs.text(x, y, cell.name)
+        #print("found:", item)
 
-    # this one breaks no_constrain above
-    #cell = Cell2.random(m@m@m, m@m, depth=2) << Cell2.random(m@m, m@m, depth=2)
-    #cell = cell * Cell2(cell.src.clone(), Cell1.random(m@m@m, m@m, depth=2))
+    cvs.writePDFfile("render.pdf")
 
-    if 0:
-        a = Cell1.random(m@m@m, m@m, depth=2)
-        b = Cell1.random(m@m@m, m@m, depth=2)
-        c = Cell1.random(m@m, m@m, depth=2)
-        d = Cell1.random(m@m, m@m, depth=2)
-        e = b << c
-        f = Cell1.random(m@m@m, m@m, depth=2)
-    
-        cell = Cell2(a, b) << Cell2(d, c)
-        cell = cell * Cell2(e, f)
-    
-        cell.layout(0,0,0, 4, 4, 2.5)
-    
-        morphisms.append(cell)
+    return
 
-    I_l = Cell1(l, l, show_pip=False, colour=None)
-    I_m = Cell1(m, m, show_pip=False, colour=None)
-    I_n = Cell1(n, n, show_pip=False, colour=None)
-    I_o = Cell1(o, o, show_pip=False, colour=None)
     swap = lambda a,b : Cell1(a@b, b@a)
-    S_ml = swap(m,l)
-    S_nl = swap(n,l)
-    S_nm = swap(n,m)
-
     # Yang-Baxter
     def yang_baxter(n, m, l, reversed=False, **kw):
         I_l = Cell1(l, l, show_pip=False, colour=None)
         I_m = Cell1(m, m, show_pip=False, colour=None)
         I_n = Cell1(n, n, show_pip=False, colour=None)
         tgt = (I_n @ swap(m, l)) << (swap(n, l) @ I_m) << (I_l @ swap(n, m))
-        src = (swap(n, m) @ I_l) << (I_m @ swap(n, l)) << (swap(m, l) @ I_n) 
+        src = (swap(n, m) @ I_l) << (I_m @ swap(n, l)) << (swap(m, l) @ I_n)
         if reversed:
             tgt, src = src, tgt
         morph = Cell2(tgt, src, cone=1.0, show_pip=False, **kw)
         return morph
-
+    
     #tgt = (I_n @ I_m ) << S_nm
     #src = S_nm << (I_m @ I_n)
     #morph = Cell2(tgt, src)
-
+    
     # a part of the Zamolodchikov Tetrahedron Equation
     lhs = (I_o @ ((I_n@swap(m,l))<<(swap(n,l)@I_m)) ).extrude(show_pip=False)
     rhs = (I_l @ ((swap(o,m)@I_n)<<(I_m@swap(o,n)) )).extrude(show_pip=False)
-
+    
     tgt = swap(n,m) << (I_m @ I_n)
     src = (I_n @ I_m) << swap(n,m)
     back = Cell2(tgt, src, show_pip=False, cone=1.0)
     tgt = (I_o @ I_l) << swap(o,l)
     src = swap(o,l) << (I_l @ I_o)
     front = Cell2(tgt, src, show_pip=False, cone=1.0)
-
+    
     morph_0 = lhs << (front @ back) << rhs
-
+    
     rhs = I_l.extrude(show_pip=False) @ yang_baxter(o, n, m, reversed=True)
     lhs = (I_o @ I_n @ swap(m,l)) << (I_o @ swap(n,l) @ I_m) << (swap(o,l) @ I_n @ I_m)
     lhs = lhs.extrude()
     morph_1 = lhs << rhs
-
-    #morph = morph_0 * morph_1 # Fails
-
-    for morph in [morph_0, morph_1]:
-        #morph.layout(0,0,0,4,2,0.5)
-        morph.layout()
-        morphisms.append(morph)
-
-    for _ in range(1):
-        morph = Cell2(
-            Cell1(l,n) << Cell1(n,o) << Cell1(o, m),
-            Cell1(l, p) << Cell1(p, m)
-        )
-        morph = Cell2(
-            Cell1(l, m),
-            Cell1(l,n) << Cell1(n,o) << Cell1(o, m),
-        ) * morph
-        morph.layout() #0, 0, 0, 2, 4, 3)
-        morphisms.append(morph)
-        #break
+    morph_1 = morph_1.vflip()
     
-        morph = (ident(m,l)@ident(n,l)@ident(o,m)) << (ident(l@l,m)@ident(m,m))
-        morph.layout() #0, 0, 0, 2, 4, 1)
-        morphisms.append(morph)
-    
-        Cell1.show_pip = False
-        Cell2.show_pip = False
-        Cell1.show_pip = True
-        Cell2.show_pip = True
-    
-        A = Cell1(m,n,colour=black)
-        At = Cell1(n,m,colour=black)
-        I_m = Cell1(m,m,colour=None)
-        I_n = Cell1(n,n,colour=None)
-    
-        F_n = Cell1(n@n, i0, colour=None)  # fold
-        G_n = Cell1(i0, n@n, colour=None)  # unfold
-        F_m = Cell1(m@m, i0, colour=None)  # fold
-        G_m = Cell1(i0, m@m, colour=None)  # unfold
-    
-        rfold = Cell2(
-            (I_m@At) << F_m,
-            (A@I_n) << F_n,
-        )
-        lfold = Cell2(
-            G_n << (At @ I_n),
-            G_m << (I_m @ A),
-        )
-        morph = lfold << rfold
-        rfold = Cell2(
-            (A@I_n) << F_n,
-            (I_m@At) << F_m,
-        )
-        lfold = Cell2(
-            G_m << (I_m @ A),
-            G_n << (At @ I_n),
-        )
-        morph = (lfold<<rfold) * morph
-        morph.layout() #0, 0, 0, 2, 4, 2)
-        morphisms.append(morph)
-    
-        #Cell2.colour = None
-    
-        lcap = Cell2( I_m, A << At )
-        lcup = Cell2( A << At, I_m )
-        rcap = Cell2( I_n, At << A )
-        rcup = Cell2( At << A, I_n )
-        rcup2 = Cell2( At << A, I_n<<I_n )
-        
-        #morph = Cell2( I_m << A, A << I_n, colour=None )
-    
-        top = Cell2(A, A) << rcup2 << Cell2(At, At)
-        #comul = comul * Cell2(A<<I_n<<At, A<<At)
-        bot = (Cell2(A<<I_n, A) << Cell2(I_n<<At, At))
-    
-        morph = top * bot
-        morph.layout() #0, 0, 0, 2, 4, 2)
-        morphisms.append(morph)
+    morph_0.layout()
+    morph_1.layout()
+    left = morph_0.src
+    right = morph_1.tgt
+    left.save_dbg("left-debug.pdf")
+    right.save_dbg("right-debug.pdf")
 
-        top = Cell2(
-            #Cell1(i0, m@m) << Cell1(m@m, i0),
-            Cell1(i0, i0, colour=None),
-            Cell1(i0, m@m) << Cell1(m@m, i0),
-        )
-        #morph.layout(0, 0, 0, 2, 4, 1)
-    
-        lhs = Cell2( Cell1(i0, m@m), Cell1(i0, m@m),)
-        rhs = Cell2( Cell1(m@m, i0), Cell1(m@m, i0),)
-        morph = top * (lhs << rhs)
-        morph.layout() #0, 0, 0, 2, 4, 1)
-        morphisms.append(morph)
-    
-        saddle = Cell2(
-            Cell1(m@m, i0) << Cell1(i0, m@m),
-            Cell1(m, m, colour=None) @ Cell1(m, m, colour=None),
-        )
-        lfold = Cell2(Cell1(i0, m@m), Cell1(i0, m@m))
-        rfold = Cell2(Cell1(m@m, i0), Cell1(m@m, i0))
-        cup = Cell2(
-            Cell1(i0, m@m) <<(Cell1(m, m, colour=None) @ Cell1(m, m, colour=None)) << Cell1(m@m, i0),
-            Cell1(i0, i0), 
-        )
-        cup = Cell2(
-            Cell1(i0, m@m) << Cell1(m@m, i0),
-            Cell1(i0, i0)
-        )
-    
-        morph = lfold << saddle << rfold
-        #morph = morph * cup
-        #morph = saddle
-        morph.layout() #0, 0, 0, 4, 4, 2)
-        morphisms.append(morph)
+    print("left:", len(list(left.get_paths())))
+    print("right:", len(list(right.get_paths())))
 
-    #morph = ident(p@p,m@m) << ident(m@m, l)
-    #morph.layout(0, 0, 0, 2, 4, 1)
+    for pth in left.get_paths():
+        print(' '.join(str(item) for item in pth))
+    print()
+    for pth in right.get_paths():
+        print(' '.join(str(item) for item in pth))
 
+    for (lpath,rpath) in zip(left.get_paths(), right.get_paths()):
+        print([l.name==r.name or (l.name, r.name) for (l,r) in zip(lpath, rpath)])
 
-    idx = 0
-    theta = -0.2*pi
-
-    dy = 0.6
-    dz = 0.6
-
-    while 1:
-
-        if state.did_key("n"):
-            idx = (idx+1)%len(morphisms)
-        morph = morphisms[idx]
-
-        view = View(state.WIDTH, state.HEIGHT, sort_gitems=False)
-        #view.perspective(15)
-        view.ortho()
-
-        x0, y0, z0 = morph.center
-
-        R = 3.
-        x = 2*sin(theta) + x0
-        y = -R
-        z = 1*cos(theta) + z0 + morph.top + 0.
-        theta += 0.005*pi
-        pos = [x, y, z]
-        view.lookat(pos, [x0, y0, z0], [0, 0, 1]) # eyepos, lookat, up
-
-        # ---------------------------------------------------------
-
-        morph.render(view)
-
-        if Cell2.DEBUG and 0:
-            view.add_line(Mat([-0.5,0,0]), Mat([8,0,0]), 1.0, stroke=(1,0,0,0.5))
-            view.add_line(Mat([0,-0.5,0]), Mat([0,8,0]), 1.0, stroke=(0,1,0,0.5))
-            view.add_line(Mat([0,0,-0.5]), Mat([0,0,8]), 1.0, stroke=(0,0,1,0.5))
-
-        # just does not work well enough...
-        # we have to sort: GCurve, GSurface, GCircle
-        #shuffle(view.gitems)
-        to_sort = [pov.GSurface, pov.GCurve, pov.GCircle]
-        def less_than(lhs, rhs):
-            # lhs < rhs means draw lhs before rhs, lhs is *behind* rhs
-            depth = view.get_depth(lhs) < view.get_depth(rhs)
-            ltp, rtp = type(lhs), type(rhs)
-            if ltp == rtp:
-                return depth
-            elif lhs.incident(rhs, 0.05):
-                #print("*", end=" ")
-                idx, jdx = to_sort.index(ltp), to_sort.index(rtp)
-                return idx < jdx
-            return depth
-
-        # bubble sort still does not fix
-#        gitems = view.gitems
-#        n = len(gitems)
-#        for i in range(n-1):
-#          for j in range(n-i-1):
-#            if less_than(gitems[j+1], gitems[j]):
-#                gitems[j], gitems[j+1] = gitems[j+1], gitems[j]
-
-        cvs = Canvas()
-        view.render(cvs=cvs, less_than=less_than)
-        #for gitem in view.gitems:
-        #    print(gitem.__class__.__name__, end=" ")
-        #print()
-
-        yield Canvas([Scale(2, 2, 0.5*state.width, 0.5*state.height), cvs])
-        sleep(0.1)
-
-
+    for (s,t) in match(left, right):
+        print(s, "--->", t)
+            
 
 
 if __name__ == "__main__":
     print("\n")
     test()
+    more_test()
 
     print("OK")
 

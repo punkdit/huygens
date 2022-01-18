@@ -245,9 +245,10 @@ class Canvas(Compound):
         self.append(cvs)
         return self 
 
-    def stroke(self, path, decos=[]):
+    def stroke(self, path, decos=[], address=None):
         assert type(decos) is list
         assert isinstance(path, Item), repr(path)
+        path.address = address
         pre = Compound()
         post = Compound()
         for deco in decos:
@@ -257,11 +258,12 @@ class Canvas(Compound):
         self.append(pre + post)
         return self # yes...
 
-    def fill(self, path, decos=[]):
+    def fill(self, path, decos=[], address=None):
         assert type(decos) is list
         assert isinstance(path, Item), repr(path)
         #item = Compound(decos, path, Fill())
         #self.append(item)
+        #path.address = address
         pre = Compound()
         post = Compound()
         for deco in decos:

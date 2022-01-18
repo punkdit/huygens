@@ -421,7 +421,7 @@ def mkpath(pts, closepath=True):
 
 
 class GItem(object):
-    def __init__(self, verts, epsilon=1e-4):
+    def __init__(self, verts, epsilon=1e-4, address=None):
         assert len(verts)
         v0 = verts[0]
         for v in verts[1:]:
@@ -434,6 +434,7 @@ class GItem(object):
             verts = [p + epsilon*(p-center).normalized() for p in verts]
         self.verts = verts
         self.center = center
+        self.address = address
 
     def render(self, cvs):
         pass
@@ -449,8 +450,8 @@ class GItem(object):
 
 class GPoly(GItem):
     def __init__(self, verts, fill=None, stroke=None, lw=None, texture=None, texture_coords=None, 
-            normal=None, epsilon=1e-2, debug=False):
-        GItem.__init__(self, verts, epsilon)
+            normal=None, epsilon=1e-2, debug=False, address=None):
+        GItem.__init__(self, verts, epsilon, address)
         self.fill = fill
         self.stroke = stroke
         self.lw = lw
@@ -483,7 +484,9 @@ class GPoly(GItem):
             fill = view.illuminate(v, n, fill)
         if stroke is not None:
             stroke = view.illuminate(v, n, stroke)
-        cvs.append(Polygon(verts, fill, stroke, self.lw, self.texture, self.texture_coords))
+        p = Polygon(verts, fill, stroke, self.lw, self.texture, self.texture_coords)
+        p.address = self.address
+        cvs.append(p)
 
         if self.debug:
             x, y = verts[0]
@@ -493,8 +496,8 @@ class GPoly(GItem):
         
 
 class GMesh(GItem):
-    def __init__(self, verts, normals, fill, epsilon=1e-2):
-        GItem.__init__(self, verts, epsilon)
+    def __init__(self, verts, normals, fill, epsilon=1e-2, address=None):
+        GItem.__init__(self, verts, epsilon, address)
 
         assert len(verts) >= 3
         assert len(verts) == len(normals)
@@ -514,12 +517,14 @@ class GMesh(GItem):
         fill = self.fill
         fills = [view.illuminate(v, n, fill) 
             for (v,n) in zip(self.verts, self.normals)]
-        cvs.append(Polymesh(verts, fills))
+        p = Polymesh(verts, fills)
+        p.address = self.address
+        cvs.append(p)
 
 
 class GLine(GItem):
-    def __init__(self, v0, v1, lw=1., stroke=(0,0,0,1)):
-        GItem.__init__(self, [v0, v1])
+    def __init__(self, v0, v1, lw=1., stroke=(0,0,0,1), address=None):
+        GItem.__init__(self, [v0, v1], address=address)
         self.v0 = v0
         self.v1 = v1
         self.lw = lw
@@ -528,13 +533,14 @@ class GLine(GItem):
     def render(self, view, cvs):
         GItem.render(self, cvs)
         (x0, y0), (x1, y1) = view.trafo_canvas(self.v0), view.trafo_canvas(self.v1)
-        cvs.stroke(path.line(x0, y0, x1, y1), 
-            [LineWidth(self.lw),RGBA(*self.stroke), style.linecap.round])
+        p = path.line(x0, y0, x1, y1)
+        p.address = self.address
+        cvs.stroke(p, [LineWidth(self.lw),RGBA(*self.stroke), style.linecap.round])
 
         
 class GCircle(GItem):
-    def __init__(self, v0, radius, lw=1., fill=(0,0,0,1), stroke=None):
-        GItem.__init__(self, [v0,])
+    def __init__(self, v0, radius, lw=1., fill=(0,0,0,1), stroke=None, address=None):
+        GItem.__init__(self, [v0,], address=address)
         self.v0 = v0
         self.radius = radius
         self.lw = lw
@@ -546,6 +552,8 @@ class GCircle(GItem):
         (x0, y0) = view.trafo_canvas(self.v0)
         r = self.radius # scale how?
         p = path.circle(x0, y0, r)
+        p.address = self.address
+        #print("GCircle", self.address)
         if self.fill is not None:
             cvs.fill(p, [RGBA(*self.fill), style.linecap.round])
         if self.stroke is not None:
@@ -553,8 +561,8 @@ class GCircle(GItem):
 
         
 class GCurve(GItem):
-    def __init__(self, v0, v1, v2, v3, lw=1., stroke=(0,0,0,0), **kw):
-        GItem.__init__(self, [v0, v3], **kw)
+    def __init__(self, v0, v1, v2, v3, lw=1., stroke=(0,0,0,0), address=None, **kw):
+        GItem.__init__(self, [v0, v3], address=address, **kw)
         self.v0 = v0
         self.v1 = v1
         self.v2 = v2
@@ -573,18 +581,19 @@ class GCurve(GItem):
         (x0, y0), (x1, y1), (x2, y2), (x3, y3) = (
             view.trafo_canvas(self.v0), view.trafo_canvas(self.v1),
             view.trafo_canvas(self.v2), view.trafo_canvas(self.v3)) # D.R.Y.
-        cvs.stroke(path.curve(x0, y0, x1, y1, x2, y2, x3, y3),
-            [LineWidth(self.lw), RGBA(*self.stroke), style.linecap.round])
+        p = path.curve(x0, y0, x1, y1, x2, y2, x3, y3)
+        p.address = self.address
+        cvs.stroke(p, [LineWidth(self.lw), RGBA(*self.stroke), style.linecap.round])
 
 
 class GSurface(GItem):
-    def __init__(self, segments, fill=None, stroke=None):
+    def __init__(self, segments, fill=None, stroke=None, address=None):
         verts = []
         for seg in segments:
             assert isinstance(seg, tuple)
             assert len(seg) == 4 # bezier
             verts += [seg[0], seg[-1]]
-        GItem.__init__(self, verts)
+        GItem.__init__(self, verts, address=address)
         self.segments = segments
         self.fill = fill
         self.stroke = stroke
@@ -602,6 +611,7 @@ class GSurface(GItem):
             items.append(path.curveto(*p1, *p2, *p3))
         items += [ClosePath()]
         p = path.path(items)
+        p.address = self.address
         #cvs.stroke(p, [RGBA(1,0,0,0.5), LineWidth(0.1)]) 
         if self.fill is not None:
             cvs.fill(p, [RGBA(*self.fill)])
@@ -610,8 +620,8 @@ class GSurface(GItem):
 
 
 #class GBall(GItem):
-#    def __init__(self, point, radius):
-#        GItem.__init__(self, [point])
+#    def __init__(self, point, radius, address=None):
+#        GItem.__init__(self, [point], address=address)
 #        self.radius = radius
 #        
 #    def render(self, cvs):
