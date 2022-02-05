@@ -1386,7 +1386,7 @@ def arc_to_curve(x, y, r, angle1, angle2):
     x2, y2 = x3+l*sin(angle2), y3-l*cos(angle2)
 
     items = [
-        LineTo(x0, y0), 
+        MoveTo(x0, y0),  # changed from LineTo on 2022/02/02 ... good?
         CurveTo(x1, y1, x2, y2, x3, y3)]
     return items
 
