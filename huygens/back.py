@@ -1093,7 +1093,7 @@ class Scale(Transform):
     def __init__(self, sx, sy=None, x=0., y=0.):
         if sy is None:
             sy = sx
-        assert abs(sx*sy) > EPSILON
+        assert abs(sx+sy) > EPSILON
         assert sx < 1e5, "scale %s too big, probably ?"%sx
         assert sy < 1e5, "scale %s too big, probably ?"%sy
         self.sx = float(sx)
@@ -1391,6 +1391,27 @@ def arc_to_curve(x, y, r, angle1, angle2):
     return items
 
 
+def _arc_to_bezier(x, y, r, angle1, angle2):
+    # same as arc_to_curve, but with LineTo instead of MoveTo 
+    dangle = angle2-angle1
+
+    if dangle==0:
+        return None
+
+    x0, y0 = x+r*cos(angle1), y+r*sin(angle1)
+    x3, y3 = x+r*cos(angle2), y+r*sin(angle2)
+
+    l = r*4*(1-cos(dangle/2))/(3*sin(dangle/2))
+
+    x1, y1 = x0-l*sin(angle1), y0+l*cos(angle1)
+    x2, y2 = x3+l*sin(angle2), y3-l*cos(angle2)
+
+    items = [
+        LineTo(x0, y0),
+        CurveTo(x1, y1, x2, y2, x3, y3)]
+    return items
+
+
 def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
     if angle2<angle1:
         angle2 = angle2 + (floor((angle1-angle2)/(2*pi))+1)*2*pi
@@ -1406,7 +1427,7 @@ def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
 
     items = []
     for i in range(subdivisions):
-        items += arc_to_curve(x, y, r, angle1+i*dangle, angle1+(i+1)*dangle)
+        items += _arc_to_bezier(x, y, r, angle1+i*dangle, angle1+(i+1)*dangle)
 
     p = Path(items)
     return p
