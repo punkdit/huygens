@@ -163,6 +163,11 @@ class Mat(object):
         A = r*self.A
         return Mat(A)
 
+    def __call__(self, v):
+        assert len(v) == self.shape[1]
+        w = numpy.dot(self.A, v)
+        return w
+
     def __pow__(self, n):
         assert n>=0, "inverse not implemented"
         if n==0:

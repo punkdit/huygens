@@ -1093,7 +1093,8 @@ class Scale(Transform):
     def __init__(self, sx, sy=None, x=0., y=0.):
         if sy is None:
             sy = sx
-        assert abs(sx+sy) > EPSILON
+        assert abs(sx) > EPSILON
+        assert abs(sy) > EPSILON
         assert sx < 1e5, "scale %s too big, probably ?"%sx
         assert sy < 1e5, "scale %s too big, probably ?"%sy
         self.sx = float(sx)
