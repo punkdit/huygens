@@ -322,7 +322,7 @@ class Canvas(Compound):
         self.append(im)
         return self # yes...
 
-    def _write_cairo(self, method, name=None):
+    def _write_cairo(self, method, name=None, trim=0):
 
         if 0:
             #self.dump()
@@ -344,12 +344,12 @@ class Canvas(Compound):
 
         import cairo
 
-        W = bound.width
-        H = bound.height
+        W = bound.width - 2*trim
+        H = bound.height - 2*trim
         surface = method(name, W, H)
 
-        dx = 0 - bound.llx
-        dy = H + bound.lly
+        dx = 0 - bound.llx - trim
+        dy = H + bound.lly + trim
         surface.set_device_offset(dx, dy)
 
         cxt = cairo.Context(surface)
@@ -378,7 +378,7 @@ class Canvas(Compound):
         surface = self._write_cairo(method, name)
         surface.finish()
 
-    def writePNGfile(self, name):
+    def writePNGfile(self, name, trim=1):
         if name=="/dev/null" or name.endswith(".png"):
             pass
         else:
@@ -390,7 +390,7 @@ class Canvas(Compound):
             #surface = cairo.ImageSurface(cairo.Format.RGB24, W, H)
             surface = cairo.ImageSurface(cairo.Format.ARGB32, W, H)
             return surface
-        surface = self._write_cairo(method, name)
+        surface = self._write_cairo(method, name, trim)
         surface.write_to_png(name)
         surface.finish()
 
