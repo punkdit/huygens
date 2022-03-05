@@ -845,7 +845,9 @@ class Clip(Deco):
 
 
 class RGBA(Deco):
-    def __init__(self, r, g, b, a=1.0):
+    def __init__(self, r, g=None, b=None, a=1.0):
+        g = r if g is None else g
+        b = r if b is None else b
         self.cl = (r, g, b, a)
 
     def __str__(self):
@@ -1392,7 +1394,7 @@ def arc_to_curve(x, y, r, angle1, angle2):
     return items
 
 
-def _arc_to_bezier(x, y, r, angle1, angle2):
+def _arc_to_bezier(x, y, r, angle1, angle2, relative=True):
     # same as arc_to_curve, but with LineTo instead of MoveTo 
     dangle = angle2-angle1
 
@@ -1407,13 +1409,12 @@ def _arc_to_bezier(x, y, r, angle1, angle2):
     x1, y1 = x0-l*sin(angle1), y0+l*cos(angle1)
     x2, y2 = x3+l*sin(angle2), y3-l*cos(angle2)
 
-    items = [
-        LineTo(x0, y0),
-        CurveTo(x1, y1, x2, y2, x3, y3)]
+    items = [LineTo(x0, y0)] if relative else [MoveTo(x0, y0)]
+    items.append(CurveTo(x1, y1, x2, y2, x3, y3))
     return items
 
 
-def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
+def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi, relative=True):
     if angle2<angle1:
         angle2 = angle2 + (floor((angle1-angle2)/(2*pi))+1)*2*pi
     elif angle2>angle1+2*pi:
@@ -1428,7 +1429,8 @@ def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi):
 
     items = []
     for i in range(subdivisions):
-        items += _arc_to_bezier(x, y, r, angle1+i*dangle, angle1+(i+1)*dangle)
+        items += _arc_to_bezier(x, y, r, angle1+i*dangle, angle1+(i+1)*dangle, relative)
+        relative = True
 
     p = Path(items)
     return p
