@@ -860,6 +860,16 @@ class RGBA(Deco):
         (r, g, b, _) = self.cl
         return RGBA(r, g, b, a)
 
+    def __mul__(self, x):
+        (r, g, b, a) = self.cl
+        return RGBA(x*r, x*g, x*b, a)
+    __rmul__ = __mul__
+
+    def __add__(self, x):
+        (r, g, b, a) = self.cl
+        return RGBA(x+r, x+g, x+b, a)
+    __radd__ = __add__
+
     def process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
 
