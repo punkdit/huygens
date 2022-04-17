@@ -847,8 +847,10 @@ class Clip(Deco):
 
 class RGBA(Deco):
     def __init__(self, r, g=None, b=None, a=1.0):
-        g = r if g is None else g
-        b = r if b is None else b
+        r = float(r)
+        g = r if g is None else float(g)
+        b = r if b is None else float(b)
+        a = float(a)
         self.cl = (r, g, b, a)
 
     def __str__(self):
@@ -868,7 +870,11 @@ class RGBA(Deco):
 
     def __add__(self, x):
         (r, g, b, a) = self.cl
-        return RGBA(x+r, x+g, x+b, a)
+        if isinstance(x, RGBA):
+            rgb = RGBA(x[0]+r, x[1]+g, x[2]+b, a)
+        else:
+            rgb = RGBA(x+r, x+g, x+b, a)
+        return rgb
     __radd__ = __add__
 
     def process_cairo(self, cxt):
