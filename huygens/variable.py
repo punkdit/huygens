@@ -9,13 +9,6 @@ EPSILON = 1e-6
 
 class Variable(object):
     "Turn into a float at the _slightest provocation."
-    def __init__(self, state):
-        self.state = state
-        self.t0 = state.t # t0 is creation time (now)
-
-    @property
-    def t(self):
-        return self.state.t - self.t0
 
     def __str__(self):
         return str(float(self))
@@ -82,9 +75,18 @@ class Variable(object):
         return abs(float(self))
 
 
-class Linear(Variable):
+class Dynamic(Variable):
+    def __init__(self, state):
+        self.state = state
+        self.t0 = state.t # t0 is creation time (now)
+
+    @property
+    def t(self):
+        return self.state.t - self.t0
+
+class Linear(Dynamic):
     def __init__(self, state, x0, dx, modulus=None):
-        Variable.__init__(self, state)
+        Dynamic.__init__(self, state)
         self.x0 = float(x0)
         self.dx = float(dx)
         self.modulus = modulus
@@ -96,9 +98,9 @@ class Linear(Variable):
         return x
 
 
-class Stepper(Variable):
+class Stepper(Dynamic):
     def __init__(self, state, i0, i1, dt, repeat=False):
-        Variable.__init__(self, state)
+        Dynamic.__init__(self, state)
         self.i0 = int(i0)
         self.i1 = int(i1)
         self.dt = float(dt)
@@ -112,10 +114,10 @@ class Stepper(Variable):
 
 
 
-class Slider(Variable):
+class Slider(Dynamic):
     " got a _start and stop value over a time period"
     def __init__(self, state, x0=0., x1=1., period=1., smooth=True):
-        Variable.__init__(self, state)
+        Dynamic.__init__(self, state)
         self.x0 = float(x0)
         self.x1 = float(x1)
         self.period = float(period)
