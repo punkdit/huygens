@@ -107,7 +107,6 @@ class ArrowDeco(Deco): # PathDeco ?
 #
 
 
-
 path = NS(
     line=Line, curve=Curve, rect=Rect, circle=Circle, path=Path,
     arc=Arc, arcn=Arcn, moveto=MoveTo, lineto=LineTo, 
@@ -116,6 +115,17 @@ path = NS(
 # XXX Arc is PathItem, we need a Path for path.arc XXX
 # Use arc=arc_to_bezier ?
 
+def Polygon(points):
+    assert len(points)
+    pth = [path.moveto(*points[0])]
+    for point in points[1:]:
+        pth.append(path.lineto(*point))
+    pth.append(path.closepath())
+    pth = path.path(pth)
+    return pth
+
+path.polygon = Polygon
+    
 
 RGB = RGBA
 RGB.red = RGB(1., 0., 0.)

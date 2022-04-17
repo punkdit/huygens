@@ -524,6 +524,7 @@ class Compound(Item):
         assert isinstance(item, Item)
         items = self.items
         items.append(item)
+        return self # yes...
 
     def extend(self, items):
         for item in items:
@@ -1181,9 +1182,9 @@ class Rotate(Transform):
 class Image(Item): # abstract base class
     def __init__(self, x=0, y=0, alpha=1.):
         "x, y: bottom left coordinates of image"
-        self.x = x
-        self.y = y
-        self.alpha = alpha
+        self.x = float(x)
+        self.y = float(y)
+        self.alpha = float(alpha)
 
     def get_surf_cairo(self):
         return None
