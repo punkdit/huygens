@@ -18,6 +18,14 @@ class Dynamic(Variable):
     def t(self):
         return self.state.t - self.t0
 
+    def is_done(self):
+        return False
+
+    @property
+    def done(self):
+        return self.is_done()
+
+
 class Linear(Dynamic):
     def __init__(self, state, x0, dx, modulus=None):
         Dynamic.__init__(self, state)
@@ -61,6 +69,12 @@ class Slider(Dynamic):
         return self.t >= self.period-EPSILON
 
 
+class Slew(Slider):
+    def __float__(self):
+        # XX do this properly...
+        self.x0 = conv(self.x0, self.x1, 0.01*self.period)
+        return self.x0
+
 class LinSlide(Slider):
     def __float__(self):
         if self.smooth:
@@ -89,7 +103,7 @@ class World(object):
         v = Linear(self.state, *args, **kw)
         return v
 
-    def slider(self, *args, **kw):
+    def slide(self, *args, **kw):
         v = LinSlide(self.state, *args, **kw)
         return v
 
@@ -97,8 +111,12 @@ class World(object):
         v = Stepper(self.state, *args, **kw)
         return v
 
-    def log_slider(self,  *args, **kw):
+    def log_slide(self,  *args, **kw):
         v = LogSlide(self.state, *args, **kw)
+        return v
+
+    def slew(self, *args, **kw):
+        v = Slew(self.state, *args, **kw)
         return v
 
 

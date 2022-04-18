@@ -11,6 +11,7 @@ def conv(alpha, a, b):
 red = color.rgb(1.0, 0.0, 0.0)
 darkred = color.rgb(0.8, 0.2, 0.2)
 green = color.rgb(0.0, 0.6, 0.0)
+yellow = color.rgb(1.0, 1.0, 0.0)
 blue = color.rgb(0.2, 0.2, 0.7)
 white = color.rgb(1., 1., 1.)
 grey = color.rgb(0.8, 0.8, 0.8)
