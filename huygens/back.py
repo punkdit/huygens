@@ -529,6 +529,7 @@ class Compound(Item):
     def extend(self, items):
         for item in items:
             self.append(item)
+        return self # yes...
 
     def copy(self):
         return deepcopy(self)
