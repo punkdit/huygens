@@ -19,6 +19,9 @@ def config(text=None, tex_header=None, latex_header=None, xelatex_header=None):
         "xelatex_header":xelatex_header,
     }
 
+    #print("huygens.config(%r)"%(text,))
+    #assert text=="xelatex"
+
     if text is None:
         pass
     elif text == "cairo":

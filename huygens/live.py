@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from math import log, exp, floor
+from math import log, exp, floor, pi
 
 from huygens.variable import Variable
 from huygens.tool import conv, smooth, clamp
@@ -12,11 +12,14 @@ EPSILON = 1e-6
 class Dynamic(Variable):
     def __init__(self, state):
         self.state = state
-        self.t0 = state.t # t0 is creation time (now)
+        self._t_start = state.t # _t_start is creation time (now)
 
     @property
-    def t(self):
-        return self.state.t - self.t0
+    def t_now(self):
+        return self.state.t - self._t_start
+
+    def reset_t(self):
+        self._t_start = self.state.t # _t_start is now
 
     def is_done(self):
         return False
@@ -24,6 +27,58 @@ class Dynamic(Variable):
     @property
     def done(self):
         return self.is_done()
+
+    def __add__(self, other):
+        return Sequence(self.state, [self, other])
+
+
+class Sequence(Dynamic):
+    "Sequence of Dynamic Variable's"
+    def __init__(self, state, children):
+        Dynamic.__init__(self, state)
+        assert len(children)
+        self.children = list(children)
+        self.idx = 0
+
+    def _update(self):
+        children = self.children
+        assert self.idx < len(children)
+        while 1:
+            child = children[self.idx]
+            if not child.is_done() or self.idx+1==len(children):
+                break
+            #print("Sequence: idx+=1")
+            self.idx += 1
+            child = children[self.idx]
+            child.reset_t()
+        assert self.idx < len(children)
+
+    def is_done(self):
+        self._update()
+        children = self.children
+        child = children[self.idx]
+        return self.idx+1==len(children) and child.is_done()
+
+    def __float__(self):
+        self._update()
+        child = self.children[self.idx]
+        return child.__float__()
+
+    def __add__(self, other):
+        return Sequence(self.state, self.children+[other])
+
+
+class Const(Dynamic):
+    def __init__(self, state, x, dt=None):
+        Dynamic.__init__(self, state)
+        self.x = float(x)
+        self.dt = dt
+
+    def is_done(self):
+        return self.dt is not None and self.t_now < self.dt
+
+    def __float__(self):
+        return self.x
 
 
 class Linear(Dynamic):
@@ -34,7 +89,7 @@ class Linear(Dynamic):
         self.modulus = modulus
 
     def __float__(self):
-        x = self.x0 + self.dx * self.t
+        x = self.x0 + self.dx * self.t_now
         if self.modulus is not None:
             x %= self.modulus
         return x
@@ -49,11 +104,22 @@ class Stepper(Dynamic):
         self.repeat = repeat
 
     def __index__(self):
-        i = int(floor(self.t / self.dt)) + self.i0
+        i = int(floor(self.t_now / self.dt)) + self.i0
         if self.repeat:
             i %= (self.i1 - self.i0)
         return i
 
+
+class Cyclic(Dynamic):
+    def __init__(self, state, mod=1.0, period=1.0):
+        Dynamic.__init__(self, state)
+        self.mod = mod
+        self.period = period
+
+    def __float__(self):
+        x = self.t_now / self.period
+        x %= self.mod
+        return x
 
 
 class Slider(Dynamic):
@@ -66,7 +132,7 @@ class Slider(Dynamic):
         self.smooth = smooth
 
     def is_done(self):
-        return self.t >= self.period-EPSILON
+        return self.t_now >= self.period-EPSILON
 
 
 class Slew(Slider):
@@ -78,9 +144,9 @@ class Slew(Slider):
 class LinSlide(Slider):
     def __float__(self):
         if self.smooth:
-            a = smooth(0., 1., self.t/self.period)
+            a = smooth(0., 1., self.t_now/self.period)
         else:
-            a = clamp(self.t/self.period)
+            a = clamp(self.t_now/self.period)
         x = conv(self.x0, self.x1, a)
         return x
 
@@ -88,7 +154,7 @@ class LinSlide(Slider):
 class LogSlide(Slider):
     def __float__(self):
         state = self.state
-        a = smooth(0, 1, self.t/self.period)
+        a = smooth(0, 1, self.t_now/self.period)
         r0, r1 = log(self.x0), log(self.x1)
         r = conv(r0, r1, a)
         x = exp(r)
@@ -99,13 +165,19 @@ class World(object):
     def __init__(self, state):
         self.state = state
 
+    def const(self, *args, **kw):
+        v = Const(self.state, *args, **kw)
+        return v
+
     def linear(self, *args, **kw):
         v = Linear(self.state, *args, **kw)
         return v
+    lin = linear
 
     def slide(self, *args, **kw):
         v = LinSlide(self.state, *args, **kw)
         return v
+    slider = slide
 
     def stepper(self, *args, **kw):
         v = Stepper(self.state, *args, **kw)
@@ -114,9 +186,14 @@ class World(object):
     def log_slide(self,  *args, **kw):
         v = LogSlide(self.state, *args, **kw)
         return v
+    log_slider = log_slide
 
     def slew(self, *args, **kw):
         v = Slew(self.state, *args, **kw)
+        return v
+
+    def cyclic(self, *args, **kw):
+        v = Cyclic(self.state, *args, **kw)
         return v
 
 

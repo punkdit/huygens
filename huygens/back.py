@@ -521,7 +521,7 @@ class Compound(Item):
         self.items = items
 
     def append(self, item):
-        assert isinstance(item, Item)
+        assert isinstance(item, Item), "expected type Item, got type %s"%(type(item),)
         items = self.items
         items.append(item)
         return self # yes...
@@ -855,7 +855,7 @@ class RGBA(Deco):
         self.cl = (r, g, b, a)
 
     def __str__(self):
-        return "RGBA(%s, %s, %s, %s)"%self.cl
+        return "RGBA(%.4f, %.4f, %.4f, %.4f)"%self.cl
 
     def __getitem__(self, idx):
         return self.cl[idx]

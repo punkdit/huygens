@@ -5,6 +5,7 @@ class Variable(object):
     "Turn into a float at the _slightest provocation."
 
     def __str__(self):
+        #return "%s(%s)"%(self.__class__.__name__, float(self)) # ?
         return str(float(self))
 
     def __repr__(self):

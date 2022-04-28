@@ -61,4 +61,5 @@ st_THICk = [style.linewidth.THICk]
 st_THICK = [style.linewidth.THICK]
 
 
+lw = style.linewidth
 
