@@ -19,6 +19,7 @@ class Dynamic(Variable):
         return self.state.t - self._t_start
 
     def reset_t(self):
+        #print(self.__class__.__name__, "reset_t")
         self._t_start = self.state.t # _t_start is now
 
     def is_done(self):
@@ -28,8 +29,9 @@ class Dynamic(Variable):
     def done(self):
         return self.is_done()
 
-    def __add__(self, other):
+    def __lshift__(self, other):
         return Sequence(self.state, [self, other])
+    #__rshift__ = __lshift__ # ?
 
 
 class Sequence(Dynamic):
@@ -38,19 +40,23 @@ class Sequence(Dynamic):
         Dynamic.__init__(self, state)
         assert len(children)
         self.children = list(children)
+        #print("Sequence.__init__", id(self))
+        assert not hasattr(self, "idx")
         self.idx = 0
 
     def _update(self):
         children = self.children
         assert self.idx < len(children)
+        #print("Sequence._update: enter idx=", self.idx)
         while 1:
             child = children[self.idx]
             if not child.is_done() or self.idx+1==len(children):
                 break
-            #print("Sequence: idx+=1")
+            #print("Sequence: idx+=1", self.idx)
             self.idx += 1
             child = children[self.idx]
             child.reset_t()
+        #print("Sequence._update: exit idx=", self.idx)
         assert self.idx < len(children)
 
     def is_done(self):
@@ -64,8 +70,9 @@ class Sequence(Dynamic):
         child = self.children[self.idx]
         return child.__float__()
 
-    def __add__(self, other):
+    def __lshift__(self, other):
         return Sequence(self.state, self.children+[other])
+
 
 
 class Const(Dynamic):

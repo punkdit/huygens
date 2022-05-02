@@ -115,7 +115,7 @@ path = NS(
 # XXX Arc is PathItem, we need a Path for path.arc XXX
 # Use arc=arc_to_bezier ?
 
-def Polygon(points):
+def polygon(points): # XXX there's also Polygon(Item) class XXX
     assert len(points)
     pth = [path.moveto(*points[0])]
     for point in points[1:]:
@@ -124,7 +124,7 @@ def Polygon(points):
     pth = path.path(pth)
     return pth
 
-path.polygon = Polygon
+path.polygon = polygon
     
 
 RGB = RGBA

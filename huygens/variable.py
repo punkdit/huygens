@@ -9,7 +9,10 @@ class Variable(object):
         return str(float(self))
 
     def __repr__(self):
-        return "%s(%s, %s)"%(self.__class__.__name__, float(self), self.__dict__)
+        ks = list(self.__dict__.keys())
+        ks.sort()
+        ns = ", ".join("%s=%s"%(k,self.__dict__[k]) for k in ks)
+        return "%s(%s, %s, %s)"%(self.__class__.__name__, id(self), float(self), ns)
 
     def __lt__(self, other):
         return float(self) < other
