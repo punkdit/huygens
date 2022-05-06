@@ -33,6 +33,9 @@ class Dynamic(Variable):
         return Sequence(self.state, [self, other])
     #__rshift__ = __lshift__ # ?
 
+    def repeat(self):
+        return Repeat(self.state, self)
+
 
 class Sequence(Dynamic):
     "Sequence of Dynamic Variable's"
@@ -43,6 +46,12 @@ class Sequence(Dynamic):
         #print("Sequence.__init__", id(self))
         assert not hasattr(self, "idx")
         self.idx = 0
+
+    def reset_t(self):
+        Dynamic.reset_t(self)
+        self.idx = 0
+        child = self.children[self.idx]
+        child.reset_t()
 
     def _update(self):
         children = self.children
@@ -73,6 +82,22 @@ class Sequence(Dynamic):
     def __lshift__(self, other):
         return Sequence(self.state, self.children+[other])
 
+
+class Repeat(Dynamic):
+    def __init__(self, state, child):
+        Dynamic.__init__(self, state)
+        self.child = child
+
+    def reset_t(self):
+        Dynamic.reset_t(self)
+        self.child.reset_t()
+
+    def __float__(self):
+        child = self.child
+        if child.is_done():
+            child.reset_t()
+        value = child.__float__()
+        return value
 
 
 class Const(Dynamic):
@@ -185,6 +210,15 @@ class World(object):
         v = LinSlide(self.state, *args, **kw)
         return v
     slider = slide
+
+    def smooth(self, values, dt):
+        assert len(values)>1
+        lin = self.slide(values[0], values[1], dt)
+        idx = 1
+        while idx + 1 < len(values):
+            lin = lin << self.slide(values[idx], values[idx+1], dt)
+            idx += 1
+        return lin
 
     def stepper(self, *args, **kw):
         v = Stepper(self.state, *args, **kw)
