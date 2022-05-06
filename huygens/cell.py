@@ -279,13 +279,13 @@ def setop(cls, opname, parent):
 class Cell0(Shape):
     "These are the 0-cells"
 
-    colour = black
+    color = black
     show_pip = False
 
     def __init__(self, name, **kw):
         Shape.__init__(self, name, **kw)
-        if "colour" in kw:
-            self.colour = kw["colour"]
+        if "color" in kw:
+            self.color = kw["color"]
 
     def __len__(self):
         return 1
@@ -342,7 +342,7 @@ class Cell1(Shape):
         These are the 1-cells.
     """
 
-    colour = black
+    color = black
     show_pip = True
     pip_radius = 0.3
 
@@ -355,8 +355,8 @@ class Cell1(Shape):
         self.tgt = tgt.clone(alias)
         self.src = src.clone(alias)
         self.hom = (self.tgt, self.src)
-        #if "colour" in kw:
-        #    self.colour = kw["colour"]
+        #if "color" in kw:
+        #    self.color = kw["color"]
 
     def get_paths(self):
         # a path is a list of [tgt, src]
@@ -581,9 +581,9 @@ setop(Cell1, "__lshift__", HCell1)
 
 
 class Segment(object):
-    def __init__(self, v0, v1, v2, v3, colour=(0,0,0,1)):
+    def __init__(self, v0, v1, v2, v3, color=(0,0,0,1)):
         self.vs = (v0, v1, v2, v3)
-        self.colour = colour
+        self.color = color
 
     def __eq__(self, other):
         return self.vs == other.vs
@@ -601,7 +601,7 @@ class Segment(object):
     @property
     def reversed(self):
         v0, v1, v2, v3 = self.vs
-        return Segment(v3, v2, v1, v0, self.colour)
+        return Segment(v3, v2, v1, v0, self.color)
 
     def __getitem__(self, idx):
         return self.vs[idx]
@@ -611,9 +611,9 @@ class Segment(object):
 
 
 class Surface(object):
-    def __init__(self, segments, colour=(0,0,0,1), address=None):
+    def __init__(self, segments, color=(0,0,0,1), address=None):
         self.segments = list(segments)
-        self.colour = colour
+        self.color = color
         self.address = address
 
     def __getitem__(self, idx):
@@ -625,19 +625,19 @@ class Surface(object):
     @property
     def reversed(self):
         segments = [seg.reversed for seg in reversed(self.segments)]
-        return Surface(segments, self.colour)
+        return Surface(segments, self.color)
 
     @classmethod
-    def mk_triangle(cls, v0, v1, v2, colour):
+    def mk_triangle(cls, v0, v1, v2, color):
         segments = [
             Segment.mk_line(v0, v1),
             Segment.mk_line(v1, v2),
             Segment.mk_line(v2, v0),
         ]
-        return Surface(segments, colour=colour)
+        return Surface(segments, color=color)
 
     def incident(self, other):
-        if self.colour != other.colour:
+        if self.color != other.color:
             return False
         for s in self.segments:
           s = s.reversed
@@ -655,7 +655,7 @@ class Surface(object):
             if l!=r.reversed:
                 continue
             segs = left[:i] + right[j+1:] + right[:j] + left[i+1:]
-            return Surface(segs, self.colour)
+            return Surface(segs, self.color)
         assert 0, "not incident"
 
     @staticmethod
@@ -685,7 +685,7 @@ class Surface(object):
         return srfs
 
     def render(self, view):
-        view.add_surface(self.segments, fill=self.colour, address=self.address)
+        view.add_surface(self.segments, fill=self.color, address=self.address)
         if Cell2.DEBUG or 0:
             for seg in self.segments:
                 view.add_curve(*seg, stroke=(0,0,1,0.2), lw=0.2, epsilon=None)
@@ -699,7 +699,7 @@ class Cell2(Shape):
     "These are the 2-cells"
 
     DEBUG = False
-    colour = black
+    color = black
     show_pip = True
     pip_radius = 0.5
     cone = 0.6 # closer to 1. is more cone-like
@@ -715,8 +715,8 @@ class Cell2(Shape):
         self.tgt = tgt.clone(alias)
         self.src = src.clone(alias)
         self.hom = (self.tgt, self.src)
-        #if "colour" in kw:
-        #    self.colour = kw["colour"]
+        #if "color" in kw:
+        #    self.color = kw["color"]
 
     @property
     def center(self):
@@ -810,21 +810,21 @@ class Cell2(Shape):
             assert self.__class__ == Cell1
             #print("callback", self.__class__.__name__, self)
 
-            colour = self.colour
+            color = self.color
             pip1 = Mat(self.pip)
 
             #pip12 = p_over(pip1, pip2) # a point over pip1
             #line = Segment( pip1, pip1 + cone*(pip12-pip1), pip2 + cone*(pip12-pip2), pip2)
             line = seg_over(pip1, pip2)
-            if colour is not None:
-                view.add_curve(*line, lw=0.2, stroke=colour)
+            if color is not None:
+                view.add_curve(*line, lw=0.2, stroke=color)
                 # show spider (1-cell) pip
                 if self.show_pip:
-                    view.add_circle(pip1, self.pip_radius, fill=colour)
+                    view.add_circle(pip1, self.pip_radius, fill=color)
 
             tgt, src = self.tgt, self.src
             for cell in tgt:
-                colour = cell.colour
+                color = cell.color
                 v = Mat(cell.pip)
                 vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
                 leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
@@ -833,14 +833,14 @@ class Cell2(Shape):
                     line2,
                     leg, 
                     line,  # pip1 --> pip2
-                ], colour, address=None)
+                ], color, address=None)
                 surfaces.append(triangle)
                 if abs(cell.pip_x - x0) < 2*PIP:
                     l_ports.append( (triangle[0], cell) )
                 view.add_curve(*leg, stroke=black)
 
             for cell in src:
-                colour = cell.colour
+                color = cell.color
                 v = Mat(cell.pip)
                 vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
                 line2 = seg_over(v, pip2).reversed
@@ -849,7 +849,7 @@ class Cell2(Shape):
                     line2,
                     leg, 
                     line,  # pip1 --> pip2
-                ], colour, address=None)
+                ], color, address=None)
                 surfaces.append(triangle)
                 if abs(cell.pip_x - x1) < 2*PIP:
                     r_ports.append( (triangle[0], cell) )
@@ -869,7 +869,7 @@ class Cell2(Shape):
 
         #for cell in tgt.search(instance=Cell1)+src.search(instance=Cell1):
         #    if cell.show_pip:
-        #        view.add_circle(Mat(cell.pip), cell.pip_radius, fill=cell.colour)
+        #        view.add_circle(Mat(cell.pip), cell.pip_radius, fill=cell.color)
 
 
         if len(l_src) != len(l_tgt) or len(r_src) != len(r_tgt):
@@ -887,22 +887,22 @@ class Cell2(Shape):
             cell = p_src[1]
             seg_src, seg_tgt = p_src[0], p_tgt[0]
             seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
-            surf = Surface([seg_src, seg, seg_tgt.reversed], cell.colour, address=cell)
+            surf = Surface([seg_src, seg, seg_tgt.reversed], cell.color, address=cell)
             surfaces.append(surf)
 
         for (p_src, p_tgt) in zip(r_src, r_tgt):
             cell = p_tgt[1]
             seg_src, seg_tgt = p_src[0], p_tgt[0]
             seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
-            surf = Surface([seg_src, seg, seg_tgt.reversed], cell.colour, address=cell)
+            surf = Surface([seg_src, seg, seg_tgt.reversed], cell.color, address=cell)
             surfaces.append(surf)
 
         #surfaces = Surface.merge(surfaces)
         for surface in surfaces:
             surface.render(view)
 
-        if self.colour is not None and self.show_pip:
-            view.add_circle(Mat(pip2), self.pip_radius, fill=self.colour, address=self)
+        if self.color is not None and self.show_pip:
+            view.add_circle(Mat(pip2), self.pip_radius, fill=self.color, address=self)
 
     @classmethod
     def random(cls, tgt0, src0, depth=0):
@@ -1237,14 +1237,14 @@ def more_test():
 
     names = 'lmnop'
     l, m, n, o, p = [
-        Cell0(name, colour=scheme[i%len(scheme)], address=name) 
+        Cell0(name, color=scheme[i%len(scheme)], address=name) 
         for i, name in enumerate('lmnop')]
-    i0 = Cell0("i", colour=None)
+    i0 = Cell0("i", color=None)
 
-    I_l = Cell1(l, l, show_pip=False, colour=None)
-    I_m = Cell1(m, m, show_pip=False, colour=None)
-    I_n = Cell1(n, n, show_pip=False, colour=None)
-    I_o = Cell1(o, o, show_pip=False, colour=None)
+    I_l = Cell1(l, l, show_pip=False, color=None)
+    I_m = Cell1(m, m, show_pip=False, color=None)
+    I_n = Cell1(n, n, show_pip=False, color=None)
+    I_o = Cell1(o, o, show_pip=False, color=None)
 
     cell = Cell1(m, m@m) << Cell1(m@m, n)
     assert len(list(cell.get_paths())) == 2
@@ -1324,9 +1324,9 @@ def more_test():
     swap = lambda a,b : Cell1(a@b, b@a)
     # Yang-Baxter
     def yang_baxter(n, m, l, reversed=False, **kw):
-        I_l = Cell1(l, l, show_pip=False, colour=None)
-        I_m = Cell1(m, m, show_pip=False, colour=None)
-        I_n = Cell1(n, n, show_pip=False, colour=None)
+        I_l = Cell1(l, l, show_pip=False, color=None)
+        I_m = Cell1(m, m, show_pip=False, color=None)
+        I_n = Cell1(n, n, show_pip=False, color=None)
         tgt = (I_n @ swap(m, l)) << (swap(n, l) @ I_m) << (I_l @ swap(n, m))
         src = (swap(n, m) @ I_l) << (I_m @ swap(n, l)) << (swap(m, l) @ I_n)
         if reversed:
