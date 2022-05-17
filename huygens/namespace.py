@@ -30,6 +30,7 @@ st_black = [black]
 st_round = [style.linecap.round, style.linejoin.round]
 
 st_dashed = [style.linestyle.dashed]
+st_dotted = [style.linestyle.dotted]
 
 st_thick = [style.linewidth.Thick]
 

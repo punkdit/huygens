@@ -107,6 +107,7 @@ class ArrowDeco(Deco): # PathDeco ?
 #
 
 
+# Note: arc/arcn use radians, unlike pyx which uses degrees 
 path = NS(
     line=Line, curve=Curve, rect=Rect, circle=Circle, path=Path,
     arc=Arc, arcn=Arcn, moveto=MoveTo, lineto=LineTo, 
