@@ -279,13 +279,16 @@ def setop(cls, opname, parent):
 class Cell0(Shape):
     "These are the 0-cells"
 
-    color = black
+    color = None # fill
+    stroke = black # outline
     show_pip = False
 
     def __init__(self, name, **kw):
         Shape.__init__(self, name, **kw)
         if "color" in kw:
             self.color = kw["color"]
+        if "stroke" in kw:
+            self.stroke = kw["stroke"]
 
     def __len__(self):
         return 1
@@ -351,12 +354,10 @@ class Cell1(Shape):
         assert isinstance(src, Cell0)
         if name is None:
             name = "(%s<---%s)"%(tgt, src)
-        Shape.__init__(self, name, weight, **kw)
+        Shape.__init__(self, name, weight, **kw) # will update kw's on __dict__
         self.tgt = tgt.clone(alias)
         self.src = src.clone(alias)
         self.hom = (self.tgt, self.src)
-        #if "color" in kw:
-        #    self.color = kw["color"]
 
     def get_paths(self):
         # a path is a list of [tgt, src]
@@ -703,6 +704,7 @@ class Cell2(Shape):
     show_pip = True
     pip_radius = 0.5
     cone = 0.6 # closer to 1. is more cone-like
+    pip_cvs = None
 
     def __init__(self, tgt, src, name=None, alias=False, **kw):
         assert isinstance(tgt, Cell1)
@@ -711,12 +713,10 @@ class Cell2(Shape):
         assert tgt.tgt.name == src.tgt.name, "%s != %s" % (tgt.tgt, tgt.src)
         if name is None:
             name = "(%s<===%s)"%(tgt, src)
-        Shape.__init__(self, name, **kw)
+        Shape.__init__(self, name, **kw) # update's kw's on __dict__
         self.tgt = tgt.clone(alias)
         self.src = src.clone(alias)
         self.hom = (self.tgt, self.src)
-        #if "color" in kw:
-        #    self.color = kw["color"]
 
     @property
     def center(self):
@@ -773,6 +773,60 @@ class Cell2(Shape):
     def dbg_render(self, cvs):
         self.tgt.dbg_render(cvs)
         self.src.dbg_render(cvs)
+
+    def render_boundary(self, view, src=True, tgt=True):
+        (x0, y0, z0, x1, y1, z1) = self.rect
+        x01 = conv(x0, x1)
+        y01 = conv(y0, y1)
+        z01 = conv(z0, z1)
+
+        pip2 = Mat(self.pip)
+        cone = 1. - self.cone
+        cone = max(PIP, cone)
+
+        def seg_over(v1, v2):
+            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
+            line = Segment( v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
+            return line
+
+        def callback(self):
+            assert self.__class__ == Cell1
+            color = self.color
+            pip1 = Mat(self.pip)
+
+            line = seg_over(pip1, pip2)
+            if color is not None:
+                #view.add_curve(*line, lw=0.2, stroke=color)
+                # show spider (1-cell) pip
+                if self.show_pip:
+                    view.add_circle(pip1, self.pip_radius, fill=color)
+
+            tgt, src = self.tgt, self.src
+            for cell in tgt:
+                v = Mat(cell.pip)
+                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
+                leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
+                view.add_curve(*leg, stroke=cell.stroke)
+
+            for cell in src:
+                v = Mat(cell.pip)
+                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
+                leg = Segment(v, conv(v, vpip1), vpip1, pip1)
+                view.add_curve(*leg, stroke=cell.stroke)
+
+        if tgt:
+            z = z1
+            self.tgt.visit(callback, instance=Cell1)
+
+        if src:
+            z = z0
+            self.src.visit(callback, instance=Cell1)
+
+    def render_src(self, view):
+        self.render_boundary(view, src=True, tgt=False)
+
+    def render_tgt(self, view):
+        self.render_boundary(view, src=False, tgt=True)
 
     def render(self, view):
         (x0, y0, z0, x1, y1, z1) = self.rect
@@ -901,7 +955,9 @@ class Cell2(Shape):
         for surface in surfaces:
             surface.render(view)
 
-        if self.color is not None and self.show_pip:
+        if self.pip_cvs is not None:
+            view.add_cvs(Mat(pip2), self.pip_cvs)
+        elif self.color is not None and self.show_pip:
             view.add_circle(Mat(pip2), self.pip_radius, fill=self.color, address=self)
 
     @classmethod
@@ -1201,14 +1257,21 @@ def test():
     cell = Cell2(cell, Cell1(mm,m))
 
     mm_ = Cell1(mm, ii)
+    m_m = Cell1(m, m)
+    mm_m = Cell1(mm, m)
     _mm = Cell1(ii, mm)
+    _m = Cell1(ii, m)
     cell = Cell2(_mm, _mm) << Cell2(mm_, mm_)
+    cell = Cell2(m_m, (m_m @ _m) << mm_m)
 
     cell.layout(depth=1.2, width=2., height=1.4)
 
     cvs = Canvas()
-    cell.dbg_render(cvs)
-    #cvs.writePDFfile("debug.pdf")
+    cvs = cell.render_cvs()
+    #cell.dbg_render(cvs)
+    cvs.writePDFfile("debug.pdf")
+    assert 0
+    return
 
     A, B = Cell1(m@n, l), Cell1(l, p)
     A1, B1 = Cell1(m@n, o@o), Cell1(o@o, p)

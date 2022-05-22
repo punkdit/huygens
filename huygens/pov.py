@@ -564,6 +564,18 @@ class GCircle(GItem):
         if self.stroke is not None:
             cvs.stroke(p, [LineWidth(self.lw), RGBA(*self.stroke), style.linecap.round])
 
+
+class GCvs(GItem):
+    def __init__(self, v0, cvs, address=None):
+        GItem.__init__(self, [v0,], address=address)
+        self.v0 = v0
+        self.cvs = cvs
+
+    def render(self, view, cvs):
+        GItem.render(self, cvs)
+        (x0, y0) = view.trafo_canvas(self.v0)
+        cvs.insert(x0, y0, self.cvs)
+
         
 class GCurve(GItem):
     def __init__(self, v0, v1, v2, v3, lw=1., stroke=(0,0,0,0), address=None, **kw):
@@ -852,6 +864,13 @@ class View(object):
         lw /= self.depth_camera(v0)
         radius /= self.depth_camera(v0)
         gitem = GCircle(v0, radius, lw, *args, **kw)
+        self.add_gitem(gitem)
+        return gitem
+
+    def add_cvs(self, v0, cvs, *args, **kw):
+        v0 = self.trafo_view(v0)
+        #scale = 1./self.depth_camera(v0) # ??
+        gitem = GCvs(v0, cvs, *args, **kw)
         self.add_gitem(gitem)
         return gitem
 
