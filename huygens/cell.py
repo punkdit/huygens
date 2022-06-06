@@ -48,6 +48,10 @@ grey = (0,0,0,0.2)
 
 PIP = 0.001
 
+def dbg_constrain(self, depth):
+    print("  "*depth + self.__class__.__name__, id(self),
+    )
+
 class Shape(Listener):
 
     address = None
@@ -116,16 +120,18 @@ class Shape(Listener):
         setattr(self, attr, v)
         return v
 
-    def on_constrain(self, system):
+    def on_constrain(self, system, depth, verbose=False):
+        #if verbose:
+        #    dbg_constrain(self, depth)
         assert not self.no_constrain
         self.listen_var(system, "pip_x")
         self.listen_var(system, "pip_y")
         self.listen_var(system, "pip_z")
 
     system = None
-    def constrain(self, x=0, y=0, z=0, width=None, depth=None, height=None):
+    def constrain(self, x=0, y=0, z=0, width=None, depth=None, height=None, verbose=False):
         system = System()
-        self.on_constrain(system)
+        self.on_constrain(system, 0, verbose)
         system.add(self.pip_x == x)
         system.add(self.pip_y == y)
         system.add(self.pip_z == z)
@@ -144,13 +150,13 @@ class Shape(Listener):
         return system
 
     did_layout = None
-    def layout(self, *args, **kw):
+    def layout(self, *args, verbose=False, **kw):
         if self.did_layout:
             return self.did_layout
-        system = self.constrain(*args, **kw)
+        system = self.constrain(*args, verbose=verbose, **kw)
         system.solve()
         self.did_layout = system
-        return system
+        return self
 
     def longstr(self):
         s = self.__class__.__name__ + "("
@@ -244,10 +250,12 @@ class Compound(object):
         items = reduce(operator.add, itemss, [])
         return items
 
-    def on_constrain(self, system):
+    def on_constrain(self, system, depth, verbose=False):
+        #if verbose:
+        #    dbg_constrain(self, depth)
         #Shape.on_constrain(self, system)
         for cell in self.cells:
-            cell.on_constrain(system)
+            cell.on_constrain(system, depth+1, verbose)
 
     def render(self, view):
         Shape.render(self, view)
@@ -263,10 +271,6 @@ class Compound(object):
         lines = [Shape.deepstr(self, depth)]
         lines += [cell.deepstr(depth+1) for cell in self.cells]
         return "\n".join(lines)
-
-    def dbg_render(self, cvs):
-        for child in self.cells:
-            child.dbg_render(cvs)
 
 def setop(cls, opname, parent):
     def meth(left, right):
@@ -296,8 +300,10 @@ class Cell0(Shape):
     def __getitem__(self, idx):
         return [self][idx]
 
-    def on_constrain(self, system):
-        Shape.on_constrain(self, system)
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Shape.on_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
 
@@ -314,9 +320,11 @@ class DCell0(Compound, Cell0):
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
-    def on_constrain(self, system):
-        Cell0.on_constrain(self, system)
-        Compound.on_constrain(self, system) # constrain children
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Cell0.on_constrain(self, system, depth, verbose)
+        Compound.on_constrain(self, system, depth, verbose) # constrain children
         if not len(self):
             return
         add = system.add
@@ -328,7 +336,8 @@ class DCell0(Compound, Cell0):
             add(cell.pip_y == y + cell.front, self.weight) # soft equal
             add(cell.depth == w*self.depth, self.weight) # soft equal
             y += cell.depth
-        add(self.pip_y + self.back == y, self.weight) # should be hard equal?
+        #add(self.pip_y + self.back == y, self.weight) # should be hard equal?
+        add(self.pip_y + self.back == y) # should be hard equal?
 
 
 setop(Cell0, "__matmul__", DCell0)
@@ -375,8 +384,10 @@ class Cell1(Shape):
               for j in src:
                 yield [i, self, j]
 
-    def on_constrain(self, system):
-        Shape.on_constrain(self, system)
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Shape.on_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
         left = self.listen_var(system, "left")
@@ -390,8 +401,8 @@ class Cell1(Shape):
             return # < --------- return
 
         tgt, src = self.tgt, self.src
-        tgt.on_constrain(system)
-        src.on_constrain(system)
+        tgt.on_constrain(system, depth, verbose)
+        src.on_constrain(system, depth, verbose)
         add = system.add
         add(tgt.pip_x == self.pip_x - self.left)
         add(src.pip_x == self.pip_x + self.right)
@@ -406,7 +417,18 @@ class Cell1(Shape):
         #add(tgt.depth == self.depth)
         #add(src.depth == self.depth)
 
+    def dump(self, depth=0):
+        indent = "  "*depth
+        print(indent + self.__class__.__name__,
+            #getattr(self, "pip_x", None),
+            #getattr(self, "pip_y", None),
+            #getattr(self, "pip_z", None),
+            self.no_constrain,
+            id(self),
+        )
+
     def dbg_render(self, bg):
+        from huygens import namespace as ns
         cvs = Canvas()
         pip_x, pip_y, pip_z = self.pip_x, self.pip_y, self.pip_z
         tx = Transform(
@@ -421,7 +443,7 @@ class Cell1(Shape):
             cvs.stroke(path.line(pip_x, pip_y, cell.pip_x, cell.pip_y))
         cvs.stroke(path.rect(
             pip_x - self.left, pip_y - self.front, self.width, self.depth),
-            [color.rgb(1,0,0)])
+            [color.rgba(1,0,0,0.5)]+ns.st_THick+ns.st_round)
         bg.append(cvs)
 
     @classmethod
@@ -462,7 +484,7 @@ class DCell1(Compound, Cell1):
         cells = [cell.clone(alias) for cell in cells]
         tgt = DCell0([cell.tgt for cell in cells], alias=True, no_constrain=True) # don't on_constrain this!
         src = DCell0([cell.src for cell in cells], alias=True, no_constrain=True) # don't on_constrain this!
-        name = "@".join(cell.name for cell in cells)
+        name = "(" + "@".join(cell.name for cell in cells) + ")"
         Cell1.__init__(self, tgt, src, name, alias=True, **kw) # already clone'd tgt, src
         self.cells = cells
 
@@ -471,20 +493,60 @@ class DCell1(Compound, Cell1):
             for path in cell.get_paths():
                 yield path
 
-    def on_constrain(self, system):
-        Cell1.on_constrain(self, system)
-        Compound.on_constrain(self, system) # constrain children
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Cell1.on_constrain(self, system, depth, verbose)
+        Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
         w = 1./len(self)
         for cell in self.cells:
-            add(self.width == cell.width) # fit width
-            add(cell.pip_x == self.pip_x) # _align pip_x
+
+            #add(self.width == cell.width) # fit width
+            #add(cell.pip_x == self.pip_x) # _align pip_x
+            # this seems to have the same effect as previous two lines:
+            add(self.pip_x - self.left == cell.pip_x - cell.left)
+            add(self.pip_x + self.right == cell.pip_x + cell.right)
+
             add(cell.pip_z == self.pip_z) # _align pip_z
             add(cell.pip_y - cell.front == y)
             add(cell.depth == w*self.depth, self.weight)
             y += cell.depth
-        add(self.pip_y + self.back == y, self.weight)
+        #add(self.pip_y + self.back == y, self.weight) # soft constrain, nah
+        add(self.pip_y + self.back == y) # hard constrain, yes!
+
+    def dump(self, depth=0):
+        indent = "  "*depth
+        Cell1.dump(self, depth)
+        for child in self.cells:
+            child.dump(depth+1)
+
+    def dbg_render(self, bg):
+        from huygens import namespace as ns
+        cvs = Canvas()
+        if hasattr(self, "pip_x"):
+            pip_x, pip_y, pip_z = self.pip_x, self.pip_y, self.pip_z
+            tx = Transform(
+                xx=1.0, yx=0.0, 
+                xy=0.6, yy=0.5, 
+                x0=0.0, y0=pip_z)
+            cvs.append(tx)
+            #cvs.fill(path.circle(pip_x, pip_y, 0.05))
+            #for cell in self.tgt:
+            #    cvs.stroke(path.line(pip_x, pip_y, cell.pip_x, cell.pip_y))
+            #for cell in self.src:
+            #    cvs.stroke(path.line(pip_x, pip_y, cell.pip_x, cell.pip_y))
+            print("DCell1.dbg_render")
+            cvs.stroke(path.rect(
+                pip_x - self.left, pip_y - self.front, self.width, self.depth),
+                [color.rgba(0,0,0,1.0)]+ns.st_THIck+ns.st_round)
+            bg.append(cvs)
+        #else:
+        #    assert self.no_constrain == True
+
+        for child in self.cells:
+            child.dbg_render(bg)
 
     def extrude(self, show_pip=False, **kw):
         cells = [cell.extrude(show_pip=show_pip, **kw) for cell in self.cells]
@@ -506,7 +568,7 @@ class HCell1(Compound, Cell1):
                 msg = ("can't compose %s and %s"%(cells[i], cells[i+1]))
                 raise TypeError(msg)
             i += 1
-        name = "<<".join(cell.name for cell in cells)
+        name = "(" + "<<".join(cell.name for cell in cells) + ")"
         Cell1.__init__(self, tgt, src, name, alias=True, **kw) # already clone'd tgt, src
         self.cells = cells
 
@@ -543,11 +605,11 @@ class HCell1(Compound, Cell1):
             for lpath in lpaths[idx]:
                 yield lpath + rpath
 
-
-
-    def on_constrain(self, system):
-        Cell1.on_constrain(self, system)
-        Compound.on_constrain(self, system) # constrain children
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Cell1.on_constrain(self, system, depth, verbose)
+        Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         x = self.pip_x - self.left
         w = 1./len(self)
@@ -568,6 +630,16 @@ class HCell1(Compound, Cell1):
             for l, r in zip(lhs.src, rhs.tgt):
                 add(l.pip_y == r.pip_y) # hard eq !
             i += 1
+
+    def dump(self, depth=0):
+        indent = "  "*depth
+        Cell1.dump(self, depth)
+        for child in self.cells:
+            child.dump(depth+1)
+
+    def dbg_render(self, cvs):
+        for child in self.cells:
+            child.dbg_render(cvs)
 
     def extrude(self, show_pip=False, **kw):
         cells = [cell.extrude(show_pip=show_pip, **kw) for cell in self.cells]
@@ -741,8 +813,10 @@ class Cell2(Shape):
     def vunits(self):
         return 1
 
-    def on_constrain(self, system):
-        Shape.on_constrain(self, system)
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Shape.on_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
         left = self.listen_var(system, "left")
@@ -759,8 +833,8 @@ class Cell2(Shape):
             return # < --------- return
 
         tgt, src = self.tgt, self.src
-        tgt.on_constrain(system)
-        src.on_constrain(system)
+        tgt.on_constrain(system, depth, verbose)
+        src.on_constrain(system, depth, verbose)
         add = system.add
         add(tgt.pip_z == self.pip_z + self.top) # hard equal
         add(src.pip_z == self.pip_z - self.bot) # hard equal
@@ -769,6 +843,11 @@ class Cell2(Shape):
             add(cell.pip_x + cell.right == self.pip_x + self.right) # hard equal
             add(cell.pip_y - cell.front == self.pip_y - self.front) # hard equal
             add(cell.pip_y + cell.back == self.pip_y + self.back) # hard equal
+
+    def dump(self, depth=0):
+        print("  "*depth + self.__class__.__name__, id(self))
+        self.tgt.dump(depth+1)
+        self.src.dump(depth+1)
 
     def dbg_render(self, cvs):
         self.tgt.dbg_render(cvs)
@@ -786,7 +865,7 @@ class Cell2(Shape):
 
         def seg_over(v1, v2):
             v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
-            line = Segment( v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
+            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
             return line
 
         def callback(self):
@@ -851,13 +930,9 @@ class Cell2(Shape):
         cone = 1. - self.cone
         cone = max(PIP, cone)
 
-        def p_over(v1, v2):
-            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
-            return v12
-
         def seg_over(v1, v2):
             v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
-            line = Segment( v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
+            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
             return line
 
         def callback(self):
@@ -867,8 +942,6 @@ class Cell2(Shape):
             color = self.color
             pip1 = Mat(self.pip)
 
-            #pip12 = p_over(pip1, pip2) # a point over pip1
-            #line = Segment( pip1, pip1 + cone*(pip12-pip1), pip2 + cone*(pip12-pip2), pip2)
             line = seg_over(pip1, pip2)
             if color is not None:
                 view.add_curve(*line, lw=0.2, stroke=color)
@@ -1013,7 +1086,7 @@ class DCell2(Compound, Cell2):
         cells = [cell.clone(alias) for cell in cells]
         tgt = DCell1([cell.tgt for cell in cells], alias=True, no_constrain=True)
         src = DCell1([cell.src for cell in cells], alias=True, no_constrain=True)
-        name = "@".join(cell.name for cell in cells)
+        name = "(" + "@".join(cell.name for cell in cells) + ")"
         Cell2.__init__(self, tgt, src, name, alias=True, **kw)
         self.cells = cells
 
@@ -1029,9 +1102,11 @@ class DCell2(Compound, Cell2):
     def vunits(self):
         return max(cell.vunits for cell in self.cells)
 
-    def on_constrain(self, system):
-        Cell2.on_constrain(self, system)
-        Compound.on_constrain(self, system) # constrain children
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Cell2.on_constrain(self, system, depth, verbose)
+        Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
         w = 1./self.dunits
@@ -1061,7 +1136,7 @@ class HCell2(Compound, Cell2):
         cells = [cell.clone(alias) for cell in cells]
         tgt = HCell1([cell.tgt for cell in cells], alias=True, no_constrain=True)
         src = HCell1([cell.src for cell in cells], alias=True, no_constrain=True)
-        name = "<<".join(cell.name for cell in cells)
+        name = "(" + "<<".join(cell.name for cell in cells) + ")"
         Cell2.__init__(self, tgt, src, name, alias=True, **kw)
         self.cells = cells
 
@@ -1077,9 +1152,11 @@ class HCell2(Compound, Cell2):
     def vunits(self):
         return max(cell.vunits for cell in self.cells)
 
-    def on_constrain(self, system):
-        Cell2.on_constrain(self, system)
-        Compound.on_constrain(self, system) # constrain children
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Cell2.on_constrain(self, system, depth, verbose)
+        Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         cells = self.cells
         assert cells, "??"
@@ -1131,7 +1208,7 @@ class VCell2(Compound, Cell2):
                 #raise TypeError(msg)
                 #print("VCell2.__init__: WARNING", msg)
             i += 1
-        name = "*".join(cell.name for cell in cells)
+        name = "(" + "*".join(cell.name for cell in cells) + ")"
         Cell2.__init__(self, tgt, src, name, alias=True, **kw)
         self.cells = cells
 
@@ -1147,9 +1224,11 @@ class VCell2(Compound, Cell2):
     def vunits(self):
         return sum(cell.vunits for cell in self.cells)
 
-    def on_constrain(self, system):
-        Cell2.on_constrain(self, system)
-        Compound.on_constrain(self, system) # constrain children
+    def on_constrain(self, system, depth, verbose=False):
+        if verbose:
+            dbg_constrain(self, depth)
+        Cell2.on_constrain(self, system, depth, verbose)
+        Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         z = self.pip_z - self.bot
         cells = self.cells # cells go top down
@@ -1184,6 +1263,19 @@ class VCell2(Compound, Cell2):
 
 
 
+def fail_match(tgt, src):
+    fail = "cannot match\n\t%s\n\t%s"%(tgt, src)
+    print("fail_match:", fail)
+    assert 0
+    cvs = Canvas()
+    tgt.dbg_render(cvs)
+    tgt.writePDFfile("tgt-debug.pdf")
+    cvs = Canvas()
+    src.dbg_render(cvs)
+    src.writePDFfile("src-debug.pdf")
+    raise TypeError(fail)
+
+
 def match(tgt, src):
     if tgt.name == src.name:
         tgt = tgt.search(instance=Cell1)
@@ -1196,26 +1288,22 @@ def match(tgt, src):
     send = {} 
     lhs = list(tgt.get_paths())
     rhs = list(src.get_paths())
-    fail = "cannot match %s and %s"%(tgt, src)
     if len(lhs) != len(rhs):
-        cvs = Canvas()
-        tgt.dbg_render(cvs)
-        tgt.writePDFfile("tgt-debug.pdf")
-        cvs = Canvas()
-        src.dbg_render(cvs)
-        src.writePDFfile("src-debug.pdf")
-
-        raise TypeError(fail)
+        fail_match(tgt, src)
+    #print("match: paths=%s" % (len(lhs),))
 
     for (left,right) in zip(lhs, rhs):
         if len(left)!=len(right):
-            raise TypeError(fail)
+            fail_match(tgt, src)
         for (l,r) in zip(left, right):
             if l in send:
-                assert send[l] == r, fail
+                if send[l] != r:
+                    fail_match(tgt, src)
             send[l] = r
-            assert type(l) == type(r), fail
-            assert l.name == r.name, fail
+            if type(l) != type(r):
+                fail_match(tgt, src)
+            if l.name != r.name:
+                fail_match(tgt, src)
             if isinstance(l, Cell1):
                 yield (l,r)
     

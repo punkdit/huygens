@@ -286,7 +286,7 @@ class Solver(object):
         self.lhs = None
         self.rhs = None
 
-    def solve(self, check=True):
+    def solve(self, check=True, verbose=False):
         leqs = self.leqs
         eqs = self.eqs
         n = self.n
@@ -321,13 +321,18 @@ class Solver(object):
 
         if check:
             for item in self.items:
-                e = item.evaluate(vs)
+                e = item.evaluate(vs) # was this constraint satisfied ?
                 self.debug(item, "?", e)
                 if not e:
                     print("WARNING: constraint failed")
                     print("%s: lhs=%s, rhs=%s" %(
                         item, item.lhs.evaluate(vs), item.rhs.evaluate(vs)))
                     print("--------------------------")
+
+        if verbose:
+            for item in self.items:
+                e = item.evaluate(vs) # was this constraint satisfied ?
+                print(e, item, item.lhs.evaluate(vs), item.rhs.evaluate(vs))
 
         return vs
 
@@ -421,11 +426,11 @@ class System(object):
             listener.on_refresh(name)
         self.__init__()
 
-    def solve(self):
+    def solve(self, verbose=False):
         #print("System.solve")
         assert self.lookup is None, "already called solve!"
         solver = Solver(self.items)
-        self.lookup = solver.solve()
+        self.lookup = solver.solve(verbose=verbose)
 
         # notify the listeners
         for v in self.all_vars:
