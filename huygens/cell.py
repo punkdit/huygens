@@ -26,6 +26,7 @@ from huygens.argv import argv
 from huygens import pov
 from huygens.pov import View, Mat
 
+
 EPSILON = 1e-6
 PIP = 0.001
 
@@ -39,14 +40,29 @@ def conv(a, b, alpha=0.5):
 """
 
 The three directions:
-    H : horizontal : operator <<  : x coordinate : width property  : left, right
-    D : depth      : operator @   : y coordinate : depth property  : front, back
-    V : vertical   : operator *   : z coordinate : height property : top, bot
+    H : horizontal : operator <<  : x coord : .width property  : .left, .right
+    D : depth      : operator @   : y coord : .depth property  : .front, .back
+    V : vertical   : operator *   : z coord : .height property : .top, .bot
 
-atributes:
-              pip_x  pip_y  pip_z
-    -ve dir:  left   front  bot
-    +ve dir:  right  back   top
+The classes that the user interacts with:
+    Cell0, DCell0
+    Cell1, DCell1, HCell1
+    Cell2, DCell2, HCell2, VCell2
+
+These all have "shadow" classes that actually do the layout & rendering
+    _Cell0, _DCell0
+    _Cell1, _DCell1, _HCell1
+    _Cell2, _DCell2, _HCell2, _VCell2
+
+We need this shadow hierarchy because the user can reuse (alias) object's
+when building a term (a compound 2-cell),
+but when rendering we need a uniqe cell object for each occurance of a cell in a 
+compound cell. This transition is accomplished by the .deepcopy method.
+
+Important atributes:
+                   .pip_x  .pip_y  .pip_z
+    positive dir:  .left   .front  .bot
+    negative dir:  .right  .back   .top
 
 """
 
@@ -275,6 +291,7 @@ class Cell0(Atom):
     color = None # fill
     stroke = black # outline
     show_pip = False
+    pip_cvs = None 
 
     def __len__(self):
         return 1
@@ -286,9 +303,10 @@ class Cell0(Atom):
         kw = dict(self.__dict__)
         kw["name"] = self.name
         kw["weight"] = self.weight
-        kw["show_pip"] = self.show_pip
         kw["color"] = self.color
         kw["stroke"] = self.stroke
+        kw["show_pip"] = self.show_pip
+        kw["pip_cvs"] = self.pip_cvs
         cell = _Cell0(**kw)
         check_renderable(cell)
         return cell
@@ -742,8 +760,10 @@ setop(Cell1, "__lshift__", HCell1)
 
 # -------------------------------------------------------
 
+# These are helper classes for _Cell2.render below
 
 class Segment(object):
+    "a 3d bezier curve"
     def __init__(self, v0, v1, v2, v3, color=(0,0,0,1)):
         self.vs = (v0, v1, v2, v3)
         self.color = color
@@ -753,6 +773,11 @@ class Segment(object):
 
     #def incident(self, other):
     #    return self == other or self.reversed == other
+
+    def midpoint(self):
+        v0, v1, v2, v3 = self.vs
+        v = (1./4) * (v0 + v1 + v2 + v3) # um... just hack it for now
+        return v
 
     @classmethod
     def mk_line(cls, v0, v2, **kw):
@@ -774,6 +799,8 @@ class Segment(object):
 
 
 class Surface(object):
+    pip_cvs = None
+
     def __init__(self, segments, color=(0,0,0,1), address=None):
         self.segments = list(segments)
         self.color = color
@@ -798,6 +825,14 @@ class Surface(object):
             Segment.mk_line(v2, v0),
         ]
         return Surface(segments, color=color)
+
+    def midpoint(self):
+        vs = [segment.midpoint() for segment in self.segments]
+        v = vs[0]
+        for u in vs[1:]:
+            v = v + u
+        v = (1/len(vs))*v
+        return v
 
     def incident(self, other):
         if self.color != other.color:
@@ -882,6 +917,7 @@ class Cell2(Atom):
 
     def deepcopy(self):
         kw = {}
+        kw["DEBUG"] = self.DEBUG
         kw["color"] = self.color
         kw["show_pip"] = self.show_pip
         kw["pip_radius"] = self.pip_radius
@@ -1070,23 +1106,31 @@ class _Cell2(Cell2, Render):
         assert len(l_src) == len(l_tgt)
         assert len(r_src) == len(r_tgt)
 
+        # now we join the top and bot triangles on the left
         for (p_src, p_tgt) in zip(l_src, l_tgt):
             cell = p_src[1]
             seg_src, seg_tgt = p_src[0], p_tgt[0]
             seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
             surf = Surface([seg_src, seg, seg_tgt.reversed], cell.color, address=cell)
+            surf.pip_cvs = cell.pip_cvs # grab this attr for below
             surfaces.append(surf)
 
+        # now we join the top and bot triangles on the right
         for (p_src, p_tgt) in zip(r_src, r_tgt):
             cell = p_tgt[1]
             seg_src, seg_tgt = p_src[0], p_tgt[0]
             seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
             surf = Surface([seg_src, seg, seg_tgt.reversed], cell.color, address=cell)
+            surf.pip_cvs = cell.pip_cvs # grab this attr for below
             surfaces.append(surf)
 
         #surfaces = Surface.merge(surfaces)
         for surface in surfaces:
             surface.render(view)
+        for surface in surfaces:
+            if surface.pip_cvs is None:
+                continue
+            view.add_cvs(surface.midpoint(), surface.pip_cvs)
 
         if self.pip_cvs is not None:
             view.add_cvs(Mat(pip2), self.pip_cvs)
@@ -1150,6 +1194,41 @@ class _Cell2(Cell2, Render):
     def dbg_render(self, cvs):
         self.tgt.dbg_render(cvs)
         self.src.dbg_render(cvs)
+
+    def render_cvs(self):
+        view = View(400, 400, sort_gitems=False)
+        view.ortho()
+        x0, y0, z0 = self.center
+        theta = -0.2*pi
+        R = 3.
+        x = 2*sin(theta) + x0
+        y = -R
+        z = 1*cos(theta) + z0 + self.top + 0.
+        #pos = [x, y, z]
+        pos = [0, y, 0]
+        view.lookat(pos, [x0, y0, z0], [0, 0, 1]) # eyepos, lookat, up
+
+        self.render(view)
+
+        # just does not work well enough...
+        # we have to sort: GCurve, GSurface, GCircle
+        def less_than(lhs, rhs):
+            to_sort = [pov.GSurface, pov.GCurve, pov.GCircle, pov.GCvs]
+            # lhs < rhs means draw lhs before rhs, lhs is *behind* rhs
+            depth = view.get_depth(lhs) < view.get_depth(rhs)
+            ltp, rtp = type(lhs), type(rhs)
+            if ltp == rtp:
+                return depth
+            elif lhs.incident(rhs, 0.1):
+                #print("*", end=" ")
+                idx, jdx = to_sort.index(ltp), to_sort.index(rtp)
+                return idx < jdx
+            return depth
+
+        #shuffle(view.gitems)
+        cvs = Canvas()
+        view.render(cvs=cvs, less_than=less_than)
+        return cvs
 
 
 
@@ -1473,8 +1552,8 @@ def test():
     cell = Cell2(m_m, (m_m @ _m) << mm_m)
 
     c = cell.deepcopy()
-    show_uniq(cell)
-    show_uniq(c)
+    #show_uniq(cell)
+    #show_uniq(c)
 
     A, B = Cell1(m@n, l), Cell1(l, p)
     A1, B1 = Cell1(m@n, o@o), Cell1(o@o, p)
@@ -1621,6 +1700,33 @@ def more_test():
     morph_1 = morph_1.vflip()
     
             
+def test_render():
+
+    from huygens import config
+    config(text="pdflatex", latex_header=r"""
+    \usepackage{amsmath}
+    \usepackage{amssymb}
+    \usepackage{extarrows}
+    """)
+    from huygens.namespace import st_center
+
+    scheme = "ff5e5b-d8d8d8-ffffea-00cecb-ffed66"
+    scheme = scheme.split("-")
+    scheme = [color.rgbhex(rgb).alpha(0.5) for rgb in scheme]
+
+    names = 'lmnop'
+    l, m, n, o, p = [
+        Cell0(name, color=scheme[i%len(scheme)], address=name) 
+        for i, name in enumerate('lmnop')]
+
+    pip_cvs = Canvas().text(0, 0, "$n$", st_center)
+    i = Cell1(l, l, show_pip=False, color=None)
+    f = i.extrude()(pip_cvs = pip_cvs)
+
+    f = f.layout()
+    cvs = f.render_cvs()
+    cvs.writePDFfile("test.pdf")
+
 
 
 if __name__ == "__main__":
@@ -1628,6 +1734,7 @@ if __name__ == "__main__":
     test()
     test_match()
     more_test()
+    test_render()
 
     print("OK")
 
