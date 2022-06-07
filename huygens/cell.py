@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 
 """
-Render 2-morphisms in a bicategory using sheet/string diagrams.
 
-previous version: bicategory.py
+render 2-morphisms in a bicategory using sheet/string diagrams.
+
+previous version: huygens/cell.py
+
+WARNING: this code is bonkers, but does work sometimes.
 
 """
 
-import copy
 from random import random, randint, shuffle
 import operator
 from functools import reduce
 from math import pi, sin, cos
 from time import sleep
 
+from huygens.front import color
 from huygens.sat import System, Listener, Variable
 from huygens.back import Compound, Deco, Path, Transform, Scale
 from huygens.front import path, style, canvas, color, Canvas
@@ -24,6 +27,10 @@ from huygens import pov
 from huygens.pov import View, Mat
 
 EPSILON = 1e-6
+PIP = 0.001
+
+black = (0,0,0,1)
+grey = (0,0,0,0.2)
 
 def conv(a, b, alpha=0.5):
     return (1.-alpha)*a + alpha*b
@@ -38,65 +45,98 @@ The three directions:
 
 atributes:
               pip_x  pip_y  pip_z
-    -ve dir:  left   back   bot
-    +ve dir:  right  front  top
+    -ve dir:  left   front  bot
+    +ve dir:  right  back   top
 
 """
 
-black = (0,0,0,1)
-grey = (0,0,0,0.2)
 
-PIP = 0.001
-
-def dbg_constrain(self, depth):
-    print("  "*depth + self.__class__.__name__, id(self),
-    )
-
-class Shape(Listener):
-
-    address = None
-
-    def __init__(self, name, weight=1.0, no_constrain=False, **kw):
+class Atom(object):
+    def __init__(self, name, weight=1., **kw):
         self.name = name
         self.weight = weight
-        self.no_constrain = no_constrain
         self.__dict__.update(kw)
 
     def __str__(self):
         return self.name
 
-#    def __eq__(self, other):
-#        assert isinstance(other, Shape)
-#        assert 0, "this is just too weak..."
-#        return self.name == other.name
+    def visit(self, callback, instance=None, **kw):
+        if instance is None or self.__class__ == instance:
+            callback(self)
 
-    @property
-    def key(self):
-        return id(self)
-
-    def clone(self, alias=False):
-        #for v in self.__dict__.values():
-        #    assert not isinstance(v, Variable), "wup"
-        if alias:
-            return self
-        image = copy.deepcopy(self)
-        return image
-        
-    def __len__(self):
-        return 1
-
-    def __getitem__(self, idx):
-        return [self][idx]
-
-    def __contains__(self, other):
-        if self is other:
-            return True
+    def search(self, **kw):
+        cells = []
+        def cb(cell):
+            cells.append(cell)
+        self.visit(cb, **kw)
+        return cells
 
     def index(self, other):
         if self is other:
             return 0
         assert 0, "not found"
 
+    def traverse(self, cb, depth=0, full=True):
+        cb(self, depth)
+
+    def __call__(self, **kw):
+        self = self.deepcopy() # **kw for deepcopy ?
+        self.__dict__.update(kw)
+        return self
+
+
+class Compound(object):
+    def __len__(self):
+        return len(self.cells)
+
+    def __getitem__(self, idx):
+        return self.cells[idx]
+
+    def __contains__(self, other):
+        for cell in self.cells:
+            if cell is other:
+                return True
+        return False
+
+    def index(self, other):
+        for idx, cell in enumerate(self.cells):
+            if cell is other:
+                return idx
+        assert 0, "not found"
+
+    def _associate(self, items):
+        cls = self.__class__
+        itemss = [(item.cells if isinstance(item, cls) else [item]) for item in items]
+        items = reduce(operator.add, itemss, [])
+        return items
+
+    def visit(self, callback, **kw):
+        for child in self.cells:
+            child.visit(callback, **kw)
+        Atom.visit(self, callback, **kw)
+
+    def traverse(self, cb, depth=0, full=True):
+        Atom.traverse(self, cb, depth, full)
+        for cell in self.cells:
+            cell.traverse(cb, depth+1, full)
+
+    def str(self, depth=0):
+        lines = [Atom.str(self, depth)]
+        lines += [cell.str(depth+1) for cell in self.cells]
+        return "\n".join(lines)
+
+def setop(cls, opname, parent):
+    def meth(left, right):
+        return parent([left, right])
+    setattr(cls, opname, meth)
+
+
+def dbg_constrain(self, depth):
+    print("  "*depth, "%s.on_constrain"%(self.__class__.__name__))
+
+
+
+class Render(Listener):
     @property
     def depth(self):
         return self.back + self.front
@@ -120,10 +160,39 @@ class Shape(Listener):
         setattr(self, attr, v)
         return v
 
+    def pstr(self, depth=0):
+        pip_x = getattr(self, "pip_x", None)
+        pip_y = getattr(self, "pip_y", None)
+        pip_z = getattr(self, "pip_z", None)
+        if pip_x is None:
+            return "  "*depth + self.__class__.__name__
+        #pip_x = "%.2f"%pip_x if pip_x is not None else "--"
+        #pip_y = "%.2f"%pip_y if pip_y is not None else "--"
+        #pip_z = "%.2f"%pip_z if pip_z is not None else "--"
+        x0, x1 = pip_x - self.left, pip_x + self.right
+        y0, y1 = pip_y - self.front, pip_y + self.back
+        z0, z1 = pip_z - self.left, pip_z + self.right
+        return "%s([%.2f:%.2f],[%.2f:%.2f],[%.2f:%.2f])"%(
+            "  "*depth + self.__class__.__name__, 
+            x0, x1, y0, y1, z0, z1)
+
+    def dump(self, full=True):
+        self.lno = 0
+        found = {}
+        def callback(cell, depth):
+            s = Render.pstr(cell, depth)
+            s = "%4d:"%self.lno + s
+            if cell in found:
+                s += " " + str(found[cell])
+            else:
+                found[cell] = self.lno
+            print(s)
+            self.lno += 1
+        self.traverse(callback, full=full)
+
     def on_constrain(self, system, depth, verbose=False):
-        #if verbose:
-        #    dbg_constrain(self, depth)
-        assert not self.no_constrain
+        if verbose:
+            dbg_constrain(self, depth)
         self.listen_var(system, "pip_x")
         self.listen_var(system, "pip_y")
         self.listen_var(system, "pip_z")
@@ -156,61 +225,8 @@ class Shape(Listener):
         system = self.constrain(*args, verbose=verbose, **kw)
         system.solve()
         self.did_layout = system
-        return self
-
-    def longstr(self):
-        s = self.__class__.__name__ + "("
-        keys = list(self.__dict__.keys())
-        keys.sort()
-        for key in keys:
-            value = self.__dict__[key]
-            if type(value) is float:
-                value = "%.3f"%value
-            elif type(value) is str:
-                value = repr(value)
-            s += "%s=%s, "%(key, value)
-        s = s[:-2]+")"
-        return s
-    __repr__ = longstr
-
-    def render(self, view):
-        pass
-
-    def visit(self, callback, instance=None, **kw):
-        if instance is None or self.__class__ == instance:
-            callback(self)
-
-    def search(self, **kw):
-        cells = []
-        def cb(cell):
-            cells.append(cell)
-        self.visit(cb, **kw)
-        return cells
-
-    def format(self, attr):
-        if hasattr(self, attr):
-            value = getattr(self, attr)
-            if type(value) is float:
-                value = "%.2f"%value
-        else:
-            value = "--"
-        return "%5s"%value
-
-    def deepstr(self, depth=0):
-        s = "%s%s(%s %s %s %s:%s %s:%s %s:%s)"% (
-            "  "*depth, 
-            self.__class__.__name__,
-            self.format("pip_x"),
-            self.format("pip_y"),
-            self.format("pip_z"),
-            self.format("left"), self.format("right"),
-            self.format("front"), self.format("back"),
-            self.format("top"), self.format("bot"),
-        )
-        return s
-
-    def vflip(self, alias=False):
-        return self.clone(alias)
+        #self.dump(full=False)
+        return system
 
     def save_dbg(self, name):
         #self.layout()
@@ -218,81 +234,47 @@ class Shape(Listener):
         self.dbg_render(cvs)
         cvs.writePDFfile(name)
 
-    def __call__(self, alias=False, **kw):
-        item = self.clone(alias)
-        item.__dict__.update(kw)
-        return item
 
 
-class Compound(object):
-    def __len__(self):
-        return len(self.cells)
-
-    def __getitem__(self, idx):
-        return self.cells[idx]
-
-    def __contains__(self, other):
-        for cell in self.cells:
-            if cell is other:
-                return True
-        return False
-
-    def index(self, other):
-        for idx, cell in enumerate(self.cells):
-            if cell is other:
-                return idx
-        assert 0, "not found"
-
-    def _associate(self, items):
-        cls = self.__class__
-        itemss = [(item.cells if isinstance(item, cls) else [item])
-            for item in items]
-        items = reduce(operator.add, itemss, [])
-        return items
-
+class _Compound(object):
     def on_constrain(self, system, depth, verbose=False):
-        #if verbose:
-        #    dbg_constrain(self, depth)
-        #Shape.on_constrain(self, system)
+        if verbose:
+            dbg_constrain(self, depth)
+        #Render.on_constrain(self, system)
         for cell in self.cells:
             cell.on_constrain(system, depth+1, verbose)
 
     def render(self, view):
-        Shape.render(self, view)
+        #Shape.render(self, view)
         for cell in self.cells:
             cell.render(view)
 
-    def visit(self, callback, **kw):
-        for child in self.cells:
-            child.visit(callback, **kw)
-        Shape.visit(self, callback, **kw)
-
-    def deepstr(self, depth=0):
-        lines = [Shape.deepstr(self, depth)]
-        lines += [cell.deepstr(depth+1) for cell in self.cells]
-        return "\n".join(lines)
-
-def setop(cls, opname, parent):
-    def meth(left, right):
-        return parent([left, right])
-    setattr(cls, opname, meth)
 
 
 # -------------------------------------------------------
 
-class Cell0(Shape):
-    "These are the 0-cells"
+def check_renderable(cell):
+    fail = []
+    def callback(cell, depth):
+        if not isinstance(cell, Render):
+            fail.append(cell)
+    cell.traverse(callback)
+    return not fail
+
+    
+def dump(cell):
+    def callback(cell, depth):
+        print("  "*depth + cell.__class__.__name__)
+    cell.traverse(callback)
+    return cell
+    
+
+class Cell0(Atom):
+    "These are the 0-cells, or object's."
 
     color = None # fill
     stroke = black # outline
     show_pip = False
-
-    def __init__(self, name, **kw):
-        Shape.__init__(self, name, **kw)
-        if "color" in kw:
-            self.color = kw["color"]
-        if "stroke" in kw:
-            self.stroke = kw["stroke"]
 
     def __len__(self):
         return 1
@@ -300,10 +282,31 @@ class Cell0(Shape):
     def __getitem__(self, idx):
         return [self][idx]
 
+    def deepcopy(self):
+        kw = dict(self.__dict__)
+        kw["name"] = self.name
+        kw["weight"] = self.weight
+        kw["show_pip"] = self.show_pip
+        kw["color"] = self.color
+        kw["stroke"] = self.stroke
+        cell = _Cell0(**kw)
+        check_renderable(cell)
+        return cell
+
+
+class _Cell0(Cell0, Render):
+
+    def eq_constrain(self, other, system):
+        add = system.add
+        for attr in "pip_x pip_y pip_z front back".split():
+            lhs = getattr(self, attr)
+            rhs = getattr(other, attr)
+            add(lhs == rhs)
+
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Shape.on_constrain(self, system, depth, verbose)
+        Render.on_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
 
@@ -312,19 +315,33 @@ class Cell0(Shape):
 
 
 
+
 class DCell0(Compound, Cell0):
-    def __init__(self, cells, alias=False, **kw):
+    def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        cells = [cell.clone(alias) for cell in cells]
         name = "@".join(cell.name for cell in cells) or "ii"
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
+    def deepcopy(self):
+        kw = dict(self.__dict__)
+        del kw["name"]
+        del kw["cells"]
+        kw["show_pip"] = self.show_pip
+        kw["color"] = self.color
+        kw["stroke"] = self.stroke
+        cells = [cell.deepcopy() for cell in self.cells]
+        cell = _DCell0(cells, **kw)
+        check_renderable(cell)
+        return cell
+
+
+class _DCell0(DCell0, _Compound, _Cell0):
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Cell0.on_constrain(self, system, depth, verbose)
-        Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell0.on_constrain(self, system, depth, verbose)
+        _Compound.on_constrain(self, system, depth, verbose) # constrain children
         if not len(self):
             return
         add = system.add
@@ -333,11 +350,12 @@ class DCell0(Compound, Cell0):
         for cell in self.cells:
             add(self.pip_x == cell.pip_x) # _align
             add(self.pip_z == cell.pip_z) # _align
-            add(cell.pip_y == y + cell.front, self.weight) # soft equal
+            add(cell.pip_y - cell.front == y, self.weight) # soft equal
             add(cell.depth == w*self.depth, self.weight) # soft equal
             y += cell.depth
         #add(self.pip_y + self.back == y, self.weight) # should be hard equal?
         add(self.pip_y + self.back == y) # should be hard equal?
+
 
 
 setop(Cell0, "__matmul__", DCell0)
@@ -349,7 +367,7 @@ Cell0.ii = DCell0([])
 # -------------------------------------------------------
 
 
-class Cell1(Shape):
+class Cell1(Atom):
     """
         These are the 1-cells.
     """
@@ -357,17 +375,47 @@ class Cell1(Shape):
     color = black
     show_pip = True
     pip_radius = 0.3
+    pip_cvs = None
 
-    def __init__(self, tgt, src, name=None, weight=1.0, alias=False, **kw):
+    def __init__(self, tgt, src, name=None, weight=1.0, **kw):
         assert isinstance(tgt, Cell0)
         assert isinstance(src, Cell0)
         if name is None:
             name = "(%s<---%s)"%(tgt, src)
-        Shape.__init__(self, name, weight, **kw) # will update kw's on __dict__
-        self.tgt = tgt.clone(alias)
-        self.src = src.clone(alias)
+        Atom.__init__(self, name, weight, **kw) # will update kw's on __dict__
+        self.tgt = tgt
+        self.src = src
         self.hom = (self.tgt, self.src)
 
+    def deepcopy(self):
+        tgt = self.tgt.deepcopy()
+        src = self.src.deepcopy()
+        kw = {}
+        kw["color"] = self.color
+        kw["show_pip"] = self.show_pip
+        kw["pip_radius"] = self.pip_radius
+        kw["pip_cvs"] = self.pip_cvs
+        cell = _Cell1(tgt, src, self.name, self.weight, **kw)
+        check_renderable(cell)
+        return cell
+
+    def extrude(self, show_pip=False, **kw):
+        return Cell2(self, self, show_pip=show_pip, **kw)
+
+    def reassoc(self):
+        yield [self]
+
+    def npaths(self):
+        return len(list(self.get_paths()))
+
+    def traverse(self, callback, depth=0, full=True):
+        Atom.traverse(self, callback, depth, full)
+        if full:
+            self.tgt.traverse(callback, depth+1, full)
+            self.src.traverse(callback, depth+1, full)
+
+
+class _Cell1(Cell1, Render):
     def get_paths(self):
         # a path is a list of [tgt, src]
         tgt, src = self.hom
@@ -384,10 +432,56 @@ class Cell1(Shape):
               for j in src:
                 yield [i, self, j]
 
+    def fail_match(tgt, src, message=""):
+        print("fail_match:", message)
+        print("\t", tgt)
+        print("\t", src)
+        assert 0
+    
+    def match(tgt, src):
+        assert isinstance(src, Cell1)
+        if tgt.name == src.name:
+            tgt = tgt.search(instance=Cell1)
+            src = src.search(instance=Cell1)
+            assert len(src) == len(tgt)
+            for (t,s) in zip(tgt, src):
+                yield (t,s)
+            return # <---------- return
+        send = {}
+        lhs = list(tgt.get_paths())
+        rhs = list(src.get_paths())
+        if len(lhs) != len(rhs):
+            tgt.fail_match(src, "%s tgt paths != %s src paths"%(len(lhs), len(rhs)))
+    
+        for (left,right) in zip(lhs, rhs):
+            if len(left)!=len(right):
+                tgt.fail_match(src, 
+                    "tgt path len %d != src path len %d"%(len(left), len(right)))
+            for (l,r) in zip(left, right):
+                if l in send:
+                    if send[l] != r:
+                        tgt.fail_match(src)
+                send[l] = r
+                if type(l) != type(r):
+                    tgt.fail_match(src)
+                if l.name != r.name:
+                    tgt.fail_match(src)
+                if isinstance(l, Cell1):
+                    yield (l,r)
+
+    def eq_constrain(self, other, system):
+        add = system.add
+        for attr in "pip_x pip_y pip_z front back left right".split():
+            lhs = getattr(self, attr)
+            rhs = getattr(other, attr)
+            add(lhs == rhs)
+        self.tgt.eq_constrain(other.tgt, system)
+        self.src.eq_constrain(other.src, system)
+
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Shape.on_constrain(self, system, depth, verbose)
+        Render.on_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
         left = self.listen_var(system, "left")
@@ -397,43 +491,34 @@ class Cell1(Shape):
         system.add(back == front, self.weight) # soft equal
         system.add(left == right, self.weight) # soft equal
 
-        if self.__class__ != Cell1: # bit of a hack
+        # keep the pip inside !
+        system.add(self.front >= 0)
+        system.add(self.back >= 0)
+        #system.add(self.left >= 0) # doesn't seem to be needed
+        #system.add(self.right >= 0) # doesn't seem to be needed
+
+        if self.__class__ != _Cell1: # bit of a hack
             return # < --------- return
 
+        # now we constrain the _Cell0 src & tgt
         tgt, src = self.tgt, self.src
         tgt.on_constrain(system, depth, verbose)
         src.on_constrain(system, depth, verbose)
         add = system.add
-        add(tgt.pip_x == self.pip_x - self.left)
-        add(src.pip_x == self.pip_x + self.right)
+        add(tgt.pip_x == self.pip_x - self.left) # tgt to the left
+        add(src.pip_x == self.pip_x + self.right) # src to the right
         for cell in [tgt, src]:
             add(cell.pip_z == self.pip_z) # hard equal
             add(cell.pip_y - cell.front == self.pip_y - self.front)
             add(cell.pip_y + cell.back == self.pip_y + self.back)
-        #add(tgt.pip_z == self.pip_z)
-        #add(src.pip_z == self.pip_z)
-        #add(tgt.pip_y == self.pip_y)
-        #add(src.pip_y == self.pip_y)
-        #add(tgt.depth == self.depth)
-        #add(src.depth == self.depth)
-
-    def dump(self, depth=0):
-        indent = "  "*depth
-        print(indent + self.__class__.__name__,
-            #getattr(self, "pip_x", None),
-            #getattr(self, "pip_y", None),
-            #getattr(self, "pip_z", None),
-            self.no_constrain,
-            id(self),
-        )
 
     def dbg_render(self, bg):
         from huygens import namespace as ns
         cvs = Canvas()
         pip_x, pip_y, pip_z = self.pip_x, self.pip_y, self.pip_z
         tx = Transform(
-            xx=1.0, yx=0.0, 
-            xy=0.6, yy=0.5, 
+            xx=1.0, yx=0.0,
+            xy=0.6, yy=0.5,
             x0=0.0, y0=pip_z)
         cvs.append(tx)
         cvs.fill(path.circle(pip_x, pip_y, 0.05))
@@ -446,58 +531,57 @@ class Cell1(Shape):
             [color.rgba(1,0,0,0.5)]+ns.st_THick+ns.st_round)
         bg.append(cvs)
 
-    @classmethod
-    def random(cls, tgt, src, depth=0):
-        assert depth>=0
-        n_tgt, n_src = len(tgt), len(src)
-        assert isinstance(tgt, Cell0), repr(tgt)
-        assert isinstance(src, Cell0), repr(src)
-        if depth == 0:
-            cell = Cell1(tgt, src)
-        elif n_tgt>1 and n_src>1 and random() < 0.5:
-            a = randint(1, n_tgt-1)
-            b = randint(1, n_src-1)
-            tensor = lambda items : reduce(operator.matmul, items)
-            front = Cell1.random(tensor(tgt[:a]), tensor(src[:b]), depth-1)
-            back = Cell1.random(tensor(tgt[a:]), tensor(src[b:]), depth-1)
-            cell = front @ back
-        else:
-            a = randint(1, 3)
-            mid = DCell0([Cell0("m")]*a)
-            left = Cell1.random(tgt, mid, depth-1)
-            right = Cell1.random(mid, src, depth-1)
-            cell = left << right
-        assert cell.tgt.name == tgt.name
-        assert cell.src.name == src.name
+
+
+
+class DCell1(Compound, Cell1):
+    bdy = DCell0
+    def __init__(self, cells, **kw):
+        cells = self._associate(cells)
+        tgt = self.bdy([cell.tgt for cell in cells])
+        src = self.bdy([cell.src for cell in cells])
+        name = "(" + "@".join(cell.name for cell in cells) + ")"
+        Cell1.__init__(self, tgt, src, name, **kw)
+        self.cells = cells
+
+    def deepcopy(self):
+        kw = {}
+        kw["show_pip"] = self.show_pip
+        kw["color"] = self.color
+        #kw["stroke"] = self.stroke
+        cells = [cell.deepcopy() for cell in self.cells]
+        cell = _DCell1(cells, **kw)
+        if not check_renderable(cell):
+            dump(cell)
+            assert 0, "found non Render's"
         return cell
 
     def extrude(self, show_pip=False, **kw):
-        return Cell2(self, self, show_pip=show_pip, **kw)
+        cells = [cell.extrude(show_pip=show_pip, **kw) for cell in self.cells]
+        return DCell2(cells, show_pip=show_pip, **kw)
 
-    def reassoc(self):
-        yield [self]
-        
+    def traverse(self, callback, depth=0, full=True):
+        Atom.traverse(self, callback, depth, full)
+        if full:
+            self.tgt.traverse(callback, depth+1, full)
+            self.src.traverse(callback, depth+1, full)
+        for cell in self.cells:
+            cell.traverse(callback, depth+1, full)
 
-class DCell1(Compound, Cell1):
-    def __init__(self, cells, alias=False, **kw):
-        cells = self._associate(cells)
-        cells = [cell.clone(alias) for cell in cells]
-        tgt = DCell0([cell.tgt for cell in cells], alias=True, no_constrain=True) # don't on_constrain this!
-        src = DCell0([cell.src for cell in cells], alias=True, no_constrain=True) # don't on_constrain this!
-        name = "(" + "@".join(cell.name for cell in cells) + ")"
-        Cell1.__init__(self, tgt, src, name, alias=True, **kw) # already clone'd tgt, src
-        self.cells = cells
+
+class _DCell1(DCell1, _Compound, _Cell1):
 
     def get_paths(self):
         for cell in self.cells:
             for path in cell.get_paths():
                 yield path
 
+    bdy = _DCell0
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Cell1.on_constrain(self, system, depth, verbose)
-        Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell1.on_constrain(self, system, depth, verbose)
+        _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
         w = 1./len(self)
@@ -516,20 +600,14 @@ class DCell1(Compound, Cell1):
         #add(self.pip_y + self.back == y, self.weight) # soft constrain, nah
         add(self.pip_y + self.back == y) # hard constrain, yes!
 
-    def dump(self, depth=0):
-        indent = "  "*depth
-        Cell1.dump(self, depth)
-        for child in self.cells:
-            child.dump(depth+1)
-
     def dbg_render(self, bg):
         from huygens import namespace as ns
         cvs = Canvas()
-        if hasattr(self, "pip_x"):
+        if 0 and hasattr(self, "pip_x"):
             pip_x, pip_y, pip_z = self.pip_x, self.pip_y, self.pip_z
             tx = Transform(
-                xx=1.0, yx=0.0, 
-                xy=0.6, yy=0.5, 
+                xx=1.0, yx=0.0,
+                xy=0.6, yy=0.5,
                 x0=0.0, y0=pip_z)
             cvs.append(tx)
             #cvs.fill(path.circle(pip_x, pip_y, 0.05))
@@ -537,7 +615,7 @@ class DCell1(Compound, Cell1):
             #    cvs.stroke(path.line(pip_x, pip_y, cell.pip_x, cell.pip_y))
             #for cell in self.src:
             #    cvs.stroke(path.line(pip_x, pip_y, cell.pip_x, cell.pip_y))
-            print("DCell1.dbg_render")
+            #print("DCell1.dbg_render")
             cvs.stroke(path.rect(
                 pip_x - self.left, pip_y - self.front, self.width, self.depth),
                 [color.rgba(0,0,0,1.0)]+ns.st_THIck+ns.st_round)
@@ -548,18 +626,12 @@ class DCell1(Compound, Cell1):
         for child in self.cells:
             child.dbg_render(bg)
 
-    def extrude(self, show_pip=False, **kw):
-        cells = [cell.extrude(show_pip=show_pip, **kw) for cell in self.cells]
-        return DCell2(cells, show_pip=show_pip, **kw)
 
-    #def reassoc(self):
 
-        
 
 class HCell1(Compound, Cell1):
-    def __init__(self, cells, alias=False, **kw):
+    def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        cells = [cell.clone(alias) for cell in cells]
         tgt = cells[0].tgt
         src = cells[-1].src
         i = 0
@@ -569,47 +641,73 @@ class HCell1(Compound, Cell1):
                 raise TypeError(msg)
             i += 1
         name = "(" + "<<".join(cell.name for cell in cells) + ")"
-        Cell1.__init__(self, tgt, src, name, alias=True, **kw) # already clone'd tgt, src
+        Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
+    def deepcopy(self):
+        kw = {}
+        kw["show_pip"] = self.show_pip
+        kw["color"] = self.color
+        #kw["stroke"] = self.stroke
+        cells = [cell.deepcopy() for cell in self.cells]
+        cell = _HCell1(cells, **kw)
+        check_renderable(cell)
+        return cell
+
+    def extrude(self, show_pip=False, **kw):
+        cells = [cell.extrude(show_pip=show_pip, **kw) for cell in self.cells]
+        return HCell2(cells, show_pip=show_pip, **kw)
+
+    def traverse(self, callback, depth=0, full=True):
+        Atom.traverse(self, callback, depth, full)
+        if full:
+            self.tgt.traverse(callback, depth+1, full)
+            self.src.traverse(callback, depth+1, full)
+        for cell in self.cells:
+            cell.traverse(callback, depth+1, full)
+
+
+class _HCell1(HCell1, _Compound, _Cell1):
     def get_paths(self):
-        #print("get_paths", self)
+        #print("HCell1.get_paths", self)
         cells = self.cells
         assert len(cells) >= 2, "wup"
         left = cells[0]
         if len(cells) > 2:
-            right = HCell1(cells[1:], alias=True)
+            right = _HCell1(cells[1:])
         else:
             right = cells[1]
 
-        #print("get_paths", left, right)
+        #print("_HCell1.get_paths", left, right)
         lpaths = [[] for _ in left.src]
         for lpath in left.get_paths():
-            if isinstance(lpath[-1], Cell1):
+            if isinstance(lpath[-1], _Cell1):
                 yield lpath
-                continue 
+                continue
             cell0 = lpath[-1]
-            assert isinstance(cell0, Cell0)
+            assert isinstance(cell0, _Cell0)
             assert cell0 in left.src, "%s not in %s"%(cell0.key, left.src.key)
             idx = left.src.index(cell0)
+            #print("lpaths: idx = ", idx)
             lpaths[idx].append(lpath)
 
         for rpath in right.get_paths():
-            if isinstance(rpath[0], Cell1):
+            if isinstance(rpath[0], _Cell1):
                 yield rpath
-                continue 
+                continue
             cell0 = rpath[0]
-            assert isinstance(cell0, Cell0)
+            assert isinstance(cell0, _Cell0)
             assert cell0 in right.tgt, "%s not in %s"%(cell0.key, right.tgt.key)
             idx = right.tgt.index(cell0)
+            #print("idx = ", idx)
             for lpath in lpaths[idx]:
                 yield lpath + rpath
 
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Cell1.on_constrain(self, system, depth, verbose)
-        Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell1.on_constrain(self, system, depth, verbose)
+        _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         x = self.pip_x - self.left
         w = 1./len(self)
@@ -631,24 +729,16 @@ class HCell1(Compound, Cell1):
                 add(l.pip_y == r.pip_y) # hard eq !
             i += 1
 
-    def dump(self, depth=0):
-        indent = "  "*depth
-        Cell1.dump(self, depth)
-        for child in self.cells:
-            child.dump(depth+1)
-
     def dbg_render(self, cvs):
         for child in self.cells:
             child.dbg_render(cvs)
 
-    def extrude(self, show_pip=False, **kw):
-        cells = [cell.extrude(show_pip=show_pip, **kw) for cell in self.cells]
-        return HCell2(cells, show_pip=show_pip, **kw)
-        
 
 
 setop(Cell1, "__matmul__", DCell1)
 setop(Cell1, "__lshift__", HCell1)
+
+
 
 # -------------------------------------------------------
 
@@ -768,7 +858,7 @@ class Surface(object):
 
 
 
-class Cell2(Shape):
+class Cell2(Atom):
     "These are the 2-cells"
 
     DEBUG = False
@@ -778,28 +868,30 @@ class Cell2(Shape):
     cone = 0.6 # closer to 1. is more cone-like
     pip_cvs = None
 
-    def __init__(self, tgt, src, name=None, alias=False, **kw):
+    def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell1)
         assert isinstance(src, Cell1)
         assert tgt.src.name == src.src.name, "%s != %s" % (tgt.src, src.src)
         assert tgt.tgt.name == src.tgt.name, "%s != %s" % (tgt.tgt, tgt.src)
         if name is None:
             name = "(%s<===%s)"%(tgt, src)
-        Shape.__init__(self, name, **kw) # update's kw's on __dict__
-        self.tgt = tgt.clone(alias)
-        self.src = src.clone(alias)
+        Atom.__init__(self, name, **kw) # update's kw's on __dict__
+        self.tgt = tgt
+        self.src = src
         self.hom = (self.tgt, self.src)
 
-    @property
-    def center(self):
-        return self.pip_x, self.pip_y, self.pip_z
-
-    @property
-    def rect(self):
-        return (
-            self.pip_x-self.left,  self.pip_y-self.front, self.pip_z-self.bot,
-            self.pip_x+self.right, self.pip_y+self.back, self.pip_z+self.top,
-        )
+    def deepcopy(self):
+        kw = {}
+        kw["color"] = self.color
+        kw["show_pip"] = self.show_pip
+        kw["pip_radius"] = self.pip_radius
+        kw["cone"] = self.cone
+        kw["pip_cvs"] = self.pip_cvs
+        tgt = self.tgt.deepcopy()
+        src = self.src.deepcopy()
+        cell = _Cell2(tgt, src, **kw)
+        check_renderable(cell)
+        return cell
 
     @property
     def hunits(self):
@@ -813,10 +905,39 @@ class Cell2(Shape):
     def vunits(self):
         return 1
 
+    def vflip(self):
+        tgt, src = self.src, self.tgt
+        return Cell2(tgt, src)
+
+    def traverse(self, callback, depth=0, full=True):
+        Atom.traverse(self, callback, depth, full)
+        if full:
+            self.tgt.traverse(callback, depth+1, full)
+            self.src.traverse(callback, depth+1, full)
+
+    def layout(self, *args, **kw):
+        cell = self.deepcopy()
+        Render.layout(cell, *args, **kw)
+        return cell
+
+
+class _Cell2(Cell2, Render):
+
+    @property
+    def center(self):
+        return self.pip_x, self.pip_y, self.pip_z
+
+    @property
+    def rect(self):
+        return (
+            self.pip_x-self.left,  self.pip_y-self.front, self.pip_z-self.bot,
+            self.pip_x+self.right, self.pip_y+self.back, self.pip_z+self.top,
+        )
+
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Shape.on_constrain(self, system, depth, verbose)
+        Render.on_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
         left = self.listen_var(system, "left")
@@ -829,7 +950,7 @@ class Cell2(Shape):
         system.add(left == right, self.weight) # soft equal
         system.add(top == bot, self.weight) # soft equal
 
-        if self.__class__ != Cell2: # bit of a hack
+        if self.__class__ != _Cell2: # bit of a hack
             return # < --------- return
 
         tgt, src = self.tgt, self.src
@@ -843,69 +964,6 @@ class Cell2(Shape):
             add(cell.pip_x + cell.right == self.pip_x + self.right) # hard equal
             add(cell.pip_y - cell.front == self.pip_y - self.front) # hard equal
             add(cell.pip_y + cell.back == self.pip_y + self.back) # hard equal
-
-    def dump(self, depth=0):
-        print("  "*depth + self.__class__.__name__, id(self))
-        self.tgt.dump(depth+1)
-        self.src.dump(depth+1)
-
-    def dbg_render(self, cvs):
-        self.tgt.dbg_render(cvs)
-        self.src.dbg_render(cvs)
-
-    def render_boundary(self, view, src=True, tgt=True):
-        (x0, y0, z0, x1, y1, z1) = self.rect
-        x01 = conv(x0, x1)
-        y01 = conv(y0, y1)
-        z01 = conv(z0, z1)
-
-        pip2 = Mat(self.pip)
-        cone = 1. - self.cone
-        cone = max(PIP, cone)
-
-        def seg_over(v1, v2):
-            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
-            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
-            return line
-
-        def callback(self):
-            assert self.__class__ == Cell1
-            color = self.color
-            pip1 = Mat(self.pip)
-
-            line = seg_over(pip1, pip2)
-            if color is not None:
-                #view.add_curve(*line, lw=0.2, stroke=color)
-                # show spider (1-cell) pip
-                if self.show_pip:
-                    view.add_circle(pip1, self.pip_radius, fill=color)
-
-            tgt, src = self.tgt, self.src
-            for cell in tgt:
-                v = Mat(cell.pip)
-                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
-                leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
-                view.add_curve(*leg, stroke=cell.stroke)
-
-            for cell in src:
-                v = Mat(cell.pip)
-                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
-                leg = Segment(v, conv(v, vpip1), vpip1, pip1)
-                view.add_curve(*leg, stroke=cell.stroke)
-
-        if tgt:
-            z = z1
-            self.tgt.visit(callback, instance=Cell1)
-
-        if src:
-            z = z0
-            self.src.visit(callback, instance=Cell1)
-
-    def render_src(self, view):
-        self.render_boundary(view, src=True, tgt=False)
-
-    def render_tgt(self, view):
-        self.render_boundary(view, src=False, tgt=True)
 
     def render(self, view):
         (x0, y0, z0, x1, y1, z1) = self.rect
@@ -936,7 +994,7 @@ class Cell2(Shape):
             return line
 
         def callback(self):
-            assert self.__class__ == Cell1
+            assert self.__class__ == _Cell1
             #print("callback", self.__class__.__name__, self)
 
             color = self.color
@@ -946,7 +1004,9 @@ class Cell2(Shape):
             if color is not None:
                 view.add_curve(*line, lw=0.2, stroke=color)
                 # show spider (1-cell) pip
-                if self.show_pip:
+                if self.pip_cvs is not None:
+                    view.add_cvs(Mat(pip1), self.pip_cvs)
+                elif self.show_pip:
                     view.add_circle(pip1, self.pip_radius, fill=color)
 
             tgt, src = self.tgt, self.src
@@ -986,21 +1046,21 @@ class Cell2(Shape):
         l_ports = l_tgt = []
         r_ports = r_tgt = []
         z = z1
-        tgt.visit(callback, instance=Cell1)
+        tgt.visit(callback, instance=_Cell1)
 
         # left and right ports
         l_ports = l_src = []
         r_ports = r_src = []
         z = z0
-        src.visit(callback, instance=Cell1)
+        src.visit(callback, instance=_Cell1)
 
-        #for cell in tgt.search(instance=Cell1)+src.search(instance=Cell1):
+        #for cell in tgt.search(instance=_Cell1)+src.search(instance=_Cell1):
         #    if cell.show_pip:
         #        view.add_circle(Mat(cell.pip), cell.pip_radius, fill=cell.color)
 
 
         if len(l_src) != len(l_tgt) or len(r_src) != len(r_tgt):
-            print("Cell2.render: FAIL", id(self), end=" ")
+            print("_Cell2.render: FAIL", id(self), end=" ")
             print( len(l_src) , len(l_tgt) , end=" ")
             print( len(r_src) , len(r_tgt) )
             for surface in surfaces:
@@ -1033,62 +1093,87 @@ class Cell2(Shape):
         elif self.color is not None and self.show_pip:
             view.add_circle(Mat(pip2), self.pip_radius, fill=self.color, address=self)
 
-    @classmethod
-    def random(cls, tgt0, src0, depth=0):
-        tgt = Cell1.random(tgt0, src0, depth)
-        src = Cell1.random(tgt0, src0, depth)
-        return Cell2(tgt, src)
+    def render_boundary(self, view, src=True, tgt=True):
+        (x0, y0, z0, x1, y1, z1) = self.rect
+        x01 = conv(x0, x1)
+        y01 = conv(y0, y1)
+        z01 = conv(z0, z1)
 
-    def vflip(self, alias=False):
-        tgt, src = self.src, self.tgt
-        return Cell2(tgt, src, alias=alias)
+        pip2 = Mat(self.pip)
+        cone = 1. - self.cone
+        cone = max(PIP, cone)
+
+        def seg_over(v1, v2):
+            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
+            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
+            return line
+
+        def callback(self):
+            assert self.__class__ == _Cell1
+            color = self.color
+            pip1 = Mat(self.pip)
+
+            line = seg_over(pip1, pip2)
+            if color is not None:
+                #view.add_curve(*line, lw=0.2, stroke=color)
+                # show spider (1-cell) pip
+                if self.show_pip:
+                    view.add_circle(pip1, self.pip_radius, fill=color)
+
+            tgt, src = self.tgt, self.src
+            for cell in tgt:
+                v = Mat(cell.pip)
+                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
+                leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
+                view.add_curve(*leg, stroke=cell.stroke)
+
+            for cell in src:
+                v = Mat(cell.pip)
+                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
+                leg = Segment(v, conv(v, vpip1), vpip1, pip1)
+                view.add_curve(*leg, stroke=cell.stroke)
+
+        if tgt:
+            z = z1
+            self.tgt.visit(callback, instance=_Cell1)
+
+        if src:
+            z = z0
+            self.src.visit(callback, instance=_Cell1)
+
+    def render_src(self, view):
+        self.render_boundary(view, src=True, tgt=False)
+
+    def render_tgt(self, view):
+        self.render_boundary(view, src=False, tgt=True)
+
+    def dbg_render(self, cvs):
+        self.tgt.dbg_render(cvs)
+        self.src.dbg_render(cvs)
 
 
-    def render_cvs(self):
-        view = View(400, 400, sort_gitems=False)
-        view.ortho()
-        x0, y0, z0 = self.center
-        theta = -0.2*pi
-        R = 3.
-        x = 2*sin(theta) + x0
-        y = -R
-        z = 1*cos(theta) + z0 + self.top + 0.
-        pos = [x, y, z]
-        view.lookat(pos, [x0, y0, z0], [0, 0, 1]) # eyepos, lookat, up
 
-        self.render(view)
 
-        # just does not work well enough...
-        # we have to sort: GCurve, GSurface, GCircle
-        def less_than(lhs, rhs):
-            to_sort = [pov.GSurface, pov.GCurve, pov.GCircle]
-            # lhs < rhs means draw lhs before rhs, lhs is *behind* rhs
-            depth = view.get_depth(lhs) < view.get_depth(rhs)
-            ltp, rtp = type(lhs), type(rhs)
-            if ltp == rtp:
-                return depth
-            elif lhs.incident(rhs, 0.1):
-                #print("*", end=" ")
-                idx, jdx = to_sort.index(ltp), to_sort.index(rtp)
-                return idx < jdx
-            return depth
-
-        #shuffle(view.gitems)
-        cvs = Canvas()
-        view.render(cvs=cvs, less_than=less_than)
-        return cvs
-
-    
 
 class DCell2(Compound, Cell2):
-    def __init__(self, cells, alias=False, **kw):
+    bdy = DCell1
+    def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        cells = [cell.clone(alias) for cell in cells]
-        tgt = DCell1([cell.tgt for cell in cells], alias=True, no_constrain=True)
-        src = DCell1([cell.src for cell in cells], alias=True, no_constrain=True)
+        tgt = self.bdy([cell.tgt for cell in cells])
+        src = self.bdy([cell.src for cell in cells])
         name = "(" + "@".join(cell.name for cell in cells) + ")"
-        Cell2.__init__(self, tgt, src, name, alias=True, **kw)
+        Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
+
+    def deepcopy(self):
+        kw = {}
+        kw["show_pip"] = self.show_pip
+        kw["color"] = self.color
+        #kw["stroke"] = self.stroke
+        cells = [cell.deepcopy() for cell in self.cells]
+        cell = _DCell2(cells, **kw)
+        check_renderable(cell)
+        return cell
 
     @property
     def hunits(self):
@@ -1102,43 +1187,74 @@ class DCell2(Compound, Cell2):
     def vunits(self):
         return max(cell.vunits for cell in self.cells)
 
+    def vflip(self):
+        cells = [cell.vflip() for cell in self.cells]
+        return DCell2(cells)
+
+    def traverse(self, callback, depth=0, full=True):
+        Atom.traverse(self, callback, depth, full)
+        if full:
+            self.tgt.traverse(callback, depth+1, full)
+            self.src.traverse(callback, depth+1, full)
+        for cell in self.cells:
+            cell.traverse(callback, depth+1, full)
+
+class _DCell2(DCell2, _Compound, _Cell2):
+    bdy = _DCell1
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Cell2.on_constrain(self, system, depth, verbose)
-        Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell2.on_constrain(self, system, depth, verbose)
+        _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
         w = 1./self.dunits
         for cell in self.cells:
-            add(self.width == cell.width) # fit width
-            add(self.height == cell.height) # fit width
-            add(cell.pip_x == self.pip_x) # _align pip_x
-            add(cell.pip_z == self.pip_z) # _align pip_z
+            # we don't care if the pip's are aligned, only the left/right bdy
+            #add(self.width == cell.width) # fit width
+            #add(cell.pip_x == self.pip_x) # _align pip_x
+            add(cell.pip_x - cell.left == self.pip_x - self.left)
+            add(cell.pip_x + cell.right == self.pip_x + self.right)
+
+            # we don't care if the pip's are aligned, only the top/bot bdy
+            #add(self.height == cell.height) # fit width
+            #add(cell.pip_z == self.pip_z) # _align pip_z
+            add(cell.pip_z - cell.bot == self.pip_z - self.bot)
+            add(cell.pip_z + cell.top == self.pip_z + self.top)
+
             add(cell.pip_y - cell.front == y)
-            add(cell.depth == w*cell.dunits*self.depth, self.weight)
+            add(cell.depth == w*cell.dunits*self.depth, self.weight) # soft
             y += cell.depth
-        add(self.pip_y + self.back == y, self.weight)
+        #add(self.pip_y + self.back == y, self.weight)
+        add(self.pip_y + self.back == y) # don't be a softy!
 
     def render(self, view):
-        Shape.render(self, view)
+        #Shape.render(self, view)
         for cell in reversed(self.cells):
             cell.render(view)
 
-    def vflip(self, alias=False):
-        cells = [cell.vflip(alias) for cell in self.cells]
-        return DCell2(cells, alias)
+
 
 
 class HCell2(Compound, Cell2):
-    def __init__(self, cells, alias=False, **kw):
+    bdy = HCell1
+    def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        cells = [cell.clone(alias) for cell in cells]
-        tgt = HCell1([cell.tgt for cell in cells], alias=True, no_constrain=True)
-        src = HCell1([cell.src for cell in cells], alias=True, no_constrain=True)
+        tgt = self.bdy([cell.tgt for cell in cells])
+        src = self.bdy([cell.src for cell in cells])
         name = "(" + "<<".join(cell.name for cell in cells) + ")"
-        Cell2.__init__(self, tgt, src, name, alias=True, **kw)
+        Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
+
+    def deepcopy(self):
+        kw = {}
+        kw["show_pip"] = self.show_pip
+        kw["color"] = self.color
+        #kw["stroke"] = self.stroke
+        cells = [cell.deepcopy() for cell in self.cells]
+        cell = _HCell2(cells, **kw)
+        check_renderable(cell)
+        return cell
 
     @property
     def hunits(self):
@@ -1152,11 +1268,26 @@ class HCell2(Compound, Cell2):
     def vunits(self):
         return max(cell.vunits for cell in self.cells)
 
+    def vflip(self):
+        cells = [cell.vflip() for cell in self.cells]
+        return HCell2(cells)
+
+    def traverse(self, callback, depth=0, full=True):
+        Atom.traverse(self, callback, depth, full)
+        if full:
+            self.tgt.traverse(callback, depth+1, full)
+            self.src.traverse(callback, depth+1, full)
+        for cell in self.cells:
+            cell.traverse(callback, depth+1, full)
+
+
+class _HCell2(HCell2, _Compound, _Cell2):
+    bdy = _HCell1
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Cell2.on_constrain(self, system, depth, verbose)
-        Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell2.on_constrain(self, system, depth, verbose)
+        _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         cells = self.cells
         assert cells, "??"
@@ -1165,12 +1296,12 @@ class HCell2(Compound, Cell2):
         for cell in self.cells:
             add(cell.pip_y-cell.front == self.pip_y-self.front)
             add(cell.pip_y+cell.back == self.pip_y+self.back)
-            add(cell.pip_y == self.pip_y)
+            #add(cell.pip_y == self.pip_y)
 
-            #add(cell.pip_z+cell.top == self.pip_z+cell.top) 
-            #add(cell.pip_z-cell.bot == self.pip_z-cell.bot) 
-            add(cell.pip_z == self.pip_z)
-            add(self.height == cell.height) # fit height
+            add(cell.pip_z+cell.top == self.pip_z+self.top) 
+            add(cell.pip_z-cell.bot == self.pip_z-self.bot) 
+            #add(cell.pip_z == self.pip_z)
+            #add(self.height == cell.height) # fit height
 
             add(cell.pip_x == cell.left + x)
             add(cell.width == w*cell.hunits*self.width, self.weight) # soft equal
@@ -1178,7 +1309,6 @@ class HCell2(Compound, Cell2):
 
         #add(self.pip_x + self.right == x, self.weight)
         add(self.pip_x + self.right == x) # hard equal
-        #add(cell.pip_x + cell.right == x) # hard equal.. redundant ?
 
         i = 0
         while i+1 < len(self):
@@ -1190,27 +1320,34 @@ class HCell2(Compound, Cell2):
                     add(l.pip_y == r.pip_y) # hard eq !
             i += 1
 
-    def vflip(self, alias=False):
-        cells = [cell.vflip(alias) for cell in self.cells]
-        return HCell2(cells, alias)
-
 
 class VCell2(Compound, Cell2):
-    def __init__(self, cells, alias=False, **kw):
-        cells = self._associate(cells)
-        cells = [cell.clone(alias) for cell in cells]
+    def __init__(self, cells, **kw):
+        cells = self._associate(cells) # cell's go top down
         tgt = cells[0].tgt
         src = cells[-1].src
+        name = "(" + "*".join(cell.name for cell in cells) + ")"
+        Cell2.__init__(self, tgt, src, name, **kw)
+        self.cells = cells
         i = 0
         while i+1 < len(cells):
-            if cells[i].src.name != cells[i+1].tgt.name:
-                msg = ("can't compose\n%s and\n%s"%(cells[i], cells[i+1]))
-                #raise TypeError(msg)
-                #print("VCell2.__init__: WARNING", msg)
+            l, r = cells[i].src, cells[i+1].tgt
+            #list(l.match(r))
+            #if cells[i].src.name != cells[i+1].tgt.name:
+            #    msg = ("can't compose\n%s and\n%s"%(cells[i], cells[i+1]))
+            #    raise TypeError(msg)
+            #    #print("VCell2.__init__: WARNING", msg)
             i += 1
-        name = "(" + "*".join(cell.name for cell in cells) + ")"
-        Cell2.__init__(self, tgt, src, name, alias=True, **kw)
-        self.cells = cells
+
+    def deepcopy(self):
+        kw = {}
+        kw["show_pip"] = self.show_pip
+        kw["color"] = self.color
+        #kw["stroke"] = self.stroke
+        cells = [cell.deepcopy() for cell in self.cells]
+        cell = _VCell2(cells, **kw)
+        check_renderable(cell)
+        return cell
 
     @property
     def hunits(self):
@@ -1224,11 +1361,25 @@ class VCell2(Compound, Cell2):
     def vunits(self):
         return sum(cell.vunits for cell in self.cells)
 
+    def vflip(self):
+        cells = [cell.vflip() for cell in reversed(self.cells)]
+        return VCell2(cells)
+
+    def traverse(self, callback, depth=0, full=True):
+        Atom.traverse(self, callback, depth, full)
+        if full:
+            self.tgt.traverse(callback, depth+1, full)
+            self.src.traverse(callback, depth+1, full)
+        for cell in self.cells:
+            cell.traverse(callback, depth+1, full)
+
+
+class _VCell2(VCell2, _Compound, _Cell2):
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Cell2.on_constrain(self, system, depth, verbose)
-        Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell2.on_constrain(self, system, depth, verbose)
+        _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         z = self.pip_z - self.bot
         cells = self.cells # cells go top down
@@ -1249,64 +1400,14 @@ class VCell2(Compound, Cell2):
         while i+1 < len(cells):
             src, tgt = cells[i:i+2] # Cell2's
             src, tgt = src.tgt, tgt.src # Cell1's
-            #print(src.deepstr())
-            #print(tgt.deepstr())
-            for (t, s) in match(tgt, src):
+            for (t, s) in tgt.match(src):
                 # t, s are Cell1's
-                add(s.pip_x == t.pip_x) # hard equal
-                add(s.pip_y == t.pip_y) # hard equal
+                #add(s.pip_x == t.pip_x) # hard equal
+                #add(s.pip_y == t.pip_y) # hard equal
+                s.eq_constrain(t, system)
             i += 1
 
-    def vflip(self, alias=False):
-        cells = [cell.vflip(alias) for cell in reversed(self.cells)]
-        return VCell2(cells, alias)
 
-
-
-def fail_match(tgt, src):
-    fail = "cannot match\n\t%s\n\t%s"%(tgt, src)
-    print("fail_match:", fail)
-    assert 0
-    cvs = Canvas()
-    tgt.dbg_render(cvs)
-    tgt.writePDFfile("tgt-debug.pdf")
-    cvs = Canvas()
-    src.dbg_render(cvs)
-    src.writePDFfile("src-debug.pdf")
-    raise TypeError(fail)
-
-
-def match(tgt, src):
-    if tgt.name == src.name:
-        tgt = tgt.search(instance=Cell1)
-        src = src.search(instance=Cell1)
-        assert len(src) == len(tgt)
-        for (t,s) in zip(tgt, src):
-            yield (t,s)
-        return # <---------- return
-    # hopefully we can use Cell1.get_paths ?!!??
-    send = {} 
-    lhs = list(tgt.get_paths())
-    rhs = list(src.get_paths())
-    if len(lhs) != len(rhs):
-        fail_match(tgt, src)
-    #print("match: paths=%s" % (len(lhs),))
-
-    for (left,right) in zip(lhs, rhs):
-        if len(left)!=len(right):
-            fail_match(tgt, src)
-        for (l,r) in zip(left, right):
-            if l in send:
-                if send[l] != r:
-                    fail_match(tgt, src)
-            send[l] = r
-            if type(l) != type(r):
-                fail_match(tgt, src)
-            if l.name != r.name:
-                fail_match(tgt, src)
-            if isinstance(l, Cell1):
-                yield (l,r)
-    
 
 
 setop(Cell2, "__matmul__", DCell2)
@@ -1315,6 +1416,14 @@ setop(Cell2, "__mul__", VCell2)
 
 # -------------------------------------------------------
 
+def show_uniq(cell):
+    found = set()
+    def dump(cell, depth):
+        x = id(cell)
+        print("  "*depth + cell.__class__.__name__, "*" if x in found else "")
+        found.add(x)
+    cell.traverse(dump)
+
 
 def test():
     l = Cell0("l")
@@ -1322,6 +1431,8 @@ def test():
     n = Cell0("n")
     o = Cell0("o")
     p = Cell0("p")
+
+    l = l.deepcopy()
 
     assert str(m@n) == "m@n", str(m@n)
     #assert m != n
@@ -1337,12 +1448,21 @@ def test():
 
     f = Cell2(B, B)
 
+    assert str(mm.deepcopy()) == "m@m"
+
     #cell = Cell2(B, AA) * Cell2(AA, A)
     #cell = cell @ (f*f*f)
     #cell = Cell2(B, A<<B)
 
+    cell = Cell1(mm,mm) << Cell1(mm,mm)
     cell = Cell1(mm,mm)<<((Cell1(m,mmm)) @ Cell1(m,m)) << Cell1(mmmm,m)
+
+    c = cell.deepcopy()
+    assert str(cell) == str(c)
+
+
     cell = Cell2(cell, Cell1(mm,m))
+
 
     mm_ = Cell1(mm, ii)
     m_m = Cell1(m, m)
@@ -1352,14 +1472,9 @@ def test():
     cell = Cell2(_mm, _mm) << Cell2(mm_, mm_)
     cell = Cell2(m_m, (m_m @ _m) << mm_m)
 
-    cell.layout(depth=1.2, width=2., height=1.4)
-
-    cvs = Canvas()
-    cvs = cell.render_cvs()
-    #cell.dbg_render(cvs)
-    cvs.writePDFfile("debug.pdf")
-    assert 0
-    return
+    c = cell.deepcopy()
+    show_uniq(cell)
+    show_uniq(c)
 
     A, B = Cell1(m@n, l), Cell1(l, p)
     A1, B1 = Cell1(m@n, o@o), Cell1(o@o, p)
@@ -1380,6 +1495,45 @@ def test():
     str(f*g)
 
 
+def test_match():
+
+    ii = Cell0.ii
+    n = Cell0("n", color=grey, stroke=(0,0,0,1))
+    k = Cell0("k", color=grey, stroke=(0,0,0,1))
+    _n = Cell1(ii, n)
+    n_ = Cell1(n, ii)
+    nn_n = Cell1(n@n, n)
+    n_nn = Cell1(n, n@n)
+    n_n = Cell1(n, n, show_pip=False, color=None)
+    pair = Cell1(n, n, show_pip=False, color=black)
+    #swap = Cell1(n@n, n@n, show_pip=True, color=black)
+    swap = Cell1(n@n, n@n, show_pip=False)
+
+# broken
+#    assert n_nn.npaths() == 2
+#    assert (n_nn @ nn_n).npaths() == 4
+#    count = (n_nn << nn_n).npaths()
+#    cell = n_nn << nn_n
+#    print(cell)
+#    assert count == 2, count
+#    assert (n_nn << (n_n @ n_nn)).npaths() == 3
+
+    # we use II to get match to work
+    I = Cell2(n_n, n_n, show_pip=False)
+    II = I<<I
+    assoc = Cell2(
+        n_nn<<(n_n @ n_nn),
+        n_nn<<(n_nn @ n_n))
+    mid = assoc << (n_n @ n_nn @ n_n).extrude()
+    top = n_nn.extrude() << (II @ assoc)
+    #cell = top * mid
+    bot = n_nn.extrude() << (assoc @ II)
+    #cell = mid * bot
+    #cell = mid * mid.src.extrude()
+
+    #print(cell)
+
+
 def more_test():
 
     scheme = "ff5e5b-d8d8d8-ffffea-00cecb-ffed66"
@@ -1398,25 +1552,19 @@ def more_test():
     I_o = Cell1(o, o, show_pip=False, color=None)
 
     cell = Cell1(m, m@m) << Cell1(m@m, n)
-    assert len(list(cell.get_paths())) == 2
     cell = cell @ cell
-    assert len(list(cell.get_paths())) == 4
 
     # i don't think we can handle bubbles... 
     ii = Cell0.ii
     bubble = Cell1(ii, m@m) << Cell1(m@m, ii)
 
     cell = bubble
-    assert len(list(cell.get_paths())) == 2
 
     cell = bubble<<bubble
-    assert len(list(cell.get_paths())) == 4
 
     cell = bubble@bubble
-    assert len(list(cell.get_paths())) == 4
 
     cell = Cell1(m, m) @ bubble
-    assert len(list(cell.get_paths())) == 3
 
 
     l_mn = Cell1(l, m@n)
@@ -1435,42 +1583,6 @@ def more_test():
 
     o_mn = Cell1(o, m@n)
     cell = Cell2(I_o<<o_mn, o_mn<<(I_m@I_n), cone=1.)
-
-    cell.layout()
-    print()
-
-    from huygens import config
-    config(text="pdflatex")
-    cvs = cell.render_cvs()
-
-    def find(cvs, address=None):
-        items = []
-        class Find(Visitor):
-            def on_visit(self, item):
-                #print("on_visit:", item)
-                if not hasattr(item, "address"):
-                    return
-                if address is None or item.address == address:
-                    items.append(item)
-        cvs.visit(Find(), leaves_only=False)
-        return items
-
-    #for item in find(cvs, "cell2"):
-    #    x, y = item.getat(0)
-    #    cvs.text(x, y, r"$\eta$")
-    for item in find(cvs):
-        cell = item.address
-        if cell is None:
-            continue
-        if cell.__class__ != Cell0:
-            continue
-        x, y = item.getat(0.5)
-        cvs.text(x, y, cell.name)
-        #print("found:", item)
-
-    cvs.writePDFfile("render.pdf")
-
-    return
 
     swap = lambda a,b : Cell1(a@b, b@a)
     # Yang-Baxter
@@ -1508,37 +1620,14 @@ def more_test():
     morph_1 = lhs << rhs
     morph_1 = morph_1.vflip()
     
-    morph_0.layout()
-    morph_1.layout()
-    left = morph_0.src
-    right = morph_1.tgt
-    left.save_dbg("left-debug.pdf")
-    right.save_dbg("right-debug.pdf")
-
-    print("left:", len(list(left.get_paths())))
-    print("right:", len(list(right.get_paths())))
-
-    for pth in left.get_paths():
-        print(' '.join(str(item) for item in pth))
-    print()
-    for pth in right.get_paths():
-        print(' '.join(str(item) for item in pth))
-
-    for (lpath,rpath) in zip(left.get_paths(), right.get_paths()):
-        print([l.name==r.name or (l.name, r.name) for (l,r) in zip(lpath, rpath)])
-
-    for (s,t) in match(left, right):
-        print(s, "--->", t)
             
 
 
 if __name__ == "__main__":
     print("\n")
     test()
+    test_match()
     more_test()
 
     print("OK")
-
-
-
 
