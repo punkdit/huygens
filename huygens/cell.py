@@ -4,9 +4,9 @@
 
 render 2-morphisms in a bicategory using sheet/string diagrams.
 
-previous version: huygens/cell.py
-
 WARNING: this code is bonkers, but does work sometimes.
+
+
 
 """
 
@@ -57,12 +57,38 @@ These all have "shadow" classes that actually do the layout & rendering
 We need this shadow hierarchy because the user can reuse (alias) object's
 when building a term (a compound 2-cell),
 but when rendering we need a uniqe cell object for each occurance of a cell in a 
-compound cell. This transition is accomplished by the .deepcopy method.
+compound cell. This transition is accomplished by the .deepclone method.
 
 Important atributes:
                    .pip_x  .pip_y  .pip_z
     positive dir:  .left   .front  .bot
     negative dir:  .right  .back   .top
+
+Here is a list of the classes below:
+class Atom(object):
+class Compound(object):
+class Render(Listener):
+class _Compound(object):
+class Cell0(Atom):
+class _Cell0(Cell0, Render):
+class DCell0(Compound, Cell0):
+class _DCell0(DCell0, _Compound, _Cell0):
+class Cell1(Atom):
+class _Cell1(Cell1, Render):
+class DCell1(Compound, Cell1):
+class _DCell1(DCell1, _Compound, _Cell1):
+class HCell1(Compound, Cell1):
+class _HCell1(HCell1, _Compound, _Cell1):
+class Segment(object):
+class Surface(object):
+class Cell2(Atom):
+class _Cell2(Cell2, Render):
+class DCell2(Compound, Cell2):
+class _DCell2(DCell2, _Compound, _Cell2):
+class HCell2(Compound, Cell2):
+class _HCell2(HCell2, _Compound, _Cell2):
+class VCell2(Compound, Cell2):
+class _VCell2(VCell2, _Compound, _Cell2):
 
 """
 
@@ -96,7 +122,7 @@ class Atom(object):
         cb(self, depth)
 
     def __call__(self, **kw):
-        self = self.deepcopy() # **kw for deepcopy ?
+        self = self.deepclone() # **kw for deepclone ?
         self.__dict__.update(kw)
         return self
 
@@ -299,7 +325,7 @@ class Cell0(Atom):
     def __getitem__(self, idx):
         return [self][idx]
 
-    def deepcopy(self):
+    def deepclone(self):
         kw = dict(self.__dict__)
         kw["name"] = self.name
         kw["weight"] = self.weight
@@ -341,14 +367,14 @@ class DCell0(Compound, Cell0):
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
-    def deepcopy(self):
+    def deepclone(self):
         kw = dict(self.__dict__)
         del kw["name"]
         del kw["cells"]
         kw["show_pip"] = self.show_pip
         kw["color"] = self.color
         kw["stroke"] = self.stroke
-        cells = [cell.deepcopy() for cell in self.cells]
+        cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell0(cells, **kw)
         check_renderable(cell)
         return cell
@@ -405,9 +431,9 @@ class Cell1(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def deepcopy(self):
-        tgt = self.tgt.deepcopy()
-        src = self.src.deepcopy()
+    def deepclone(self):
+        tgt = self.tgt.deepclone()
+        src = self.src.deepclone()
         kw = {}
         kw["color"] = self.color
         kw["show_pip"] = self.show_pip
@@ -562,12 +588,12 @@ class DCell1(Compound, Cell1):
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepcopy(self):
+    def deepclone(self):
         kw = {}
         kw["show_pip"] = self.show_pip
         kw["color"] = self.color
         #kw["stroke"] = self.stroke
-        cells = [cell.deepcopy() for cell in self.cells]
+        cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell1(cells, **kw)
         if not check_renderable(cell):
             dump(cell)
@@ -662,12 +688,12 @@ class HCell1(Compound, Cell1):
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepcopy(self):
+    def deepclone(self):
         kw = {}
         kw["show_pip"] = self.show_pip
         kw["color"] = self.color
         #kw["stroke"] = self.stroke
-        cells = [cell.deepcopy() for cell in self.cells]
+        cells = [cell.deepclone() for cell in self.cells]
         cell = _HCell1(cells, **kw)
         check_renderable(cell)
         return cell
@@ -904,8 +930,8 @@ class Cell2(Atom):
     pip_cvs = None
 
     def __init__(self, tgt, src, name=None, **kw):
-        assert isinstance(tgt, Cell1)
-        assert isinstance(src, Cell1)
+        assert isinstance(tgt, Cell1), tgt.__class__.__name__
+        assert isinstance(src, Cell1), src.__class__.__name__
         assert tgt.src.name == src.src.name, "%s != %s" % (tgt.src, src.src)
         assert tgt.tgt.name == src.tgt.name, "%s != %s" % (tgt.tgt, tgt.src)
         if name is None:
@@ -915,7 +941,7 @@ class Cell2(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def deepcopy(self):
+    def deepclone(self):
         kw = {}
         kw["DEBUG"] = self.DEBUG
         kw["color"] = self.color
@@ -923,8 +949,8 @@ class Cell2(Atom):
         kw["pip_radius"] = self.pip_radius
         kw["cone"] = self.cone
         kw["pip_cvs"] = self.pip_cvs
-        tgt = self.tgt.deepcopy()
-        src = self.src.deepcopy()
+        tgt = self.tgt.deepclone()
+        src = self.src.deepclone()
         cell = _Cell2(tgt, src, **kw)
         check_renderable(cell)
         return cell
@@ -952,7 +978,7 @@ class Cell2(Atom):
             self.src.traverse(callback, depth+1, full)
 
     def layout(self, *args, **kw):
-        cell = self.deepcopy()
+        cell = self.deepclone()
         Render.layout(cell, *args, **kw)
         return cell
 
@@ -970,7 +996,7 @@ class _Cell2(Cell2, Render):
             self.pip_x+self.right, self.pip_y+self.back, self.pip_z+self.top,
         )
 
-    def on_constrain(self, system, depth, verbose=False):
+    def _on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
         Render.on_constrain(self, system, depth, verbose)
@@ -986,9 +1012,8 @@ class _Cell2(Cell2, Render):
         system.add(left == right, self.weight) # soft equal
         system.add(top == bot, self.weight) # soft equal
 
-        if self.__class__ != _Cell2: # bit of a hack
-            return # < --------- return
-
+    def on_constrain(self, system, depth, verbose=False):
+        self._on_constrain(system, depth, verbose)
         tgt, src = self.tgt, self.src
         tgt.on_constrain(system, depth, verbose)
         src.on_constrain(system, depth, verbose)
@@ -1244,12 +1269,12 @@ class DCell2(Compound, Cell2):
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepcopy(self):
+    def deepclone(self):
         kw = {}
         kw["show_pip"] = self.show_pip
         kw["color"] = self.color
         #kw["stroke"] = self.stroke
-        cells = [cell.deepcopy() for cell in self.cells]
+        cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell2(cells, **kw)
         check_renderable(cell)
         return cell
@@ -1283,7 +1308,7 @@ class _DCell2(DCell2, _Compound, _Cell2):
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        _Cell2.on_constrain(self, system, depth, verbose)
+        self._on_constrain(system, depth, verbose)
         _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
@@ -1325,12 +1350,12 @@ class HCell2(Compound, Cell2):
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepcopy(self):
+    def deepclone(self):
         kw = {}
         kw["show_pip"] = self.show_pip
         kw["color"] = self.color
         #kw["stroke"] = self.stroke
-        cells = [cell.deepcopy() for cell in self.cells]
+        cells = [cell.deepclone() for cell in self.cells]
         cell = _HCell2(cells, **kw)
         check_renderable(cell)
         return cell
@@ -1365,7 +1390,7 @@ class _HCell2(HCell2, _Compound, _Cell2):
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        _Cell2.on_constrain(self, system, depth, verbose)
+        self._on_constrain(system, depth, verbose)
         _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         cells = self.cells
@@ -1418,12 +1443,12 @@ class VCell2(Compound, Cell2):
             #    #print("VCell2.__init__: WARNING", msg)
             i += 1
 
-    def deepcopy(self):
+    def deepclone(self):
         kw = {}
         kw["show_pip"] = self.show_pip
         kw["color"] = self.color
         #kw["stroke"] = self.stroke
-        cells = [cell.deepcopy() for cell in self.cells]
+        cells = [cell.deepclone() for cell in self.cells]
         cell = _VCell2(cells, **kw)
         check_renderable(cell)
         return cell
@@ -1457,7 +1482,7 @@ class _VCell2(VCell2, _Compound, _Cell2):
     def on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        _Cell2.on_constrain(self, system, depth, verbose)
+        self._on_constrain(system, depth, verbose)
         _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         z = self.pip_z - self.bot
@@ -1511,7 +1536,7 @@ def test():
     o = Cell0("o")
     p = Cell0("p")
 
-    l = l.deepcopy()
+    l = l.deepclone()
 
     assert str(m@n) == "m@n", str(m@n)
     #assert m != n
@@ -1527,7 +1552,7 @@ def test():
 
     f = Cell2(B, B)
 
-    assert str(mm.deepcopy()) == "m@m"
+    assert str(mm.deepclone()) == "m@m"
 
     #cell = Cell2(B, AA) * Cell2(AA, A)
     #cell = cell @ (f*f*f)
@@ -1536,7 +1561,7 @@ def test():
     cell = Cell1(mm,mm) << Cell1(mm,mm)
     cell = Cell1(mm,mm)<<((Cell1(m,mmm)) @ Cell1(m,m)) << Cell1(mmmm,m)
 
-    c = cell.deepcopy()
+    c = cell.deepclone()
     assert str(cell) == str(c)
 
 
@@ -1551,7 +1576,7 @@ def test():
     cell = Cell2(_mm, _mm) << Cell2(mm_, mm_)
     cell = Cell2(m_m, (m_m @ _m) << mm_m)
 
-    c = cell.deepcopy()
+    c = cell.deepclone()
     #show_uniq(cell)
     #show_uniq(c)
 
@@ -1720,7 +1745,7 @@ def test_render():
         for i, name in enumerate('lmnop')]
 
     pip_cvs = Canvas().text(0, 0, "$n$", st_center)
-    i = Cell1(l, l, show_pip=False, color=None)
+    i = Cell1(l@l, l, show_pip=False, color=None)
     f = i.extrude()(pip_cvs = pip_cvs)
 
     f = f.layout()
