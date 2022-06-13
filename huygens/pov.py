@@ -578,7 +578,9 @@ class GCvs(GItem):
 
         
 class GCurve(GItem):
-    def __init__(self, v0, v1, v2, v3, lw=1., stroke=(0,0,0,0), address=None, **kw):
+    def __init__(self, v0, v1, v2, v3, 
+            lw=1., stroke=(0,0,0,0), 
+            st_stroke=[style.linecap.round], address=None, **kw):
         GItem.__init__(self, [v0, v3], address=address, **kw)
         self.v0 = v0
         self.v1 = v1
@@ -586,6 +588,7 @@ class GCurve(GItem):
         self.v3 = v3
         self.lw = lw
         self.stroke = stroke
+        self.st_stroke = st_stroke
 
     def get_path(self, view):
         (x0, y0), (x1, y1), (x2, y2), (x3, y3) = (
@@ -600,7 +603,7 @@ class GCurve(GItem):
             view.trafo_canvas(self.v2), view.trafo_canvas(self.v3)) # D.R.Y.
         p = path.curve(x0, y0, x1, y1, x2, y2, x3, y3)
         p.address = self.address
-        cvs.stroke(p, [LineWidth(self.lw), RGBA(*self.stroke), style.linecap.round])
+        cvs.stroke(p, [LineWidth(self.lw), RGBA(*self.stroke)]+self.st_stroke)
 
 
 class GSurface(GItem):

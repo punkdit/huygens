@@ -148,7 +148,10 @@ class Compound(object):
 
     def _associate(self, items):
         cls = self.__class__
-        itemss = [(item.cells if isinstance(item, cls) else [item]) for item in items]
+        itemss = [(item.cells 
+            if isinstance(item, cls) and item.assoc
+            else [item])
+            for item in items]
         items = reduce(operator.add, itemss, [])
         return items
 
@@ -167,6 +170,7 @@ class Compound(object):
         lines += [cell.str(depth+1) for cell in self.cells]
         return "\n".join(lines)
 
+
 def setop(cls, opname, parent):
     def meth(left, right):
         return parent([left, right])
@@ -178,7 +182,7 @@ def dbg_constrain(self, depth):
 
 
 
-class Render(Listener):
+class Render(Listener): # rename as _Render ?
     @property
     def depth(self):
         return self.back + self.front
@@ -240,35 +244,44 @@ class Render(Listener):
         self.listen_var(system, "pip_z")
 
     system = None
-    def constrain(self, x=0, y=0, z=0, width=None, depth=None, height=None, verbose=False):
+    def constrain(self, 
+            x=0, y=0, z=0, 
+            width=None, depth=None, height=None, 
+            size=1.0, verbose=False):
+        # top-level call 
         system = System()
         self.on_constrain(system, 0, verbose)
         system.add(self.pip_x == x)
         system.add(self.pip_y == y)
         system.add(self.pip_z == z)
         if width is not None and hasattr(self, "left"):
-            system.add(self.width == width)
+            system.add(self.width == size*width)
         elif width is None and hasattr(self, "hunits"):
-            system.add(self.width == 0.7*self.hunits)
+            system.add(self.width == 0.7*size*self.hunits)
         if height is not None and hasattr(self, "top"):
-            system.add(self.height == height)
+            system.add(self.height == size*height)
         elif height is None and hasattr(self, "vunits"):
-            system.add(self.height == 0.5*self.vunits)
+            system.add(self.height == 0.5*size*self.vunits)
         if depth is not None:
-            system.add(self.depth == depth)
+            system.add(self.depth == size*depth)
         elif hasattr(self, "dunits"):
-            system.add(self.depth == 0.5*self.dunits)
+            system.add(self.depth == 0.5*size*self.dunits)
         return system
 
     did_layout = None
-    def layout(self, *args, verbose=False, **kw):
+    def layout(self, *args, callback=None, verbose=False, **kw):
+        # top-level call 
+        #print("Render.layout")
         if self.did_layout:
+            #print("already did_layout")
             return self.did_layout
         system = self.constrain(*args, verbose=verbose, **kw)
+        if callback is not None:
+            callback(self, system)
         system.solve()
         self.did_layout = system
         #self.dump(full=False)
-        return system
+        #return system
 
     def save_dbg(self, name):
         #self.layout()
@@ -316,8 +329,10 @@ class Cell0(Atom):
 
     color = None # fill
     stroke = black # outline
+    st_stroke = []
     show_pip = False
     pip_cvs = None 
+    assoc = True # does not work...
 
     def __len__(self):
         return 1
@@ -331,8 +346,10 @@ class Cell0(Atom):
         kw["weight"] = self.weight
         kw["color"] = self.color
         kw["stroke"] = self.stroke
+        kw["st_stroke"] = self.st_stroke
         kw["show_pip"] = self.show_pip
         kw["pip_cvs"] = self.pip_cvs
+        kw["assoc"] = self.assoc
         cell = _Cell0(**kw)
         check_renderable(cell)
         return cell
@@ -417,9 +434,11 @@ class Cell1(Atom):
     """
 
     color = black
+    st_stroke = []
     show_pip = True
     pip_radius = 0.3
     pip_cvs = None
+    assoc = True # does not work...
 
     def __init__(self, tgt, src, name=None, weight=1.0, **kw):
         assert isinstance(tgt, Cell0)
@@ -436,9 +455,11 @@ class Cell1(Atom):
         src = self.src.deepclone()
         kw = {}
         kw["color"] = self.color
+        kw["st_stroke"] = self.st_stroke
         kw["show_pip"] = self.show_pip
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
+        kw["assoc"] = self.assoc
         cell = _Cell1(tgt, src, self.name, self.weight, **kw)
         check_renderable(cell)
         return cell
@@ -928,6 +949,7 @@ class Cell2(Atom):
     pip_radius = 0.5
     cone = 0.6 # closer to 1. is more cone-like
     pip_cvs = None
+    assoc = True # does not work...
 
     def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell1), tgt.__class__.__name__
@@ -949,6 +971,7 @@ class Cell2(Atom):
         kw["pip_radius"] = self.pip_radius
         kw["cone"] = self.cone
         kw["pip_cvs"] = self.pip_cvs
+        kw["assoc"] = self.assoc
         tgt = self.tgt.deepclone()
         src = self.src.deepclone()
         cell = _Cell2(tgt, src, **kw)
@@ -977,7 +1000,10 @@ class Cell2(Atom):
             self.tgt.traverse(callback, depth+1, full)
             self.src.traverse(callback, depth+1, full)
 
+    did_layout = False
     def layout(self, *args, **kw):
+        if self.did_layout:
+            return self
         cell = self.deepclone()
         Render.layout(cell, *args, **kw)
         return cell
@@ -1054,7 +1080,7 @@ class _Cell2(Cell2, Render):
             line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
             return line
 
-        def callback(self):
+        def callback(self): # XXX make this a method with args
             assert self.__class__ == _Cell1
             #print("callback", self.__class__.__name__, self)
 
@@ -1063,7 +1089,7 @@ class _Cell2(Cell2, Render):
 
             line = seg_over(pip1, pip2)
             if color is not None:
-                view.add_curve(*line, lw=0.2, stroke=color)
+                view.add_curve(*line, lw=0.2, stroke=color, st_stroke=self.st_stroke)
                 # show spider (1-cell) pip
                 if self.pip_cvs is not None:
                     view.add_cvs(Mat(pip1), self.pip_cvs)
@@ -1072,6 +1098,7 @@ class _Cell2(Cell2, Render):
 
             tgt, src = self.tgt, self.src
             for cell in tgt:
+                assert isinstance(cell, _Cell0)
                 color = cell.color
                 v = Mat(cell.pip)
                 vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
@@ -1085,9 +1112,11 @@ class _Cell2(Cell2, Render):
                 surfaces.append(triangle)
                 if abs(cell.pip_x - x0) < 2*PIP:
                     l_ports.append( (triangle[0], cell) )
-                view.add_curve(*leg, stroke=black)
+                if cell.stroke is not None:
+                    view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
 
             for cell in src:
+                assert isinstance(cell, _Cell0)
                 color = cell.color
                 v = Mat(cell.pip)
                 vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
@@ -1101,7 +1130,8 @@ class _Cell2(Cell2, Render):
                 surfaces.append(triangle)
                 if abs(cell.pip_x - x1) < 2*PIP:
                     r_ports.append( (triangle[0], cell) )
-                view.add_curve(*leg, stroke=black)
+                if cell.stroke is not None:
+                    view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
 
         # left and right ports
         l_ports = l_tgt = []
