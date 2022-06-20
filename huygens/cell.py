@@ -61,8 +61,8 @@ compound cell. This transition is accomplished by the .deepclone method.
 
 Important atributes:
                    .pip_x  .pip_y  .pip_z
-    positive dir:  .left   .front  .bot
-    negative dir:  .right  .back   .top
+    negative dir:  .left   .front  .bot
+    positive dir:  .right  .back   .top
 
 Here is a list of the classes below:
 class Atom(object):
@@ -217,7 +217,7 @@ class Render(Listener): # rename as _Render ?
         #pip_z = "%.2f"%pip_z if pip_z is not None else "--"
         x0, x1 = pip_x - self.left, pip_x + self.right
         y0, y1 = pip_y - self.front, pip_y + self.back
-        z0, z1 = pip_z - self.left, pip_z + self.right
+        z0, z1 = pip_z - self.bot, pip_z + self.top
         return "%s([%.2f:%.2f],[%.2f:%.2f],[%.2f:%.2f])"%(
             "  "*depth + self.__class__.__name__, 
             x0, x1, y0, y1, z0, z1)
@@ -1250,18 +1250,43 @@ class _Cell2(Cell2, Render):
         self.tgt.dbg_render(cvs)
         self.src.dbg_render(cvs)
 
-    def render_cvs(self):
+    def render_cvs(self, pos="center"):
         view = View(400, 400, sort_gitems=False)
         view.ortho()
-        x0, y0, z0 = self.center
-        theta = -0.2*pi
+        #                .pip_x  .pip_y  .pip_z
+        # negative dir:  .left   .front  .bot
+        # positive dir:  .right  .back   .top
+        x1, y1, z1 = self.center
         R = 3.
-        x = 2*sin(theta) + x0
-        y = -R
-        z = 1*cos(theta) + z0 + self.top + 0.
-        #pos = [x, y, z]
-        pos = [0, y, 0]
-        view.lookat(pos, [x0, y0, z0], [0, 0, 1]) # eyepos, lookat, up
+        x0, x2 = x1-R*self.left, x1+R*self.right
+        z0, z2 = z1-R*self.bot, z1+R*self.top
+        R = 3.
+        x, y, z = 0., -R, 0.
+        if pos == "center":
+            x, z = 0., 0.
+        elif pos == "north":
+            z = z2
+        elif pos == "northeast":
+            x = x0
+            z = z2
+        elif pos == "northwest":
+            z = z2
+            x = x1
+        elif pos == "south":
+            z = z0
+        elif pos == "southeast":
+            x = x0
+            z = z0
+        elif pos == "southwest":
+            z = z0
+            x = x1
+        elif pos == "east":
+            x = x0
+        elif pos == "west":
+            x = x1
+        else:
+            assert 0, "pos %r not understood"%(pos,)
+        view.lookat([x, y, z], [x1, y1, z1], [0, 0, 1]) # eyepos, lookat, up
 
         self.render(view)
 
