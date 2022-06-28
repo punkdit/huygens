@@ -1736,9 +1736,12 @@ def more_test():
     right = (o_mn @ l_mn) << (mn_o @ mn_l) << (o_o @ l_l)
 
     top = left.extrude()
-    #bot = right.extrude()
-    #cell = top * bot
-    cell = top
+    bot = right.extrude()
+    cell = top * bot
+    #cell = top
+    cvs = cell.layout().render_cvs(pos="north")
+    #cvs.writePDFfile("test.pdf")
+    
 
     o_mn = Cell1(o, m@n)
     cell = Cell2(I_o<<o_mn, o_mn<<(I_m@I_n), cone=1.)
@@ -1755,10 +1758,6 @@ def more_test():
             tgt, src = src, tgt
         morph = Cell2(tgt, src, cone=1.0, show_pip=False, **kw)
         return morph
-    
-    #tgt = (I_n @ I_m ) << S_nm
-    #src = S_nm << (I_m @ I_n)
-    #morph = Cell2(tgt, src)
     
     # a part of the Zamolodchikov Tetrahedron Equation
     lhs = (I_o @ ((I_n@swap(m,l))<<(swap(n,l)@I_m)) ).extrude(show_pip=False)
@@ -1778,6 +1777,10 @@ def more_test():
     lhs = lhs.extrude()
     morph_1 = lhs << rhs
     morph_1 = morph_1.vflip()
+    
+    cell = morph_1
+    cvs = cell.layout().render_cvs(pos="north")
+    #cvs.writePDFfile("test.pdf")
     
             
 def test_render():
@@ -1802,18 +1805,23 @@ def test_render():
     pip_cvs = Canvas().text(0, 0, "$n$", st_center)
     i = Cell1(l@l, l, show_pip=False, color=None)
     f = i.extrude()(pip_cvs = pip_cvs)
-
     f = f.layout()
-    cvs = f.render_cvs()
-    cvs.writePDFfile("test.pdf")
+    cvs = f.render_cvs("north")
+    #cvs.writePDFfile("test_render.pdf")
+
+    i = Cell1(l@l, l@l, show_pip=False)
+    f = Cell2(i, i, show_pip=False)
+    f = f.layout(width=2, height=2)
+    cvs = f.render_cvs("north")
+    cvs.writePDFfile("test_render.pdf")
 
 
 
 if __name__ == "__main__":
     print("\n")
-    test()
-    test_match()
-    more_test()
+    #test()
+    #test_match()
+    #more_test()
     test_render()
 
     print("OK")
