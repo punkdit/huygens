@@ -333,6 +333,7 @@ class Cell0(Atom):
     show_pip = False
     pip_cvs = None 
     assoc = True # does not work...
+    space = 0.
 
     def __len__(self):
         return 1
@@ -350,6 +351,7 @@ class Cell0(Atom):
         kw["show_pip"] = self.show_pip
         kw["pip_cvs"] = self.pip_cvs
         kw["assoc"] = self.assoc
+        kw["space"] = self.space
         cell = _Cell0(**kw)
         check_renderable(cell)
         return cell
@@ -1100,10 +1102,10 @@ class _Cell2(Cell2, Render):
             for cell in tgt:
                 assert isinstance(cell, _Cell0)
                 color = cell.color
-                v = Mat(cell.pip)
-                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
-                leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
-                line2 = seg_over(v, pip2).reversed
+                pip0 = Mat(cell.pip)
+                vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
+                leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1) # spider leg
+                line2 = seg_over(pip0, pip2).reversed
                 triangle = Surface([
                     line2,
                     leg, 
@@ -1112,16 +1114,19 @@ class _Cell2(Cell2, Render):
                 surfaces.append(triangle)
                 if abs(cell.pip_x - x0) < 2*PIP:
                     l_ports.append( (triangle[0], cell) )
+                if cell.space>0.:
+                    space = max(0., min(1., cell.space))
+                    leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1+space*(vpip1-pip1)) # spider leg
                 if cell.stroke is not None:
                     view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
 
             for cell in src:
                 assert isinstance(cell, _Cell0)
                 color = cell.color
-                v = Mat(cell.pip)
-                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
-                line2 = seg_over(v, pip2).reversed
-                leg = Segment(v, conv(v, vpip1), vpip1, pip1)
+                pip0 = Mat(cell.pip)
+                vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
+                line2 = seg_over(pip0, pip2).reversed
+                leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1)
                 triangle = Surface([
                     line2,
                     leg, 
@@ -1130,6 +1135,9 @@ class _Cell2(Cell2, Render):
                 surfaces.append(triangle)
                 if abs(cell.pip_x - x1) < 2*PIP:
                     r_ports.append( (triangle[0], cell) )
+                if cell.space>0.:
+                    space = max(0., min(1., cell.space))
+                    leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1+space*(vpip1-pip1)) # spider leg
                 if cell.stroke is not None:
                     view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
 
@@ -1791,7 +1799,7 @@ def test_render():
     \usepackage{amssymb}
     \usepackage{extarrows}
     """)
-    from huygens.namespace import st_center
+    from huygens.namespace import st_center, st_dashed, st_dotted, st_thin
 
     scheme = "ff5e5b-d8d8d8-ffffea-00cecb-ffed66"
     scheme = scheme.split("-")
@@ -1809,9 +1817,9 @@ def test_render():
     cvs = f.render_cvs("north")
     #cvs.writePDFfile("test_render.pdf")
 
-    i = Cell1(l@l, l@l, show_pip=False)
+    i = Cell1(l@l(space=0.2), l(space=0.2)@l, show_pip=False, st_stroke=st_dotted)
     f = Cell2(i, i, show_pip=False)
-    f = f.layout(width=2, height=2)
+    f = f.layout(width=1, height=1)
     cvs = f.render_cvs("north")
     cvs.writePDFfile("test_render.pdf")
 
