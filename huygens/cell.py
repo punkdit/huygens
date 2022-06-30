@@ -333,7 +333,7 @@ class Cell0(Atom):
     show_pip = False
     pip_cvs = None 
     assoc = True # does not work...
-    space = 0.
+    space = 0. # pull back spider leg from the pip, used for braid Cell1's
 
     def __len__(self):
         return 1
@@ -508,8 +508,8 @@ class _Cell1(Cell1, Render):
     def match(tgt, src):
         assert isinstance(src, Cell1)
         if tgt.name == src.name:
-            tgt = tgt.search(instance=Cell1)
-            src = src.search(instance=Cell1)
+            tgt = tgt.search(instance=_Cell1)
+            src = src.search(instance=_Cell1)
             assert len(src) == len(tgt)
             for (t,s) in zip(tgt, src):
                 yield (t,s)
@@ -992,7 +992,7 @@ class Cell2(Atom):
     def vunits(self):
         return 1
 
-    def vflip(self):
+    def vflip(self): # XXX pass all attr's along
         tgt, src = self.src, self.tgt
         return Cell2(tgt, src)
 
@@ -1258,7 +1258,7 @@ class _Cell2(Cell2, Render):
         self.tgt.dbg_render(cvs)
         self.src.dbg_render(cvs)
 
-    def render_cvs(self, pos="center"):
+    def render_cvs(self, pos="center", eyepos=None, lookat=None, up=None):
         view = View(400, 400, sort_gitems=False)
         view.ortho()
         #                .pip_x  .pip_y  .pip_z
@@ -1279,7 +1279,7 @@ class _Cell2(Cell2, Render):
             z = z2
         elif pos == "northwest":
             z = z2
-            x = x1
+            x = x2
         elif pos == "south":
             z = z0
         elif pos == "southeast":
@@ -1287,36 +1287,40 @@ class _Cell2(Cell2, Render):
             z = z0
         elif pos == "southwest":
             z = z0
-            x = x1
+            x = x2
         elif pos == "east":
             x = x0
         elif pos == "west":
-            x = x1
+            x = x2
         else:
             assert 0, "pos %r not understood"%(pos,)
-        view.lookat([x, y, z], [x1, y1, z1], [0, 0, 1]) # eyepos, lookat, up
+        eyepos = [x, y, z] if eyepos is None else eyepos
+        lookat = [x1, y1, z1] if lookat is None else lookat
+        up = [0, 0, 1] if up is None else up
+        view.lookat(eyepos, lookat, up)
 
         self.render(view)
 
-        # just does not work well enough...
-        # we have to sort: GCurve, GSurface, GCircle
-        def less_than(lhs, rhs):
-            to_sort = [pov.GSurface, pov.GCurve, pov.GCircle, pov.GCvs]
-            # lhs < rhs means draw lhs before rhs, lhs is *behind* rhs
-            depth = view.get_depth(lhs) < view.get_depth(rhs)
-            ltp, rtp = type(lhs), type(rhs)
-            if ltp == rtp:
-                return depth
-            elif lhs.incident(rhs, 0.1):
-                #print("*", end=" ")
-                idx, jdx = to_sort.index(ltp), to_sort.index(rtp)
-                return idx < jdx
-            return depth
-
         #shuffle(view.gitems)
         cvs = Canvas()
-        view.render(cvs=cvs, less_than=less_than)
+        view.render(cvs=cvs, less_than=lambda lhs,rhs:self.view_less_than(view,lhs,rhs))
         return cvs
+
+    # just does not work well enough...
+    # we have to sort: GCurve, GSurface, GCircle, GCvs
+    @staticmethod
+    def view_less_than(view, lhs, rhs):
+        to_sort = [pov.GSurface, pov.GCurve, pov.GCircle, pov.GCvs]
+        # lhs < rhs means draw lhs before rhs, lhs is *behind* rhs
+        depth = view.get_depth(lhs) < view.get_depth(rhs)
+        ltp, rtp = type(lhs), type(rhs)
+        if ltp == rtp:
+            return depth
+        elif lhs.incident(rhs, 0.1):
+            #print("*", end=" ")
+            idx, jdx = to_sort.index(ltp), to_sort.index(rtp)
+            return idx < jdx
+        return depth
 
 
 
@@ -1543,6 +1547,7 @@ class VCell2(Compound, Cell2):
 
 class _VCell2(VCell2, _Compound, _Cell2):
     def on_constrain(self, system, depth, verbose=False):
+        #print("\nVCell2.on_constrain", len(self.cells))
         if verbose:
             dbg_constrain(self, depth)
         self._on_constrain(system, depth, verbose)
@@ -1569,8 +1574,6 @@ class _VCell2(VCell2, _Compound, _Cell2):
             src, tgt = src.tgt, tgt.src # Cell1's
             for (t, s) in tgt.match(src):
                 # t, s are Cell1's
-                #add(s.pip_x == t.pip_x) # hard equal
-                #add(s.pip_y == t.pip_y) # hard equal
                 s.eq_constrain(t, system)
             i += 1
 
@@ -1827,9 +1830,9 @@ def test_render():
 
 if __name__ == "__main__":
     print("\n")
-    #test()
-    #test_match()
-    #more_test()
+    test()
+    test_match()
+    more_test()
     test_render()
 
     print("OK")
