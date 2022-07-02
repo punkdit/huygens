@@ -24,7 +24,7 @@ from huygens.back import Visitor
 from huygens.argv import argv
 
 from huygens import pov
-from huygens.pov import View, Mat
+from huygens.pov import View, Mat, GSurface, GCurve, GCircle, GCvs
 
 
 EPSILON = 1e-6
@@ -93,6 +93,141 @@ class _VCell2(VCell2, _Compound, _Cell2):
 """
 
 
+# -------------------------------------------------------
+
+# These are helper classes for _Cell1._render and _Cell2.render below
+
+class Segment(object):
+    "a 3d bezier curve"
+    def __init__(self, v0, v1, v2, v3, color=(0,0,0,1)):
+        self.vs = (v0, v1, v2, v3)
+        self.color = color
+
+    def __eq__(self, other):
+        return self.vs == other.vs
+
+    #def incident(self, other):
+    #    return self == other or self.reversed == other
+
+    def midpoint(self):
+        v0, v1, v2, v3 = self.vs
+        v = (1./4) * (v0 + v1 + v2 + v3) # um... just hack it for now
+        return v
+
+    @classmethod
+    def mk_line(cls, v0, v2, **kw):
+        #v0, v2 = Mat(v0), Mat(v2)
+        v01 = 0.5*(v0+v2)
+        v12 = 0.5*(v0+v2)
+        return cls(v0, v01, v12, v2, **kw)
+
+    @property
+    def reversed(self):
+        v0, v1, v2, v3 = self.vs
+        return Segment(v3, v2, v1, v0, self.color)
+
+    def __getitem__(self, idx):
+        return self.vs[idx]
+
+    def __len__(self):
+        return len(self.vs)
+
+
+class Surface(object):
+    pip_cvs = None
+
+    def __init__(self, segments, color=(0,0,0,1), address=None):
+        self.segments = list(segments)
+        self.color = color
+        self.address = address
+
+    def __getitem__(self, idx):
+        return self.segments[idx]
+
+    def __len__(self):
+        return len(self.segments)
+
+    @property
+    def reversed(self):
+        segments = [seg.reversed for seg in reversed(self.segments)]
+        return Surface(segments, self.color)
+
+    @classmethod
+    def mk_triangle(cls, v0, v1, v2, color):
+        segments = [
+            Segment.mk_line(v0, v1),
+            Segment.mk_line(v1, v2),
+            Segment.mk_line(v2, v0),
+        ]
+        return Surface(segments, color=color)
+
+    def midpoint(self):
+        vs = [segment.midpoint() for segment in self.segments]
+        v = vs[0]
+        for u in vs[1:]:
+            v = v + u
+        v = (1/len(vs))*v
+        return v
+
+    def incident(self, other):
+        if self.color != other.color:
+            return False
+        for s in self.segments:
+          s = s.reversed
+          for o in other.segments:
+            #if s.incident(o):
+            if s==o:
+                return True
+        return False
+
+    def join(self, other):
+        left = list(self.segments)
+        right = list(other.segments)
+        for i, l in enumerate(left):
+          for j, r in enumerate(right):
+            if l!=r.reversed:
+                continue
+            segs = left[:i] + right[j+1:] + right[:j] + left[i+1:]
+            return Surface(segs, self.color)
+        assert 0, "not incident"
+
+    @staticmethod
+    def merge(srfs):
+        srfs = list(srfs)
+        i = 0
+        while i < len(srfs):
+            j = i+1
+            while j < len(srfs):
+                right = srfs[j]
+                left = srfs[i]
+                rleft = left.reversed
+                if left.incident(right):
+                    left = left.join(right)
+                    srfs[i] = left
+                    srfs.pop(j)
+                    j = i+1
+                elif rleft.incident(right):
+                    rleft = rleft.join(right)
+                    srfs[i] = rleft
+                    srfs.pop(j)
+                    j = i+1
+
+                else:
+                    j += 1
+            i += 1
+        return srfs
+
+    def render(self, view, poset=None):
+        view.add_surface(self.segments, fill=self.color, address=self.address)
+        if Cell2.DEBUG or 0:
+            for seg in self.segments:
+                view.add_curve(*seg, stroke=(0,0,1,0.2), lw=0.2, epsilon=None)
+
+
+# -------------------------------------------------------
+
+# These are the abstract base classes for all the cell classes to come
+
 class Atom(object):
     def __init__(self, name, weight=1., **kw):
         self.name = name
@@ -102,9 +237,9 @@ class Atom(object):
     def __str__(self):
         return self.name
 
-    def visit(self, callback, instance=None, **kw):
-        if instance is None or self.__class__ == instance:
-            callback(self)
+    def visit(self, callback, cls=None, **kw):
+        if cls is None or self.__class__ == cls:
+            callback(self, **kw)
 
     def search(self, **kw):
         cells = []
@@ -149,7 +284,7 @@ class Compound(object):
     def _associate(self, items):
         cls = self.__class__
         itemss = [(item.cells 
-            if isinstance(item, cls) and item.assoc
+            if isinstance(item, cls) # and item.assoc
             else [item])
             for item in items]
         items = reduce(operator.add, itemss, [])
@@ -299,10 +434,10 @@ class _Compound(object):
         for cell in self.cells:
             cell.on_constrain(system, depth+1, verbose)
 
-    def render(self, view):
+    def render(self, view, poset=None):
         #Shape.render(self, view)
         for cell in self.cells:
-            cell.render(view)
+            cell.render(view, poset)
 
 
 
@@ -327,12 +462,12 @@ def dump(cell):
 class Cell0(Atom):
     "These are the 0-cells, or object's."
 
-    color = None # fill
-    stroke = black # outline
+    color = None # rename to fill ?
+    stroke = black 
     st_stroke = []
-    show_pip = False
+    #show_pip = False
     pip_cvs = None 
-    assoc = True # does not work...
+    #assoc = True # does not work...
     space = 0. # pull back spider leg from the pip, used for braid Cell1's
 
     def __len__(self):
@@ -348,9 +483,9 @@ class Cell0(Atom):
         kw["color"] = self.color
         kw["stroke"] = self.stroke
         kw["st_stroke"] = self.st_stroke
-        kw["show_pip"] = self.show_pip
+        #kw["show_pip"] = self.show_pip
         kw["pip_cvs"] = self.pip_cvs
-        kw["assoc"] = self.assoc
+        #kw["assoc"] = self.assoc
         kw["space"] = self.space
         cell = _Cell0(**kw)
         check_renderable(cell)
@@ -390,9 +525,9 @@ class DCell0(Compound, Cell0):
         kw = dict(self.__dict__)
         del kw["name"]
         del kw["cells"]
-        kw["show_pip"] = self.show_pip
-        kw["color"] = self.color
-        kw["stroke"] = self.stroke
+        #kw["show_pip"] = self.show_pip
+        #kw["color"] = self.color
+        #kw["stroke"] = self.stroke
         cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell0(cells, **kw)
         check_renderable(cell)
@@ -435,18 +570,19 @@ class Cell1(Atom):
         These are the 1-cells.
     """
 
-    color = black
+    stroke = black
     st_stroke = []
-    show_pip = True
+    pip_color = black
     pip_radius = 0.3
     pip_cvs = None
-    assoc = True # does not work...
+    #assoc = True # does not work...
 
     def __init__(self, tgt, src, name=None, weight=1.0, **kw):
         assert isinstance(tgt, Cell0)
         assert isinstance(src, Cell0)
         if name is None:
             name = "(%s<---%s)"%(tgt, src)
+        assert "color" not in kw, "use stroke"
         Atom.__init__(self, name, weight, **kw) # will update kw's on __dict__
         self.tgt = tgt
         self.src = src
@@ -456,18 +592,18 @@ class Cell1(Atom):
         tgt = self.tgt.deepclone()
         src = self.src.deepclone()
         kw = {}
-        kw["color"] = self.color
+        kw["stroke"] = self.stroke
         kw["st_stroke"] = self.st_stroke
-        kw["show_pip"] = self.show_pip
+        kw["pip_color"] = self.pip_color
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
-        kw["assoc"] = self.assoc
+        #kw["assoc"] = self.assoc
         cell = _Cell1(tgt, src, self.name, self.weight, **kw)
         check_renderable(cell)
         return cell
 
-    def extrude(self, show_pip=False, **kw):
-        return Cell2(self, self, show_pip=show_pip, **kw)
+    def extrude(self, pip_color=None, **kw):
+        return Cell2(self, self, pip_color=pip_color, **kw)
 
     def reassoc(self):
         yield [self]
@@ -508,8 +644,8 @@ class _Cell1(Cell1, Render):
     def match(tgt, src):
         assert isinstance(src, Cell1)
         if tgt.name == src.name:
-            tgt = tgt.search(instance=_Cell1)
-            src = src.search(instance=_Cell1)
+            tgt = tgt.search(cls=_Cell1)
+            src = src.search(cls=_Cell1)
             assert len(src) == len(tgt)
             for (t,s) in zip(tgt, src):
                 yield (t,s)
@@ -598,7 +734,69 @@ class _Cell1(Cell1, Render):
             [color.rgba(1,0,0,0.5)]+ns.st_THick+ns.st_round)
         bg.append(cvs)
 
+    def _render(self, view, parent):
+        # parent is the Cell2 that self lives inside of
+        cone = max(PIP, 1-parent.cone)
+        def seg_over(v1, v2):
+            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
+            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
+            return line
 
+        pip2 = Mat(parent.pip)
+        pip1 = Mat(self.pip)
+
+        line = seg_over(pip1, pip2)
+        if self.stroke is not None:
+            view.add_curve(*line, lw=0.2, stroke=self.stroke, st_stroke=self.st_stroke)
+
+        # show spider (1-cell) pip
+        if self.pip_cvs is not None:
+            view.add_cvs(Mat(pip1), self.pip_cvs)
+        elif self.pip_color is not None:
+            view.add_circle(pip1, self.pip_radius, fill=self.pip_color)
+
+        tgt, src = self.tgt, self.src
+        for cell in tgt:
+            assert isinstance(cell, _Cell0)
+            color = cell.color
+            pip0 = Mat(cell.pip)
+            vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
+            leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1) # spider leg
+            line2 = seg_over(pip0, pip2).reversed
+            triangle = Surface([
+                line2,
+                leg, 
+                line,  # pip1 --> pip2
+            ], color, address=None)
+            parent.surfaces.append(triangle)
+            if abs(cell.pip_x - parent.x0) < 2*PIP:
+                parent.l_ports.append( (triangle[0], cell) )
+            if cell.space>0.:
+                space = max(0., min(1., cell.space))
+                leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1+space*(vpip1-pip1)) # spider leg
+            if cell.stroke is not None:
+                view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
+
+        for cell in src:
+            assert isinstance(cell, _Cell0)
+            color = cell.color
+            pip0 = Mat(cell.pip)
+            vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
+            line2 = seg_over(pip0, pip2).reversed
+            leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1)
+            triangle = Surface([
+                line2,
+                leg, 
+                line,  # pip1 --> pip2
+            ], color, address=None)
+            parent.surfaces.append(triangle)
+            if abs(cell.pip_x - parent.x1) < 2*PIP:
+                parent.r_ports.append( (triangle[0], cell) )
+            if cell.space>0.:
+                space = max(0., min(1., cell.space))
+                leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1+space*(vpip1-pip1)) # spider leg
+            if cell.stroke is not None:
+                view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
 
 
 class DCell1(Compound, Cell1):
@@ -613,8 +811,8 @@ class DCell1(Compound, Cell1):
 
     def deepclone(self):
         kw = {}
-        kw["show_pip"] = self.show_pip
-        kw["color"] = self.color
+        #kw["show_pip"] = self.show_pip
+        #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell1(cells, **kw)
@@ -623,9 +821,9 @@ class DCell1(Compound, Cell1):
             assert 0, "found non Render's"
         return cell
 
-    def extrude(self, show_pip=False, **kw):
-        cells = [cell.extrude(show_pip=show_pip, **kw) for cell in self.cells]
-        return DCell2(cells, show_pip=show_pip, **kw)
+    def extrude(self, pip_color=None, **kw):
+        cells = [cell.extrude(pip_color=pip_color, **kw) for cell in self.cells]
+        return DCell2(cells, **kw)
 
     def traverse(self, callback, depth=0, full=True):
         Atom.traverse(self, callback, depth, full)
@@ -713,17 +911,17 @@ class HCell1(Compound, Cell1):
 
     def deepclone(self):
         kw = {}
-        kw["show_pip"] = self.show_pip
-        kw["color"] = self.color
+        #kw["show_pip"] = self.show_pip
+        #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         cells = [cell.deepclone() for cell in self.cells]
         cell = _HCell1(cells, **kw)
         check_renderable(cell)
         return cell
 
-    def extrude(self, show_pip=False, **kw):
-        cells = [cell.extrude(show_pip=show_pip, **kw) for cell in self.cells]
-        return HCell2(cells, show_pip=show_pip, **kw)
+    def extrude(self, pip_color=None, **kw):
+        cells = [cell.extrude(pip_color=pip_color, **kw) for cell in self.cells]
+        return HCell2(cells, pip_color=pip_color, **kw)
 
     def traverse(self, callback, depth=0, full=True):
         Atom.traverse(self, callback, depth, full)
@@ -809,155 +1007,25 @@ setop(Cell1, "__lshift__", HCell1)
 
 # -------------------------------------------------------
 
-# These are helper classes for _Cell2.render below
-
-class Segment(object):
-    "a 3d bezier curve"
-    def __init__(self, v0, v1, v2, v3, color=(0,0,0,1)):
-        self.vs = (v0, v1, v2, v3)
-        self.color = color
-
-    def __eq__(self, other):
-        return self.vs == other.vs
-
-    #def incident(self, other):
-    #    return self == other or self.reversed == other
-
-    def midpoint(self):
-        v0, v1, v2, v3 = self.vs
-        v = (1./4) * (v0 + v1 + v2 + v3) # um... just hack it for now
-        return v
-
-    @classmethod
-    def mk_line(cls, v0, v2, **kw):
-        #v0, v2 = Mat(v0), Mat(v2)
-        v01 = 0.5*(v0+v2)
-        v12 = 0.5*(v0+v2)
-        return cls(v0, v01, v12, v2, **kw)
-
-    @property
-    def reversed(self):
-        v0, v1, v2, v3 = self.vs
-        return Segment(v3, v2, v1, v0, self.color)
-
-    def __getitem__(self, idx):
-        return self.vs[idx]
-
-    def __len__(self):
-        return len(self.vs)
-
-
-class Surface(object):
-    pip_cvs = None
-
-    def __init__(self, segments, color=(0,0,0,1), address=None):
-        self.segments = list(segments)
-        self.color = color
-        self.address = address
-
-    def __getitem__(self, idx):
-        return self.segments[idx]
-
-    def __len__(self):
-        return len(self.segments)
-
-    @property
-    def reversed(self):
-        segments = [seg.reversed for seg in reversed(self.segments)]
-        return Surface(segments, self.color)
-
-    @classmethod
-    def mk_triangle(cls, v0, v1, v2, color):
-        segments = [
-            Segment.mk_line(v0, v1),
-            Segment.mk_line(v1, v2),
-            Segment.mk_line(v2, v0),
-        ]
-        return Surface(segments, color=color)
-
-    def midpoint(self):
-        vs = [segment.midpoint() for segment in self.segments]
-        v = vs[0]
-        for u in vs[1:]:
-            v = v + u
-        v = (1/len(vs))*v
-        return v
-
-    def incident(self, other):
-        if self.color != other.color:
-            return False
-        for s in self.segments:
-          s = s.reversed
-          for o in other.segments:
-            #if s.incident(o):
-            if s==o:
-                return True
-        return False
-
-    def join(self, other):
-        left = list(self.segments)
-        right = list(other.segments)
-        for i, l in enumerate(left):
-          for j, r in enumerate(right):
-            if l!=r.reversed:
-                continue
-            segs = left[:i] + right[j+1:] + right[:j] + left[i+1:]
-            return Surface(segs, self.color)
-        assert 0, "not incident"
-
-    @staticmethod
-    def merge(srfs):
-        srfs = list(srfs)
-        i = 0
-        while i < len(srfs):
-            j = i+1
-            while j < len(srfs):
-                right = srfs[j]
-                left = srfs[i]
-                rleft = left.reversed
-                if left.incident(right):
-                    left = left.join(right)
-                    srfs[i] = left
-                    srfs.pop(j)
-                    j = i+1
-                elif rleft.incident(right):
-                    rleft = rleft.join(right)
-                    srfs[i] = rleft
-                    srfs.pop(j)
-                    j = i+1
-
-                else:
-                    j += 1
-            i += 1
-        return srfs
-
-    def render(self, view):
-        view.add_surface(self.segments, fill=self.color, address=self.address)
-        if Cell2.DEBUG or 0:
-            for seg in self.segments:
-                view.add_curve(*seg, stroke=(0,0,1,0.2), lw=0.2, epsilon=None)
-
-
-# -------------------------------------------------------
-
 
 
 class Cell2(Atom):
     "These are the 2-cells"
 
     DEBUG = False
-    color = black
-    show_pip = True
+    pip_color = black
     pip_radius = 0.5
-    cone = 0.6 # closer to 1. is more cone-like
     pip_cvs = None
-    assoc = True # does not work...
+    cone = 0.6 # closer to 1. is more cone-like
+    #assoc = True # does not work...
 
     def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell1), tgt.__class__.__name__
         assert isinstance(src, Cell1), src.__class__.__name__
         assert tgt.src.name == src.src.name, "%s != %s" % (tgt.src, src.src)
         assert tgt.tgt.name == src.tgt.name, "%s != %s" % (tgt.tgt, tgt.src)
+        assert "color" not in kw, "this is called pip_color now"
+        assert "show_pip" not in kw, "just set pip_color to None"
         if name is None:
             name = "(%s<===%s)"%(tgt, src)
         Atom.__init__(self, name, **kw) # update's kw's on __dict__
@@ -968,12 +1036,11 @@ class Cell2(Atom):
     def deepclone(self):
         kw = {}
         kw["DEBUG"] = self.DEBUG
-        kw["color"] = self.color
-        kw["show_pip"] = self.show_pip
+        kw["pip_color"] = self.pip_color
         kw["pip_radius"] = self.pip_radius
-        kw["cone"] = self.cone
         kw["pip_cvs"] = self.pip_cvs
-        kw["assoc"] = self.assoc
+        kw["cone"] = self.cone
+        #kw["assoc"] = self.assoc
         tgt = self.tgt.deepclone()
         src = self.src.deepclone()
         cell = _Cell2(tgt, src, **kw)
@@ -1024,6 +1091,14 @@ class _Cell2(Cell2, Render):
             self.pip_x+self.right, self.pip_y+self.back, self.pip_z+self.top,
         )
 
+    @property
+    def x0(self):
+        return self.pip_x - self.left
+
+    @property
+    def x1(self):
+        return self.pip_x + self.right
+
     def _on_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
@@ -1054,117 +1129,30 @@ class _Cell2(Cell2, Render):
             add(cell.pip_y - cell.front == self.pip_y - self.front) # hard equal
             add(cell.pip_y + cell.back == self.pip_y + self.back) # hard equal
 
-    def render(self, view):
-        (x0, y0, z0, x1, y1, z1) = self.rect
-        x01 = conv(x0, x1)
-        y01 = conv(y0, y1)
-        z01 = conv(z0, z1)
-        add_line = lambda p0, p1, lw=1.0, stroke=(0,0,0,1) : view.add_line(
-            Mat(p0), Mat(p1), lw=lw, stroke=stroke)
+    def render(self, view, poset=None):
+        if poset is None:
+            poset = Poset()
 
-        tgt, src = self.tgt, self.src
-        if self.DEBUG and 0:
-            add_line((x0, y0, z0), (x0, y0, z1), stroke=(0,0,1,0.5))
-            add_line((x1, y0, z0), (x1, y0, z1), stroke=(0,0,1,0.5))
-            add_line((x0, y1, z0), (x0, y1, z1), stroke=(0,0,1,0.5))
-            add_line((x1, y1, z0), (x1, y1, z1), stroke=(0,0,1,0.5))
-            view.add_circle(Mat([x0,y0,z0]), 2.0, fill=(1,0,0,1))
-
-        surfaces = []
+        # We hang a bunch of attr's off self for the visit callback below.
+        self.surfaces = surfaces = []
         
-        pip2 = Mat(self.pip)
-
-        cone = 1. - self.cone
-        cone = max(PIP, cone)
-
-        def seg_over(v1, v2):
-            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
-            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
-            return line
-
-        def callback(self): # XXX make this a method with args
-            assert self.__class__ == _Cell1
-            #print("callback", self.__class__.__name__, self)
-
-            color = self.color
-            pip1 = Mat(self.pip)
-
-            line = seg_over(pip1, pip2)
-            if color is not None:
-                view.add_curve(*line, lw=0.2, stroke=color, st_stroke=self.st_stroke)
-                # show spider (1-cell) pip
-                if self.pip_cvs is not None:
-                    view.add_cvs(Mat(pip1), self.pip_cvs)
-                elif self.show_pip:
-                    view.add_circle(pip1, self.pip_radius, fill=color)
-
-            tgt, src = self.tgt, self.src
-            for cell in tgt:
-                assert isinstance(cell, _Cell0)
-                color = cell.color
-                pip0 = Mat(cell.pip)
-                vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
-                leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1) # spider leg
-                line2 = seg_over(pip0, pip2).reversed
-                triangle = Surface([
-                    line2,
-                    leg, 
-                    line,  # pip1 --> pip2
-                ], color, address=None)
-                surfaces.append(triangle)
-                if abs(cell.pip_x - x0) < 2*PIP:
-                    l_ports.append( (triangle[0], cell) )
-                if cell.space>0.:
-                    space = max(0., min(1., cell.space))
-                    leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1+space*(vpip1-pip1)) # spider leg
-                if cell.stroke is not None:
-                    view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
-
-            for cell in src:
-                assert isinstance(cell, _Cell0)
-                color = cell.color
-                pip0 = Mat(cell.pip)
-                vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
-                line2 = seg_over(pip0, pip2).reversed
-                leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1)
-                triangle = Surface([
-                    line2,
-                    leg, 
-                    line,  # pip1 --> pip2
-                ], color, address=None)
-                surfaces.append(triangle)
-                if abs(cell.pip_x - x1) < 2*PIP:
-                    r_ports.append( (triangle[0], cell) )
-                if cell.space>0.:
-                    space = max(0., min(1., cell.space))
-                    leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1+space*(vpip1-pip1)) # spider leg
-                if cell.stroke is not None:
-                    view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
+        # left and right ports
+        self.l_ports = l_tgt = []
+        self.r_ports = r_tgt = []
+        self.tgt.visit(_Cell1._render, cls=_Cell1, view=view, parent=self)
 
         # left and right ports
-        l_ports = l_tgt = []
-        r_ports = r_tgt = []
-        z = z1
-        tgt.visit(callback, instance=_Cell1)
-
-        # left and right ports
-        l_ports = l_src = []
-        r_ports = r_src = []
-        z = z0
-        src.visit(callback, instance=_Cell1)
-
-        #for cell in tgt.search(instance=_Cell1)+src.search(instance=_Cell1):
-        #    if cell.show_pip:
-        #        view.add_circle(Mat(cell.pip), cell.pip_radius, fill=cell.color)
-
+        self.l_ports = l_src = []
+        self.r_ports = r_src = []
+        self.src.visit(_Cell1._render, cls=_Cell1, view=view, parent=self)
 
         if len(l_src) != len(l_tgt) or len(r_src) != len(r_tgt):
             print("_Cell2.render: FAIL", id(self), end=" ")
             print( len(l_src) , len(l_tgt) , end=" ")
             print( len(r_src) , len(r_tgt) )
             for surface in surfaces:
-                surface.render(view)
-            return
+                surface.render(view, poset)
+            return poset
 
         assert len(l_src) == len(l_tgt)
         assert len(r_src) == len(r_tgt)
@@ -1189,17 +1177,20 @@ class _Cell2(Cell2, Render):
 
         #surfaces = Surface.merge(surfaces)
         for surface in surfaces:
-            surface.render(view)
+            surface.render(view, poset)
         for surface in surfaces:
             if surface.pip_cvs is None:
                 continue
             view.add_cvs(surface.midpoint(), surface.pip_cvs)
 
         if self.pip_cvs is not None:
-            view.add_cvs(Mat(pip2), self.pip_cvs)
-        elif self.color is not None and self.show_pip:
-            view.add_circle(Mat(pip2), self.pip_radius, fill=self.color, address=self)
+            view.add_cvs(Mat(self.pip), self.pip_cvs)
+        elif self.pip_color is not None:
+            view.add_circle(Mat(self.pip), self.pip_radius, fill=self.pip_color, address=self)
 
+        return poset
+
+    # XXX can't we do this by setting attr's and calling .render() ?
     def render_boundary(self, view, src=True, tgt=True):
         (x0, y0, z0, x1, y1, z1) = self.rect
         x01 = conv(x0, x1)
@@ -1224,7 +1215,7 @@ class _Cell2(Cell2, Render):
             if color is not None:
                 #view.add_curve(*line, lw=0.2, stroke=color)
                 # show spider (1-cell) pip
-                if self.show_pip:
+                if self.pip_color:
                     view.add_circle(pip1, self.pip_radius, fill=color)
 
             tgt, src = self.tgt, self.src
@@ -1242,11 +1233,11 @@ class _Cell2(Cell2, Render):
 
         if tgt:
             z = z1
-            self.tgt.visit(callback, instance=_Cell1)
+            self.tgt.visit(callback, cls=_Cell1)
 
         if src:
             z = z0
-            self.src.visit(callback, instance=_Cell1)
+            self.src.visit(callback, cls=_Cell1)
 
     def render_src(self, view):
         self.render_boundary(view, src=True, tgt=False)
@@ -1299,11 +1290,15 @@ class _Cell2(Cell2, Render):
         up = [0, 0, 1] if up is None else up
         view.lookat(eyepos, lookat, up)
 
-        self.render(view)
+        poset = Poset()
+        self.render(view, poset)
+
+        make_poset(view)
 
         #shuffle(view.gitems)
         cvs = Canvas()
-        view.render(cvs=cvs, less_than=lambda lhs,rhs:self.view_less_than(view,lhs,rhs))
+        #view.render(cvs=cvs, less_than=lambda lhs,rhs:self.view_less_than(view,lhs,rhs))
+        view.render(cvs=cvs)
         return cvs
 
     # just does not work well enough...
@@ -1312,16 +1307,204 @@ class _Cell2(Cell2, Render):
     def view_less_than(view, lhs, rhs):
         to_sort = [pov.GSurface, pov.GCurve, pov.GCircle, pov.GCvs]
         # lhs < rhs means draw lhs before rhs, lhs is *behind* rhs
-        depth = view.get_depth(lhs) < view.get_depth(rhs)
+        deeper = view.get_depth(lhs) < view.get_depth(rhs)
         ltp, rtp = type(lhs), type(rhs)
         if ltp == rtp:
-            return depth
-        elif lhs.incident(rhs, 0.1):
-            #print("*", end=" ")
+            return deeper
+        lname, rname = (ltp.__name__, rtp.__name__)
+        incident = lhs.incident(rhs, 0.05)
+        debug = "GCircle" in (lname, rname) and 'GCurve' in (lname,rname)
+        if debug:
+            print(lname, getattr(lhs, "fill", ""), getattr(lhs, "stroke", ""))
+            print(rname, getattr(rhs, "fill", ""), getattr(rhs, "stroke", ""))
+            print('\t', incident)
+            print()
+        if incident:
             idx, jdx = to_sort.index(ltp), to_sort.index(rtp)
             return idx < jdx
-        return depth
+        #else:
+        #    print("/", end="\n")
+        return deeper
 
+
+class Poset(object):
+    def __init__(self, items=[]):
+        import string
+        letters = list(string.ascii_letters)
+        i = 0
+        while len(letters) < len(items):
+            letters += ["%s_%d"%(c, i) for c in string.ascii_letters]
+            i += 1
+        self.names = dict((a,b) for (a,b) in zip(items, letters)) # only used for debug
+        self.items = set(items)
+        self.down = dict((a, []) for a in items)
+        self.up = dict((a, []) for a in items)
+        self.pairs = set()
+
+    def compare(self, a, b):
+        down = self.down
+        bdy = [a]
+        found = set([a])
+        while bdy:
+            _bdy = set()
+            for c in bdy:
+                els = down[c]
+                for d in els:
+                    if b is d:
+                        return True
+                    elif d not in found:
+                        _bdy.add(d)
+                        found.add(d)
+            bdy = _bdy
+        return False
+
+    def add(self, a, b):
+        assert a in self.items
+        assert b in self.items
+        assert a is not b
+        if (a,b) in self.pairs:
+            return
+        assert not self.compare(b, a)
+        self.pairs.add((a, b))
+        self.down[a].append(b)
+        self.up[b].append(a)
+        assert self.compare(a, b)
+
+    def todot(self, name):
+        items = list(self.items)
+        down = self.down
+        pairs = []
+        for (a, b) in self.pairs:
+            for c in down[a]:
+                if b in down[c]:
+                    break
+            else:
+                pairs.append((a,b))
+        names = self.names
+        f = open(name, 'w')
+        print("digraph\n{", file=f)
+        for (a,b) in pairs:
+            print('  "%s" -> "%s"' % (names[a], names[b]), file=f)
+        print("}", file=f)
+        f.close()
+
+    def get_linear(self):
+        linear = []
+        items = self.items
+        pairs = self.pairs
+        remain = set(items)
+        found = set()
+        while remain:
+            size = len(remain)
+            ready = set(remain)
+            for (a,b) in pairs:
+                # a before b
+                if a not in found and b in ready:
+                    ready.remove(b)
+            for a in ready:
+                remain.remove(a)
+                linear.append(a)
+                found.add(a)
+            assert len(remain)<size, "loop found in Poset"
+        return linear
+
+    def get_deps(self, item):
+        up = self.up
+        deps = set([item])
+        bdy = set(deps) # unsatisfied
+        while bdy:
+            _bdy = set()
+            for item in bdy:
+                for dep in up[item]:
+                    if dep not in deps:
+                        _bdy.add(dep)
+                        deps.add(dep)
+            bdy = _bdy
+        return deps
+
+    def get_greedy(self):
+        # add some more relations to force rendering of later
+        # GItem's if possible: pip's and curves.
+        items = self.items
+        down = self.down
+        bots = [a for a in items if not down[a]]
+        assert bots
+        names = self.names
+        #print("get_greedy")
+        rank = {}
+        for bot in bots:
+            deps = self.get_deps(bot)
+            rank[bot] = deps
+        bots.sort( key = lambda item : len(rank[item]) )
+        prev = bots[0]
+        found = set(rank[prev])
+        for bot in bots[1:]:
+            for other in rank[bot]:
+                if other not in found:
+                    self.add(prev, other)
+                    found.add(other)
+            prev = bot
+    
+
+INCIDENT = 0.1 
+
+def make_poset(view):
+    gitems = view.gitems
+    print("make_poset: gitems", len(gitems))
+    rank = [GSurface, GCurve, GCircle, GCvs]
+    #gitems.sort(key = lambda item : rank.index(item.__class__))
+    poset = Poset(gitems)
+    ranked = dict((r,[]) for r in rank)
+    for item in gitems:
+        ranked[item.__class__].append(item)
+
+    for l in ranked[GSurface]:
+      for r in ranked[GSurface]:
+        if id(l)>=id(r):
+            continue
+        verts = l.incident(r, INCIDENT)
+        if len(verts)<=1:
+            continue
+        deeper = view.get_depth(l) < view.get_depth(r)
+        if deeper:
+            poset.add(l, r)
+        else:
+            poset.add(r, l)
+
+      for r in ranked[GCurve]:
+        verts = l.incident(r, INCIDENT)
+        if not verts:
+            continue
+        if len(verts)>1:
+            poset.add(l, r) # l before r
+
+      for r in ranked[GCircle] + ranked[GCvs]:
+        verts = l.incident(r, INCIDENT)
+        if verts:
+            poset.add(l, r) # l before r
+
+    for l in ranked[GCurve]:
+      for r in ranked[GCircle] + ranked[GCvs]:
+        verts = l.incident(r, INCIDENT)
+        if verts:
+            poset.add(l, r) # l before r
+    for l in ranked[GSurface]:
+      for r in ranked[GSurface]:
+        if id(l)>=id(r):
+            continue
+        if poset.compare(l, r) or poset.compare(r, l):
+            continue
+        deeper = view.get_depth(l) < view.get_depth(r)
+        if deeper:
+            poset.add(l, r)
+        else:
+            poset.add(r, l)
+
+    print("make_poset: pairs", len(poset.pairs))
+    #poset.get_greedy()
+    poset.todot("poset.dot")
+    gitems = poset.get_linear()
+    view.gitems[:] = gitems
 
 
 
@@ -1338,8 +1521,8 @@ class DCell2(Compound, Cell2):
 
     def deepclone(self):
         kw = {}
-        kw["show_pip"] = self.show_pip
-        kw["color"] = self.color
+        #kw["show_pip"] = self.show_pip
+        #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell2(cells, **kw)
@@ -1370,6 +1553,7 @@ class DCell2(Compound, Cell2):
         for cell in self.cells:
             cell.traverse(callback, depth+1, full)
 
+
 class _DCell2(DCell2, _Compound, _Cell2):
     bdy = _DCell1
     def on_constrain(self, system, depth, verbose=False):
@@ -1399,10 +1583,10 @@ class _DCell2(DCell2, _Compound, _Cell2):
         #add(self.pip_y + self.back == y, self.weight)
         add(self.pip_y + self.back == y) # don't be a softy!
 
-    def render(self, view):
-        #Shape.render(self, view)
-        for cell in reversed(self.cells):
-            cell.render(view)
+#    def render(self, view):
+#        #Shape.render(self, view)
+#        for cell in reversed(self.cells):
+#            cell.render(view)
 
 
 
@@ -1419,8 +1603,8 @@ class HCell2(Compound, Cell2):
 
     def deepclone(self):
         kw = {}
-        kw["show_pip"] = self.show_pip
-        kw["color"] = self.color
+        #kw["show_pip"] = self.show_pip
+        #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         cells = [cell.deepclone() for cell in self.cells]
         cell = _HCell2(cells, **kw)
@@ -1512,8 +1696,8 @@ class VCell2(Compound, Cell2):
 
     def deepclone(self):
         kw = {}
-        kw["show_pip"] = self.show_pip
-        kw["color"] = self.color
+        #kw["show_pip"] = self.show_pip
+        #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         cells = [cell.deepclone() for cell in self.cells]
         cell = _VCell2(cells, **kw)
@@ -1674,10 +1858,10 @@ def test_match():
     n_ = Cell1(n, ii)
     nn_n = Cell1(n@n, n)
     n_nn = Cell1(n, n@n)
-    n_n = Cell1(n, n, show_pip=False, color=None)
-    pair = Cell1(n, n, show_pip=False, color=black)
+    n_n = Cell1(n, n, pip_color=None, color=None)
+    pair = Cell1(n, n, pip_color=None, color=black)
     #swap = Cell1(n@n, n@n, show_pip=True, color=black)
-    swap = Cell1(n@n, n@n, show_pip=False)
+    swap = Cell1(n@n, n@n, pip_color=None)
 
 # broken
 #    assert n_nn.npaths() == 2
@@ -1689,7 +1873,7 @@ def test_match():
 #    assert (n_nn << (n_n @ n_nn)).npaths() == 3
 
     # we use II to get match to work
-    I = Cell2(n_n, n_n, show_pip=False)
+    I = Cell2(n_n, n_n, pip_color=None)
     II = I<<I
     assoc = Cell2(
         n_nn<<(n_n @ n_nn),
@@ -1716,10 +1900,10 @@ def more_test():
         for i, name in enumerate('lmnop')]
     i0 = Cell0("i", color=None)
 
-    I_l = Cell1(l, l, show_pip=False, color=None)
-    I_m = Cell1(m, m, show_pip=False, color=None)
-    I_n = Cell1(n, n, show_pip=False, color=None)
-    I_o = Cell1(o, o, show_pip=False, color=None)
+    I_l = Cell1(l, l, pip_color=None, color=None)
+    I_m = Cell1(m, m, pip_color=None, color=None)
+    I_n = Cell1(n, n, pip_color=None, color=None)
+    I_o = Cell1(o, o, pip_color=None, color=None)
 
     cell = Cell1(m, m@m) << Cell1(m@m, n)
     cell = cell @ cell
@@ -1760,30 +1944,30 @@ def more_test():
     swap = lambda a,b : Cell1(a@b, b@a)
     # Yang-Baxter
     def yang_baxter(n, m, l, reversed=False, **kw):
-        I_l = Cell1(l, l, show_pip=False, color=None)
-        I_m = Cell1(m, m, show_pip=False, color=None)
-        I_n = Cell1(n, n, show_pip=False, color=None)
+        I_l = Cell1(l, l, pip_color=None, color=None)
+        I_m = Cell1(m, m, pip_color=None, color=None)
+        I_n = Cell1(n, n, pip_color=None, color=None)
         tgt = (I_n @ swap(m, l)) << (swap(n, l) @ I_m) << (I_l @ swap(n, m))
         src = (swap(n, m) @ I_l) << (I_m @ swap(n, l)) << (swap(m, l) @ I_n)
         if reversed:
             tgt, src = src, tgt
-        morph = Cell2(tgt, src, cone=1.0, show_pip=False, **kw)
+        morph = Cell2(tgt, src, cone=1.0, pip_color=None, **kw)
         return morph
     
     # a part of the Zamolodchikov Tetrahedron Equation
-    lhs = (I_o @ ((I_n@swap(m,l))<<(swap(n,l)@I_m)) ).extrude(show_pip=False)
-    rhs = (I_l @ ((swap(o,m)@I_n)<<(I_m@swap(o,n)) )).extrude(show_pip=False)
+    lhs = (I_o @ ((I_n@swap(m,l))<<(swap(n,l)@I_m)) ).extrude(pip_color=None)
+    rhs = (I_l @ ((swap(o,m)@I_n)<<(I_m@swap(o,n)) )).extrude(pip_color=None)
     
     tgt = swap(n,m) << (I_m @ I_n)
     src = (I_n @ I_m) << swap(n,m)
-    back = Cell2(tgt, src, show_pip=False, cone=1.0)
+    back = Cell2(tgt, src, pip_color=None, cone=1.0)
     tgt = (I_o @ I_l) << swap(o,l)
     src = swap(o,l) << (I_l @ I_o)
-    front = Cell2(tgt, src, show_pip=False, cone=1.0)
+    front = Cell2(tgt, src, pip_color=None, cone=1.0)
     
     morph_0 = lhs << (front @ back) << rhs
     
-    rhs = I_l.extrude(show_pip=False) @ yang_baxter(o, n, m, reversed=True)
+    rhs = I_l.extrude(pip_color=None) @ yang_baxter(o, n, m, reversed=True)
     lhs = (I_o @ I_n @ swap(m,l)) << (I_o @ swap(n,l) @ I_m) << (swap(o,l) @ I_n @ I_m)
     lhs = lhs.extrude()
     morph_1 = lhs << rhs
@@ -1813,15 +1997,27 @@ def test_render():
         Cell0(name, color=scheme[i%len(scheme)], address=name) 
         for i, name in enumerate('lmnop')]
 
-    pip_cvs = Canvas().text(0, 0, "$n$", st_center)
-    i = Cell1(l@l, l, show_pip=False, color=None)
-    f = i.extrude()(pip_cvs = pip_cvs)
-    f = f.layout()
-    cvs = f.render_cvs("north")
-    #cvs.writePDFfile("test_render.pdf")
+    cl = (1,1,0,1)
+    shade = color.rgb(0.8)
+    ll_l = Cell1(l@l, l, pip_color=cl, stroke=shade)
+    l_ll = Cell1(l, l@l, pip_color=cl, stroke=shade)
+    l_lll = Cell1(l, l@l@l, pip_color=cl, stroke=shade)
+    l_l = Cell1(l, l, pip_color=cl, stroke=shade)
+    ll_ll = Cell1(l@l, l@l, pip_color=cl, stroke=shade)
+    tgt = l_lll << (l_l @ ll_l) << ll_ll
+    cell = Cell2(tgt, l_ll, pip_color=color.rgb(0.5))
+    #cell = cell << ll_l.extrude()
+    #cell = l_l.extrude() @ cell
+    cell = cell @ l_l.extrude()
 
-    i = Cell1(l@l(space=0.2), l(space=0.2)@l, show_pip=False, st_stroke=st_dotted)
-    f = Cell2(i, i, show_pip=False)
+    f = cell.layout(width=1.5, height=1, depth=2.)
+    cvs = f.render_cvs("north", eyepos=[-0.3,-3,0.8], )
+    cvs.writePDFfile("test_render.pdf")
+
+    return
+
+    i = Cell1(l@l(space=0.2), l(space=0.2)@l, pip_color=None, st_stroke=st_dotted)
+    f = Cell2(i, i, pip_color=None)
     f = f.layout(width=1, height=1)
     cvs = f.render_cvs("north")
     cvs.writePDFfile("test_render.pdf")
@@ -1830,9 +2026,9 @@ def test_render():
 
 if __name__ == "__main__":
     print("\n")
-    test()
-    test_match()
-    more_test()
+    #test()
+    #test_match()
+    #more_test()
     test_render()
 
     print("OK")

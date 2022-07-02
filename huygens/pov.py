@@ -168,6 +168,10 @@ class Mat(object):
         w = numpy.dot(self.A, v)
         return w
 
+    def inv(self):
+        A = numpy.linalg.inv(self.A)
+        return Mat(A)
+
     def __pow__(self, n):
         assert n>=0, "inverse not implemented"
         if n==0:
@@ -444,13 +448,14 @@ class GItem(object):
     def render(self, cvs):
         pass
 
-    def incident(self, other, epsilon=1e-6):
+    def incident(self, other, epsilon=0.05):
+        found = []
         for w in self.verts:
           for v in other.verts:
             err = numpy.abs(v.A - w.A).sum()
             if err < epsilon:
-                return True
-        return False
+                found.append(v)
+        return found
 
 
 class GPoly(GItem):
@@ -612,7 +617,8 @@ class GSurface(GItem):
         for seg in segments:
             assert isinstance(seg, tuple)
             assert len(seg) == 4 # bezier
-            verts += [seg[0], seg[-1]]
+            #verts += [seg[0], seg[-1]]
+            verts.append(seg[0])
         GItem.__init__(self, verts, address=address)
         self.segments = segments
         self.fill = fill
@@ -718,11 +724,15 @@ class View(object):
     def translate(self, x, y, z):
         M = Mat.translate(x, y, z)
         self.model = self.model*M
-    
+
     def lookat(self, eye, center, up):
         M = Mat.lookat(eye, center, up)
         self.model = self.model*M
 
+    def get_eyepos(self):
+        m = self.model.inv()
+        return m[:3, 3]
+    
     def apply(self, M):
         assert isinstance(M, Mat)
         assert M.shape == (4, 4)
