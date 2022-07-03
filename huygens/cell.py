@@ -1770,6 +1770,27 @@ setop(Cell2, "__mul__", VCell2)
 
 # -------------------------------------------------------
 
+
+
+class BraidDeco(Deco):
+    def __init__(self, alpha):
+        Deco.__init__(self)
+        self.alpha = alpha
+
+    def on_decorate(self, pre, path, post):
+        curve_to = path[1]
+        x = conv(curve_to.x1, curve_to.x2, self.alpha)
+        y = conv(curve_to.y1, curve_to.y2, self.alpha)
+        curve_to.x2 = x
+        curve_to.y2 = y
+
+st_braid = [BraidDeco(0.8)]
+
+
+# -------------------------------------------------------
+
+
+
 def show_uniq(cell):
     found = set()
     def dump(cell, depth):
