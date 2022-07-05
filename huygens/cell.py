@@ -413,7 +413,7 @@ class Render(Listener): # rename as _Render ?
         system = self.constrain(*args, verbose=verbose, **kw)
         if callback is not None:
             callback(self, system)
-        system.solve()
+        system.solve(simplify=True)
         self.did_layout = system
         #self.dump(full=False)
         #return system
@@ -468,7 +468,7 @@ class Cell0(Atom):
     #show_pip = False
     pip_cvs = None 
     #assoc = True # does not work...
-    space = 0. # pull back spider leg from the pip, used for braid Cell1's
+    space = 0. # pull back spider leg from the pip, used for braid Cell1's... XXX breaks render order
 
     def __len__(self):
         return 1
@@ -1450,7 +1450,7 @@ INCIDENT = 0.1
 
 def make_poset(view):
     gitems = view.gitems
-    print("make_poset: gitems", len(gitems))
+    #print("make_poset: gitems", len(gitems))
     rank = [GSurface, GCurve, GCircle, GCvs]
     #gitems.sort(key = lambda item : rank.index(item.__class__))
     poset = Poset(gitems)
@@ -1500,9 +1500,9 @@ def make_poset(view):
         else:
             poset.add(r, l)
 
-    print("make_poset: pairs", len(poset.pairs))
+    #print("make_poset: pairs", len(poset.pairs))
     #poset.get_greedy()
-    poset.todot("poset.dot")
+    #poset.todot("poset.dot")
     gitems = poset.get_linear()
     view.gitems[:] = gitems
 
@@ -1779,12 +1779,13 @@ class BraidDeco(Deco):
 
     def on_decorate(self, pre, path, post):
         curve_to = path[1]
+        # is this a bit janky...? maybe use tangent to curve...?
         x = conv(curve_to.x1, curve_to.x2, self.alpha)
         y = conv(curve_to.y1, curve_to.y2, self.alpha)
         curve_to.x2 = x
         curve_to.y2 = y
 
-st_braid = [BraidDeco(0.8)]
+st_braid = [BraidDeco(1.0)]
 
 
 # -------------------------------------------------------
