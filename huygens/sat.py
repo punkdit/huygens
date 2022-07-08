@@ -520,6 +520,7 @@ class System(object):
               for leq in leqs:
                 for k1 in leq.get_leaves():
                     assert k is not k1, "%s %s" % (k, leq)
+            #print("items:", len(leqs))
             solver = Solver(leqs)
             lookup = solver.solve(verbose=verbose)
             #print(lookup)
@@ -532,6 +533,7 @@ class System(object):
                 lookup[src] = tgt.evaluate(lookup)
         else:
             items = self.items
+            #print("items:", len(items))
             solver = Solver(items)
             lookup = solver.solve(verbose=verbose)
         self.lookup = lookup
@@ -627,6 +629,9 @@ def gaussian_eliminate(system, verbose=False):
         #print(affine, affine.idx)
         #print()
     #print()
+
+    # seems to help, slightly
+    vs.sort( key = lambda v : -len(lookup[v]))
 
     pivots = {} 
     def show():

@@ -317,7 +317,7 @@ def dbg_constrain(self, depth):
 
 
 
-class Render(Listener): # rename as _Render ?
+class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
     @property
     def depth(self):
         return self.back + self.front
@@ -391,20 +391,20 @@ class Render(Listener): # rename as _Render ?
         system.add(self.pip_z == z)
         if width is not None and hasattr(self, "left"):
             system.add(self.width == size*width)
-        elif width is None and hasattr(self, "hunits"):
-            system.add(self.width == 0.7*size*self.hunits)
+        elif width is None and hasattr(self, "w_units"):
+            system.add(self.width == 0.7*size*self.w_units)
         if height is not None and hasattr(self, "top"):
             system.add(self.height == size*height)
-        elif height is None and hasattr(self, "vunits"):
-            system.add(self.height == 0.5*size*self.vunits)
+        elif height is None and hasattr(self, "h_units"):
+            system.add(self.height == 0.5*size*self.h_units)
         if depth is not None:
             system.add(self.depth == size*depth)
-        elif hasattr(self, "dunits"):
-            system.add(self.depth == 0.5*size*self.dunits)
+        elif hasattr(self, "d_units"):
+            system.add(self.depth == 0.5*size*self.d_units)
         return system
 
     did_layout = None
-    def layout(self, *args, callback=None, verbose=False, **kw):
+    def layout(self, *args, callback=None, verbose=False, simplify=True, **kw):
         # top-level call 
         #print("Render.layout")
         if self.did_layout:
@@ -413,7 +413,7 @@ class Render(Listener): # rename as _Render ?
         system = self.constrain(*args, verbose=verbose, **kw)
         if callback is not None:
             callback(self, system)
-        system.solve(simplify=True)
+        system.solve(simplify=simplify)
         self.did_layout = system
         #self.dump(full=False)
         #return system
@@ -465,10 +465,7 @@ class Cell0(Atom):
     color = None # rename to fill ?
     stroke = black 
     st_stroke = []
-    #show_pip = False
     pip_cvs = None 
-    #assoc = True # does not work...
-    space = 0. # pull back spider leg from the pip, used for braid Cell1's... XXX breaks render order
 
     def __len__(self):
         return 1
@@ -486,7 +483,6 @@ class Cell0(Atom):
         #kw["show_pip"] = self.show_pip
         kw["pip_cvs"] = self.pip_cvs
         #kw["assoc"] = self.assoc
-        kw["space"] = self.space
         cell = _Cell0(**kw)
         check_renderable(cell)
         return cell
@@ -551,7 +547,6 @@ class _DCell0(DCell0, _Compound, _Cell0):
             add(cell.pip_y - cell.front == y, self.weight) # soft equal
             add(cell.depth == w*self.depth, self.weight) # soft equal
             y += cell.depth
-        #add(self.pip_y + self.back == y, self.weight) # should be hard equal?
         add(self.pip_y + self.back == y) # should be hard equal?
 
 
@@ -575,7 +570,7 @@ class Cell1(Atom):
     pip_color = black
     pip_radius = 0.3
     pip_cvs = None
-    #assoc = True # does not work...
+    _width = None # hmmmmm......
 
     def __init__(self, tgt, src, name=None, weight=1.0, **kw):
         assert isinstance(tgt, Cell0)
@@ -597,7 +592,7 @@ class Cell1(Atom):
         kw["pip_color"] = self.pip_color
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
-        #kw["assoc"] = self.assoc
+        kw["_width"] = self._width
         cell = _Cell1(tgt, src, self.name, self.weight, **kw)
         check_renderable(cell)
         return cell
@@ -620,7 +615,7 @@ class Cell1(Atom):
 
 class _Cell1(Cell1, Render):
     def get_paths(self):
-        # a path is a list of [tgt, src]
+        # a path is a sequence of sub-lists of [tgt, self, src]
         tgt, src = self.hom
         if not len(tgt) and not len(src):
             yield [self]
@@ -643,34 +638,46 @@ class _Cell1(Cell1, Render):
     
     def match(tgt, src):
         assert isinstance(src, Cell1)
-        if tgt.name == src.name:
+        if tgt.name == src.name and 0: # XXX remove "and 0"
             tgt = tgt.search(cls=_Cell1)
             src = src.search(cls=_Cell1)
             assert len(src) == len(tgt)
             for (t,s) in zip(tgt, src):
                 yield (t,s)
             return # <---------- return
-        send = {}
         lhs = list(tgt.get_paths())
         rhs = list(src.get_paths())
         if len(lhs) != len(rhs):
             tgt.fail_match(src, "%s tgt paths != %s src paths"%(len(lhs), len(rhs)))
     
+        send = {}
+        found = set() # XXX just use send
         for (left,right) in zip(lhs, rhs):
-            if len(left)!=len(right):
-                tgt.fail_match(src, 
-                    "tgt path len %d != src path len %d"%(len(left), len(right)))
-            for (l,r) in zip(left, right):
-                if l in send:
-                    if send[l] != r:
-                        tgt.fail_match(src)
-                send[l] = r
-                if type(l) != type(r):
+#            if len(left)!=len(right):
+#                for l in left:
+#                    print("\tleft:", l)
+#                for r in right:
+#                    print("\tright:", r)
+#                tgt.fail_match(src, 
+#                    "tgt path len %d != src path len %d"%(len(left), len(right)))
+          li = ri = 0
+          while li<len(left) and ri<len(right):
+            l, r = left[li], right[ri]
+            #print("match", l, r)
+            if l in send:
+                if send[l] != r:
                     tgt.fail_match(src)
-                if l.name != r.name:
-                    tgt.fail_match(src)
-                if isinstance(l, Cell1):
+            send[l] = r
+            if type(l) != type(r): # type is _Cell0 or _Cell1
+                tgt.fail_match(src)
+            if l.name != r.name:
+                tgt.fail_match(src)
+            if isinstance(l, Cell1):
+                if (l,r) not in found:
                     yield (l,r)
+                    found.add((l,r))
+            li += 1
+            ri += 1
 
     def eq_constrain(self, other, system):
         add = system.add
@@ -714,6 +721,8 @@ class _Cell1(Cell1, Render):
             add(cell.pip_z == self.pip_z) # hard equal
             add(cell.pip_y - cell.front == self.pip_y - self.front)
             add(cell.pip_y + cell.back == self.pip_y + self.back)
+        if self._width is not None:
+            add(self.width == self._width)
 
     def dbg_render(self, bg):
         from huygens import namespace as ns
@@ -771,9 +780,6 @@ class _Cell1(Cell1, Render):
             parent.surfaces.append(triangle)
             if abs(cell.pip_x - parent.x0) < 2*PIP:
                 parent.l_ports.append( (triangle[0], cell) )
-            if cell.space>0.:
-                space = max(0., min(1., cell.space))
-                leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1+space*(vpip1-pip1)) # spider leg
             if cell.stroke is not None:
                 view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
 
@@ -792,9 +798,6 @@ class _Cell1(Cell1, Render):
             parent.surfaces.append(triangle)
             if abs(cell.pip_x - parent.x1) < 2*PIP:
                 parent.r_ports.append( (triangle[0], cell) )
-            if cell.space>0.:
-                space = max(0., min(1., cell.space))
-                leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1+space*(vpip1-pip1)) # spider leg
             if cell.stroke is not None:
                 view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
 
@@ -862,7 +865,6 @@ class _DCell1(DCell1, _Compound, _Cell1):
             add(cell.pip_y - cell.front == y)
             add(cell.depth == w*self.depth, self.weight)
             y += cell.depth
-        #add(self.pip_y + self.back == y, self.weight) # soft constrain, nah
         add(self.pip_y + self.back == y) # hard constrain, yes!
 
     def dbg_render(self, bg):
@@ -1017,7 +1019,6 @@ class Cell2(Atom):
     pip_radius = 0.5
     pip_cvs = None
     cone = 0.6 # closer to 1. is more cone-like
-    #assoc = True # does not work...
 
     def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell1), tgt.__class__.__name__
@@ -1040,7 +1041,6 @@ class Cell2(Atom):
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
         kw["cone"] = self.cone
-        #kw["assoc"] = self.assoc
         tgt = self.tgt.deepclone()
         src = self.src.deepclone()
         cell = _Cell2(tgt, src, **kw)
@@ -1048,15 +1048,15 @@ class Cell2(Atom):
         return cell
 
     @property
-    def hunits(self):
+    def w_units(self): # width units
         return 1
 
     @property
-    def dunits(self):
+    def d_units(self): # depth units
         return 1
 
     @property
-    def vunits(self):
+    def h_units(self): # height units
         return 1
 
     def vflip(self): # XXX pass all attr's along
@@ -1530,16 +1530,16 @@ class DCell2(Compound, Cell2):
         return cell
 
     @property
-    def hunits(self):
-        return max(cell.hunits for cell in self.cells)
+    def w_units(self):
+        return max(cell.w_units for cell in self.cells)
 
     @property
-    def dunits(self):
-        return sum(cell.dunits for cell in self.cells)
+    def d_units(self):
+        return sum(cell.d_units for cell in self.cells)
 
     @property
-    def vunits(self):
-        return max(cell.vunits for cell in self.cells)
+    def h_units(self):
+        return max(cell.h_units for cell in self.cells)
 
     def vflip(self):
         cells = [cell.vflip() for cell in self.cells]
@@ -1563,7 +1563,7 @@ class _DCell2(DCell2, _Compound, _Cell2):
         _Compound.on_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
-        w = 1./self.dunits
+        w = 1./self.d_units
         for cell in self.cells:
             # we don't care if the pip's are aligned, only the left/right bdy
             #add(self.width == cell.width) # fit width
@@ -1578,7 +1578,7 @@ class _DCell2(DCell2, _Compound, _Cell2):
             add(cell.pip_z + cell.top == self.pip_z + self.top)
 
             add(cell.pip_y - cell.front == y)
-            add(cell.depth == w*cell.dunits*self.depth, self.weight) # soft
+            add(cell.depth == w*cell.d_units*self.depth, self.weight) # soft
             y += cell.depth
         #add(self.pip_y + self.back == y, self.weight)
         add(self.pip_y + self.back == y) # don't be a softy!
@@ -1612,16 +1612,16 @@ class HCell2(Compound, Cell2):
         return cell
 
     @property
-    def hunits(self):
-        return sum(cell.hunits for cell in self.cells)
+    def w_units(self):
+        return sum(cell.w_units for cell in self.cells)
 
     @property
-    def dunits(self):
-        return max(cell.dunits for cell in self.cells)
+    def d_units(self):
+        return max(cell.d_units for cell in self.cells)
 
     @property
-    def vunits(self):
-        return max(cell.vunits for cell in self.cells)
+    def h_units(self):
+        return max(cell.h_units for cell in self.cells)
 
     def vflip(self):
         cells = [cell.vflip() for cell in self.cells]
@@ -1647,7 +1647,7 @@ class _HCell2(HCell2, _Compound, _Cell2):
         cells = self.cells
         assert cells, "??"
         x = self.pip_x - self.left # start here
-        w = 1./self.hunits
+        w = 1./self.w_units
         for cell in self.cells:
             add(cell.pip_y-cell.front == self.pip_y-self.front)
             add(cell.pip_y+cell.back == self.pip_y+self.back)
@@ -1659,7 +1659,7 @@ class _HCell2(HCell2, _Compound, _Cell2):
             #add(self.height == cell.height) # fit height
 
             add(cell.pip_x == cell.left + x)
-            add(cell.width == w*cell.hunits*self.width, self.weight) # soft equal
+            add(cell.width == w*cell.w_units*self.width, self.weight) # soft equal
             x += cell.width
 
         #add(self.pip_x + self.right == x, self.weight)
@@ -1705,16 +1705,16 @@ class VCell2(Compound, Cell2):
         return cell
 
     @property
-    def hunits(self):
-        return max(cell.hunits for cell in self.cells)
+    def w_units(self):
+        return max(cell.w_units for cell in self.cells)
 
     @property
-    def dunits(self):
-        return max(cell.dunits for cell in self.cells)
+    def d_units(self):
+        return max(cell.d_units for cell in self.cells)
 
     @property
-    def vunits(self):
-        return sum(cell.vunits for cell in self.cells)
+    def h_units(self):
+        return sum(cell.h_units for cell in self.cells)
 
     def vflip(self):
         cells = [cell.vflip() for cell in reversed(self.cells)]
@@ -1740,7 +1740,7 @@ class _VCell2(VCell2, _Compound, _Cell2):
         z = self.pip_z - self.bot
         cells = self.cells # cells go top down
         cells = list(reversed(cells)) # now it's bottom up
-        w = 1./self.vunits
+        w = 1./self.h_units
         for cell in cells:
             add(cell.pip_y-cell.front == self.pip_y-self.front)
             add(cell.pip_y+cell.back == self.pip_y+self.back)
@@ -1748,7 +1748,7 @@ class _VCell2(VCell2, _Compound, _Cell2):
             add(cell.pip_z == z + cell.bot)
             add(cell.pip_x - cell.left == self.pip_x - self.left)
             add(cell.pip_x + cell.right == self.pip_x + self.right)
-            add(cell.height == w*cell.vunits*self.height, self.weight)
+            add(cell.height == w*cell.h_units*self.height, self.weight)
             z += cell.height
         add(self.pip_z + self.top == z) # hard equal
 
@@ -1785,7 +1785,7 @@ class BraidDeco(Deco):
         curve_to.x2 = x
         curve_to.y2 = y
 
-st_braid = [BraidDeco(1.0)]
+st_braid = [BraidDeco(0.8)]
 
 
 # -------------------------------------------------------
@@ -2038,11 +2038,6 @@ def test_render():
 
     return
 
-    i = Cell1(l@l(space=0.2), l(space=0.2)@l, pip_color=None, st_stroke=st_dotted)
-    f = Cell2(i, i, pip_color=None)
-    f = f.layout(width=1, height=1)
-    cvs = f.render_cvs("north")
-    cvs.writePDFfile("test_render.pdf")
 
 
 
