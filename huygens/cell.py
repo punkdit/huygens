@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 
 """
-
 render 2-morphisms in a bicategory using sheet/string diagrams.
-
-WARNING: this code is bonkers, but does work sometimes.
-
-
 
 """
 
@@ -23,6 +18,13 @@ from huygens.front import path, style, canvas, color, Canvas
 from huygens.back import Visitor
 from huygens.argv import argv
 
+if argv.noerr:
+    import os
+    #fd = os.open("/dev/null", os.O_WRONLY)
+    #os.dup2(2, fd)
+    os.close(2)
+
+
 from huygens import pov
 from huygens.pov import View, Mat, GSurface, GCurve, GCircle, GCvs
 
@@ -38,6 +40,18 @@ def conv(a, b, alpha=0.5):
 
 
 """
+
+The default coordinate system we use looks like this:
+
+   z
+   ^
+   |     y
+   |    ^
+   |   /
+   |  /
+   | /
+   |/
+   +-------------> x
 
 The three directions:
     H : horizontal : operator <<  : x coord : .width property  : .left, .right
@@ -64,6 +78,11 @@ Important atributes:
     negative dir:  .left   .front  .bot
     positive dir:  .right  .back   .top
 
+These six attributes: front back left right top bot, define
+a box that us used as a scaffolding for placing the pip's.
+For rendering all that matters is where the pip's are for
+each Cell0, Cell1 and Cell2.
+
 Here is a list of the classes below:
 class Atom(object):
 class Compound(object):
@@ -89,6 +108,9 @@ class HCell2(Compound, Cell2):
 class _HCell2(HCell2, _Compound, _Cell2):
 class VCell2(Compound, Cell2):
 class _VCell2(VCell2, _Compound, _Cell2):
+
+Yes, this hierarchy is bonkers, and maybe once the code stabilizes
+more it can be cleaned up / renamed.
 
 """
 
@@ -229,21 +251,22 @@ class Surface(object):
 # These are the abstract base classes for all the cell classes to come
 
 class Atom(object):
-    def __init__(self, name, weight=1., **kw):
+
+    weight = 1.0
+    def __init__(self, name, **kw):
         self.name = name
-        self.weight = weight
         self.__dict__.update(kw)
 
     def __str__(self):
         return self.name
 
-    def visit(self, callback, cls=None, **kw):
+    def visit(self, callback, cls=None, is_tgt=True, is_src=True, **kw):
         if cls is None or self.__class__ == cls:
-            callback(self, **kw)
+            callback(self, is_tgt=is_tgt, is_src=is_src, **kw)
 
     def search(self, **kw):
         cells = []
-        def cb(cell):
+        def cb(cell, **kw):
             cells.append(cell)
         self.visit(cb, **kw)
         return cells
@@ -261,6 +284,9 @@ class Atom(object):
         self.__dict__.update(kw)
         return self
 
+    def all_atoms(self):
+        yield self
+
 
 class Compound(object):
     def __len__(self):
@@ -274,6 +300,11 @@ class Compound(object):
             if cell is other:
                 return True
         return False
+
+    def all_atoms(self):
+        for cell in self.cells:
+            for atom in cell.all_atoms():
+                yield atom
 
     def index(self, other):
         for idx, cell in enumerate(self.cells):
@@ -290,10 +321,10 @@ class Compound(object):
         items = reduce(operator.add, itemss, [])
         return items
 
-    def visit(self, callback, **kw):
+    def visit(self, callback, is_tgt=True, is_src=True, **kw):
         for child in self.cells:
-            child.visit(callback, **kw)
-        Atom.visit(self, callback, **kw)
+            child.visit(callback, is_tgt=is_tgt, is_src=is_src, **kw)
+        Atom.visit(self, callback, is_tgt=is_tgt, is_src=is_src, **kw)
 
     def traverse(self, cb, depth=0, full=True):
         Atom.traverse(self, cb, depth, full)
@@ -313,7 +344,7 @@ def setop(cls, opname, parent):
 
 
 def dbg_constrain(self, depth):
-    print("  "*depth, "%s.on_constrain"%(self.__class__.__name__))
+    print("  "*depth, "%s.on_constrain"%(self.__class__.__name__), self.name)
 
 
 
@@ -385,7 +416,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             size=1.0, verbose=False):
         # top-level call 
         system = System()
-        self.on_constrain(system, 0, verbose)
+        self.on_constrain(system, 0, verbose=verbose)
         system.add(self.pip_x == x)
         system.add(self.pip_y == y)
         system.add(self.pip_z == z)
@@ -428,6 +459,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
 
 class _Compound(object):
     def on_constrain(self, system, depth, verbose=False):
+        #print("%s.on_constrain(%s)"%(self.__class__.__name__, self.name))
         if verbose:
             dbg_constrain(self, depth)
         #Render.on_constrain(self, system)
@@ -541,13 +573,15 @@ class _DCell0(DCell0, _Compound, _Cell0):
         add = system.add
         y = self.pip_y - self.front
         w = 1./len(self)
+        # Evenly space the pip's along y coord, 
+        # _aligned to self pip_x & pip_z
         for cell in self.cells:
-            add(self.pip_x == cell.pip_x) # _align
+            add(self.pip_x == cell.pip_x, self.weight) # _align
             add(self.pip_z == cell.pip_z) # _align
             add(cell.pip_y - cell.front == y, self.weight) # soft equal
             add(cell.depth == w*self.depth, self.weight) # soft equal
             y += cell.depth
-        add(self.pip_y + self.back == y) # should be hard equal?
+        add(self.pip_y + self.back == y) # hard equal
 
 
 
@@ -572,13 +606,13 @@ class Cell1(Atom):
     pip_cvs = None
     _width = None # hmmmmm......
 
-    def __init__(self, tgt, src, name=None, weight=1.0, **kw):
+    def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell0)
         assert isinstance(src, Cell0)
         if name is None:
             name = "(%s<---%s)"%(tgt, src)
         assert "color" not in kw, "use stroke"
-        Atom.__init__(self, name, weight, **kw) # will update kw's on __dict__
+        Atom.__init__(self, name, **kw) # will update kw's on __dict__
         self.tgt = tgt
         self.src = src
         self.hom = (self.tgt, self.src)
@@ -587,13 +621,14 @@ class Cell1(Atom):
         tgt = self.tgt.deepclone()
         src = self.src.deepclone()
         kw = {}
+        kw["weight"] = self.weight
         kw["stroke"] = self.stroke
         kw["st_stroke"] = self.st_stroke
         kw["pip_color"] = self.pip_color
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
         kw["_width"] = self._width
-        cell = _Cell1(tgt, src, self.name, self.weight, **kw)
+        cell = _Cell1(tgt, src, self.name, **kw)
         check_renderable(cell)
         return cell
 
@@ -638,7 +673,7 @@ class _Cell1(Cell1, Render):
     
     def match(tgt, src):
         assert isinstance(src, Cell1)
-        if tgt.name == src.name and 0: # XXX remove "and 0"
+        if tgt.name == src.name:
             tgt = tgt.search(cls=_Cell1)
             src = src.search(cls=_Cell1)
             assert len(src) == len(tgt)
@@ -712,17 +747,25 @@ class _Cell1(Cell1, Render):
 
         # now we constrain the _Cell0 src & tgt
         tgt, src = self.tgt, self.src
-        tgt.on_constrain(system, depth, verbose)
-        src.on_constrain(system, depth, verbose)
+        tgt.on_constrain(system, depth+1, verbose)
+        src.on_constrain(system, depth+1, verbose)
         add = system.add
-        add(tgt.pip_x == self.pip_x - self.left) # tgt to the left
-        add(src.pip_x == self.pip_x + self.right) # src to the right
+        add(tgt.pip_x == self.pip_x - self.left, self.weight) # tgt to the left
+        add(src.pip_x == self.pip_x + self.right, self.weight) # src to the right
         for cell in [tgt, src]:
             add(cell.pip_z == self.pip_z) # hard equal
             add(cell.pip_y - cell.front == self.pip_y - self.front)
             add(cell.pip_y + cell.back == self.pip_y + self.back)
         if self._width is not None:
             add(self.width == self._width)
+
+    def all_src(self): # not needed? XXX
+        for cell in self.src.all_atoms():
+            yield cell
+
+    def all_tgt(self): # not needed? XXX
+        for cell in self.tgt.all_atoms():
+            yield cell
 
     def dbg_render(self, bg):
         from huygens import namespace as ns
@@ -743,7 +786,7 @@ class _Cell1(Cell1, Render):
             [color.rgba(1,0,0,0.5)]+ns.st_THick+ns.st_round)
         bg.append(cvs)
 
-    def _render(self, view, parent):
+    def _render(self, view, parent, is_tgt=True, is_src=True):
         # parent is the Cell2 that self lives inside of
         cone = max(PIP, 1-parent.cone)
         def seg_over(v1, v2):
@@ -778,7 +821,8 @@ class _Cell1(Cell1, Render):
                 line,  # pip1 --> pip2
             ], color, address=None)
             parent.surfaces.append(triangle)
-            if abs(cell.pip_x - parent.x0) < 2*PIP:
+            #assert (abs(cell.pip_x - parent.x0) < 2*PIP) == is_tgt
+            if is_tgt:
                 parent.l_ports.append( (triangle[0], cell) )
             if cell.stroke is not None:
                 view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
@@ -796,7 +840,8 @@ class _Cell1(Cell1, Render):
                 line,  # pip1 --> pip2
             ], color, address=None)
             parent.surfaces.append(triangle)
-            if abs(cell.pip_x - parent.x1) < 2*PIP:
+            #assert (abs(cell.pip_x - parent.x1) < 2*PIP) == is_src
+            if is_src:
                 parent.r_ports.append( (triangle[0], cell) )
             if cell.stroke is not None:
                 view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
@@ -867,6 +912,16 @@ class _DCell1(DCell1, _Compound, _Cell1):
             y += cell.depth
         add(self.pip_y + self.back == y) # hard constrain, yes!
 
+    def all_src(self): # not needed? XXX
+        for cell in self.cells:
+          for src in cell.all_src():
+            yield src
+
+    def all_tgt(self): # not needed? XXX
+        for cell in self.cells:
+          for tgt in cell.all_tgt():
+            yield tgt
+
     def dbg_render(self, bg):
         from huygens import namespace as ns
         cvs = Canvas()
@@ -935,6 +990,14 @@ class HCell1(Compound, Cell1):
 
 
 class _HCell1(HCell1, _Compound, _Cell1):
+    def visit(self, callback, is_tgt=True, is_src=True, **kw):
+        n = len(self.cells)
+        for i, child in enumerate(self.cells):
+            child.visit(callback, 
+                is_tgt=(is_tgt and i==0), 
+                is_src=(is_src and i==n-1), **kw)
+        Atom.visit(self, callback, is_tgt=is_tgt, is_src=is_src, **kw)
+
     def get_paths(self):
         #print("HCell1.get_paths", self)
         cells = self.cells
@@ -996,6 +1059,16 @@ class _HCell1(HCell1, _Compound, _Cell1):
                 add(l.pip_y == r.pip_y) # hard eq !
             i += 1
 
+    def all_src(self): # not needed? XXX
+        assert self.cells
+        for src in self.cells[-1].all_src():
+            yield src
+
+    def all_tgt(self): # not needed? XXX
+        assert self.cells
+        for tgt in self.cells[0].all_tgt():
+            yield tgt
+
     def dbg_render(self, cvs):
         for child in self.cells:
             child.dbg_render(cvs)
@@ -1037,6 +1110,7 @@ class Cell2(Atom):
     def deepclone(self):
         kw = {}
         kw["DEBUG"] = self.DEBUG
+        kw["weight"] = self.weight
         kw["pip_color"] = self.pip_color
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
@@ -1118,16 +1192,30 @@ class _Cell2(Cell2, Render):
     def on_constrain(self, system, depth, verbose=False):
         self._on_constrain(system, depth, verbose)
         tgt, src = self.tgt, self.src
-        tgt.on_constrain(system, depth, verbose)
-        src.on_constrain(system, depth, verbose)
+        tgt.on_constrain(system, depth+1, verbose)
+        src.on_constrain(system, depth+1, verbose)
         add = system.add
         add(tgt.pip_z == self.pip_z + self.top) # hard equal
         add(src.pip_z == self.pip_z - self.bot) # hard equal
         for cell in [tgt, src]:
-            add(cell.pip_x - cell.left == self.pip_x - self.left) # hard equal
-            add(cell.pip_x + cell.right == self.pip_x + self.right) # hard equal
-            add(cell.pip_y - cell.front == self.pip_y - self.front) # hard equal
-            add(cell.pip_y + cell.back == self.pip_y + self.back) # hard equal
+            add(cell.pip_x - cell.left == self.pip_x - self.left, self.weight)
+            add(cell.pip_x + cell.right == self.pip_x + self.right, self.weight)
+            add(cell.pip_y - cell.front == self.pip_y - self.front, self.weight)
+            add(cell.pip_y + cell.back == self.pip_y + self.back, self.weight)
+            add(cell.pip_x == self.pip_x, self.weight)
+            add(cell.pip_y == self.pip_y, self.weight)
+
+    def all_chains_src(self):
+        a_items = list(self.src.all_src())
+        b_items = list(self.tgt.all_src())
+        assert len(a_items) == len(b_items)
+        return [(a,b) for (a,b) in zip(a_items, b_items)]
+
+    def all_chains_tgt(self):
+        a_items = list(self.src.all_tgt())
+        b_items = list(self.tgt.all_tgt())
+        assert len(a_items) == len(b_items)
+        return [(a,b) for (a,b) in zip(a_items, b_items)]
 
     def render(self, view, poset=None):
         if poset is None:
@@ -1583,6 +1671,18 @@ class _DCell2(DCell2, _Compound, _Cell2):
         #add(self.pip_y + self.back == y, self.weight)
         add(self.pip_y + self.back == y) # don't be a softy!
 
+    def all_chains_src(self):
+        chains = []
+        for cell in self.cells:
+            chains += cell.all_chains_src()
+        return chains
+
+    def all_chains_tgt(self):
+        chains = []
+        for cell in self.cells:
+            chains += cell.all_chains_tgt()
+        return chains
+
 #    def render(self, view):
 #        #Shape.render(self, view)
 #        for cell in reversed(self.cells):
@@ -1661,19 +1761,30 @@ class _HCell2(HCell2, _Compound, _Cell2):
             add(cell.pip_x == cell.left + x)
             add(cell.width == w*cell.w_units*self.width, self.weight) # soft equal
             x += cell.width
-
-        #add(self.pip_x + self.right == x, self.weight)
         add(self.pip_x + self.right == x) # hard equal
 
+        # Now weld the Cell0 pip's together!
         i = 0
         while i+1 < len(self):
             lhs, rhs = self.cells[i:i+2]
-            for (lhs, rhs) in [(lhs.tgt, rhs.tgt), (lhs.src, rhs.src)]:
-                n = len(lhs.src)
-                assert n == len(rhs.tgt)
-                for l, r in zip(lhs.src, rhs.tgt):
-                    add(l.pip_y == r.pip_y) # hard eq !
+            lhs, rhs = self.cells[i:i+2]
+            lchains = lhs.all_chains_src()
+            rchains = rhs.all_chains_tgt()
+            assert len(lchains) == len(rchains)
+            for lchain, rchain in zip(lchains, rchains):
+                for (l,r) in zip(lchain, rchain):
+                    #l.stroke = color.rgb(0.7,0,0) # for debug
+                    #r.stroke = color.rgb(0,0.5,0.5) # for debug
+                    add(l.pip_x == r.pip_x) # hard eq
+                    add(l.pip_y == r.pip_y) # hard eq
+                    add(l.pip_z == r.pip_z) # hard eq
             i += 1
+
+    def all_chains_src(self):
+        return self.cells[-1].all_chains_src()
+
+    def all_chains_tgt(self):
+        return self.cells[0].all_chains_tgt()
 
 
 class VCell2(Compound, Cell2):
@@ -1731,7 +1842,6 @@ class VCell2(Compound, Cell2):
 
 class _VCell2(VCell2, _Compound, _Cell2):
     def on_constrain(self, system, depth, verbose=False):
-        #print("\nVCell2.on_constrain", len(self.cells))
         if verbose:
             dbg_constrain(self, depth)
         self._on_constrain(system, depth, verbose)
@@ -1761,7 +1871,34 @@ class _VCell2(VCell2, _Compound, _Cell2):
                 s.eq_constrain(t, system)
             i += 1
 
+    def all_chains_src(self):
+        chainss = [cell.all_chains_src() for cell in self.cells]
+        #print("chainss:", chainss)
+        n = len(chainss[0])
+        for chains in chainss:
+            assert len(chains) == n
+        chains = []
+        for _chains in zip(*chainss):
+            #print('\t', _chains)
+            chain = reduce(operator.add, _chains, ())
+            chains.append(chain)
+        for chain in chains:
+            for cell in chain:
+                assert isinstance(cell, Cell0)
+        return chains
 
+    def all_chains_tgt(self):
+        chainss = [cell.all_chains_tgt() for cell in self.cells]
+        n = len(chainss[0])
+        for chains in chainss:
+            assert len(chains) == n
+        chains = []
+        for _chains in zip(*chainss):
+            chains.append( reduce(operator.add, _chains, ()) )
+        for chain in chains:
+            for cell in chain:
+                assert isinstance(cell, Cell0)
+        return chains
 
 
 setop(Cell2, "__matmul__", DCell2)

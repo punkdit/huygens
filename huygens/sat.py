@@ -443,6 +443,7 @@ class System(object):
     def __init__(self):
         self.stems = {}
         self.items = []
+        self.str_items = set()
         self.lookup = None
         #self.listeners = {}
         self.all_vars = set()
@@ -477,6 +478,9 @@ class System(object):
         if weight is None:
             # strict
             self.items.append(item)
+            s = str(item)
+            assert s not in self.str_items, "redundant constraint"
+            self.str_items.add(s)
         elif isinstance(item, Eq):
             # allow equality violation at a cost == weight
             assert weight > 0., "??"
