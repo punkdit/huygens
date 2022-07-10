@@ -253,6 +253,8 @@ class Surface(object):
 class Atom(object):
 
     weight = 1.0
+    assoc = True
+
     def __init__(self, name, **kw):
         self.name = name
         self.__dict__.update(kw)
@@ -313,6 +315,9 @@ class Compound(object):
         assert 0, "not found"
 
     def _associate(self, items):
+        for item in items:
+            if not item.assoc:
+                return items
         cls = self.__class__
         itemss = [(item.cells 
             if isinstance(item, cls) # and item.assoc
@@ -344,11 +349,12 @@ def setop(cls, opname, parent):
 
 
 def dbg_constrain(self, depth):
-    print("  "*depth, "%s.on_constrain"%(self.__class__.__name__), self.name)
+    print("  "*depth, "%s.pre_constrain"%(self.__class__.__name__), self.name)
 
 
 
 class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
+
     @property
     def depth(self):
         return self.back + self.front
@@ -402,12 +408,16 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             self.lno += 1
         self.traverse(callback, full=full)
 
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
         self.listen_var(system, "pip_x")
         self.listen_var(system, "pip_y")
         self.listen_var(system, "pip_z")
+
+    def post_constrain(self, system):
+        if self.on_constrain is not None:
+            self.on_constrain(self, system)
 
     system = None
     def constrain(self, 
@@ -416,7 +426,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             size=1.0, verbose=False):
         # top-level call 
         system = System()
-        self.on_constrain(system, 0, verbose=verbose)
+        self.pre_constrain(system, 0, verbose=verbose)
         system.add(self.pip_x == x)
         system.add(self.pip_y == y)
         system.add(self.pip_z == z)
@@ -432,6 +442,10 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             system.add(self.depth == size*depth)
         elif hasattr(self, "d_units"):
             system.add(self.depth == 0.5*size*self.d_units)
+        def constrain(cell, **kw):
+            #print("constrain", cell.__class__, cell, cell.on_constrain)
+            cell.post_constrain(system)
+        self.visit(constrain)
         return system
 
     did_layout = None
@@ -458,13 +472,13 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
 
 
 class _Compound(object):
-    def on_constrain(self, system, depth, verbose=False):
-        #print("%s.on_constrain(%s)"%(self.__class__.__name__, self.name))
+    def pre_constrain(self, system, depth, verbose=False):
+        #print("%s.pre_constrain(%s)"%(self.__class__.__name__, self.name))
         if verbose:
             dbg_constrain(self, depth)
-        #Render.on_constrain(self, system)
+        #Render.pre_constrain(self, system)
         for cell in self.cells:
-            cell.on_constrain(system, depth+1, verbose)
+            cell.pre_constrain(system, depth+1, verbose)
 
     def render(self, view, poset=None):
         #Shape.render(self, view)
@@ -498,6 +512,8 @@ class Cell0(Atom):
     stroke = black 
     st_stroke = []
     pip_cvs = None 
+    skip = False
+    on_constrain = None
 
     def __len__(self):
         return 1
@@ -507,14 +523,16 @@ class Cell0(Atom):
 
     def deepclone(self):
         kw = dict(self.__dict__)
+        kw["assoc"] = self.assoc
         kw["name"] = self.name
         kw["weight"] = self.weight
         kw["color"] = self.color
         kw["stroke"] = self.stroke
         kw["st_stroke"] = self.st_stroke
-        #kw["show_pip"] = self.show_pip
         kw["pip_cvs"] = self.pip_cvs
-        #kw["assoc"] = self.assoc
+        kw["skip"] = self.skip
+        kw["on_constrain"] = self.on_constrain
+        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cell = _Cell0(**kw)
         check_renderable(cell)
         return cell
@@ -529,10 +547,10 @@ class _Cell0(Cell0, Render):
             rhs = getattr(other, attr)
             add(lhs == rhs)
 
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Render.on_constrain(self, system, depth, verbose)
+        Render.pre_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
 
@@ -553,9 +571,11 @@ class DCell0(Compound, Cell0):
         kw = dict(self.__dict__)
         del kw["name"]
         del kw["cells"]
-        #kw["show_pip"] = self.show_pip
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
+        kw["assoc"] = self.assoc
+        kw["on_constrain"] = self.on_constrain
+        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell0(cells, **kw)
         check_renderable(cell)
@@ -563,11 +583,11 @@ class DCell0(Compound, Cell0):
 
 
 class _DCell0(DCell0, _Compound, _Cell0):
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        _Cell0.on_constrain(self, system, depth, verbose)
-        _Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell0.pre_constrain(self, system, depth, verbose)
+        _Compound.pre_constrain(self, system, depth, verbose) # constrain children
         if not len(self):
             return
         add = system.add
@@ -605,6 +625,8 @@ class Cell1(Atom):
     pip_radius = 0.3
     pip_cvs = None
     _width = None # hmmmmm......
+    skip = False
+    on_constrain = None
 
     def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell0)
@@ -621,6 +643,7 @@ class Cell1(Atom):
         tgt = self.tgt.deepclone()
         src = self.src.deepclone()
         kw = {}
+        kw["assoc"] = self.assoc
         kw["weight"] = self.weight
         kw["stroke"] = self.stroke
         kw["st_stroke"] = self.st_stroke
@@ -628,6 +651,9 @@ class Cell1(Atom):
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
         kw["_width"] = self._width
+        kw["skip"] = self.skip
+        kw["on_constrain"] = self.on_constrain
+        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cell = _Cell1(tgt, src, self.name, **kw)
         check_renderable(cell)
         return cell
@@ -680,21 +706,21 @@ class _Cell1(Cell1, Render):
             for (t,s) in zip(tgt, src):
                 yield (t,s)
             return # <---------- return
-        lhs = list(tgt.get_paths())
-        rhs = list(src.get_paths())
+        lhs = [[cell for cell in path if not cell.skip] for path in tgt.get_paths()]
+        rhs = [[cell for cell in path if not cell.skip] for path in src.get_paths()]
         if len(lhs) != len(rhs):
             tgt.fail_match(src, "%s tgt paths != %s src paths"%(len(lhs), len(rhs)))
     
         send = {}
         found = set() # XXX just use send
         for (left,right) in zip(lhs, rhs):
-#            if len(left)!=len(right):
-#                for l in left:
-#                    print("\tleft:", l)
-#                for r in right:
-#                    print("\tright:", r)
-#                tgt.fail_match(src, 
-#                    "tgt path len %d != src path len %d"%(len(left), len(right)))
+          if len(left)!=len(right):
+              for l in left:
+                  print("\tleft:", l)
+              for r in right:
+                  print("\tright:", r)
+              tgt.fail_match(src, 
+                  "tgt path len %d != src path len %d"%(len(left), len(right)))
           li = ri = 0
           while li<len(left) and ri<len(right):
             l, r = left[li], right[ri]
@@ -723,10 +749,10 @@ class _Cell1(Cell1, Render):
         self.tgt.eq_constrain(other.tgt, system)
         self.src.eq_constrain(other.src, system)
 
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Render.on_constrain(self, system, depth, verbose)
+        Render.pre_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
         left = self.listen_var(system, "left")
@@ -739,16 +765,16 @@ class _Cell1(Cell1, Render):
         # keep the pip inside !
         system.add(self.front >= 0)
         system.add(self.back >= 0)
-        #system.add(self.left >= 0) # doesn't seem to be needed
-        #system.add(self.right >= 0) # doesn't seem to be needed
+        system.add(self.left >= 0)
+        system.add(self.right >= 0)
 
         if self.__class__ != _Cell1: # bit of a hack
             return # < --------- return
 
         # now we constrain the _Cell0 src & tgt
         tgt, src = self.tgt, self.src
-        tgt.on_constrain(system, depth+1, verbose)
-        src.on_constrain(system, depth+1, verbose)
+        tgt.pre_constrain(system, depth+1, verbose)
+        src.pre_constrain(system, depth+1, verbose)
         add = system.add
         add(tgt.pip_x == self.pip_x - self.left, self.weight) # tgt to the left
         add(src.pip_x == self.pip_x + self.right, self.weight) # src to the right
@@ -793,6 +819,9 @@ class _Cell1(Cell1, Render):
             v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
             line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
             return line
+        if cone < 0.1:
+            # just use a straight line
+            seg_over = Segment.mk_line
 
         pip2 = Mat(parent.pip)
         pip1 = Mat(self.pip)
@@ -814,37 +843,55 @@ class _Cell1(Cell1, Render):
             pip0 = Mat(cell.pip)
             vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
             leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1) # spider leg
-            line2 = seg_over(pip0, pip2).reversed
+            if is_tgt:
+                # XXX just let the parent fill in this entire surface XXX
+                line2 = Segment(pip2, line.vs[2], conv(pip0, pip2), pip0)
+            else:
+                line2 = seg_over(pip0, pip2).reversed
             triangle = Surface([
                 line2,
                 leg, 
                 line,  # pip1 --> pip2
             ], color, address=None)
-            parent.surfaces.append(triangle)
+            if not cell.skip:
+                parent.surfaces.append(triangle)
             #assert (abs(cell.pip_x - parent.x0) < 2*PIP) == is_tgt
             if is_tgt:
+                # XXX just let the parent fill in this entire surface XXX
                 parent.l_ports.append( (triangle[0], cell) )
             if cell.stroke is not None:
-                view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
+                try:
+                    view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
+                except:
+                    print("view.add_curve: Exception!")
 
         for cell in src:
             assert isinstance(cell, _Cell0)
             color = cell.color
             pip0 = Mat(cell.pip)
             vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
-            line2 = seg_over(pip0, pip2).reversed
+            if is_src:
+                # XXX just let the parent fill in this entire surface XXX
+                line2 = Segment(pip2, line.vs[2], conv(pip0, pip2), pip0)
+            else:
+                line2 = seg_over(pip0, pip2).reversed
             leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1)
             triangle = Surface([
                 line2,
                 leg, 
                 line,  # pip1 --> pip2
             ], color, address=None)
-            parent.surfaces.append(triangle)
+            if not cell.skip:
+                parent.surfaces.append(triangle)
             #assert (abs(cell.pip_x - parent.x1) < 2*PIP) == is_src
             if is_src:
+                # XXX just let the parent fill in this entire surface XXX
                 parent.r_ports.append( (triangle[0], cell) )
             if cell.stroke is not None:
-                view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
+                try:
+                    view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
+                except:
+                    print("view.add_curve: Exception!")
 
 
 class DCell1(Compound, Cell1):
@@ -859,9 +906,11 @@ class DCell1(Compound, Cell1):
 
     def deepclone(self):
         kw = {}
-        #kw["show_pip"] = self.show_pip
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
+        kw["assoc"] = self.assoc
+        kw["on_constrain"] = self.on_constrain
+        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell1(cells, **kw)
         if not check_renderable(cell):
@@ -890,11 +939,11 @@ class _DCell1(DCell1, _Compound, _Cell1):
                 yield path
 
     bdy = _DCell0
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        _Cell1.on_constrain(self, system, depth, verbose)
-        _Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell1.pre_constrain(self, system, depth, verbose)
+        _Compound.pre_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
         w = 1./len(self)
@@ -968,9 +1017,11 @@ class HCell1(Compound, Cell1):
 
     def deepclone(self):
         kw = {}
-        #kw["show_pip"] = self.show_pip
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
+        kw["assoc"] = self.assoc
+        kw["on_constrain"] = self.on_constrain
+        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cells = [cell.deepclone() for cell in self.cells]
         cell = _HCell1(cells, **kw)
         check_renderable(cell)
@@ -1033,11 +1084,11 @@ class _HCell1(HCell1, _Compound, _Cell1):
             for lpath in lpaths[idx]:
                 yield lpath + rpath
 
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        _Cell1.on_constrain(self, system, depth, verbose)
-        _Compound.on_constrain(self, system, depth, verbose) # constrain children
+        _Cell1.pre_constrain(self, system, depth, verbose)
+        _Compound.pre_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         x = self.pip_x - self.left
         w = 1./len(self)
@@ -1092,6 +1143,7 @@ class Cell2(Atom):
     pip_radius = 0.5
     pip_cvs = None
     cone = 0.6 # closer to 1. is more cone-like
+    on_constrain = None
 
     def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell1), tgt.__class__.__name__
@@ -1109,12 +1161,14 @@ class Cell2(Atom):
 
     def deepclone(self):
         kw = {}
+        kw["assoc"] = self.assoc
         kw["DEBUG"] = self.DEBUG
         kw["weight"] = self.weight
         kw["pip_color"] = self.pip_color
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
         kw["cone"] = self.cone
+        kw["on_constrain"] = self.on_constrain
         tgt = self.tgt.deepclone()
         src = self.src.deepclone()
         cell = _Cell2(tgt, src, **kw)
@@ -1173,10 +1227,10 @@ class _Cell2(Cell2, Render):
     def x1(self):
         return self.pip_x + self.right
 
-    def _on_constrain(self, system, depth, verbose=False):
+    def _pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        Render.on_constrain(self, system, depth, verbose)
+        Render.pre_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
         left = self.listen_var(system, "left")
@@ -1189,21 +1243,35 @@ class _Cell2(Cell2, Render):
         system.add(left == right, self.weight) # soft equal
         system.add(top == bot, self.weight) # soft equal
 
-    def on_constrain(self, system, depth, verbose=False):
-        self._on_constrain(system, depth, verbose)
+    def pre_constrain(self, system, depth, verbose=False):
+        self._pre_constrain(system, depth, verbose)
         tgt, src = self.tgt, self.src
-        tgt.on_constrain(system, depth+1, verbose)
-        src.on_constrain(system, depth+1, verbose)
+        tgt.pre_constrain(system, depth+1, verbose)
+        src.pre_constrain(system, depth+1, verbose)
         add = system.add
         add(tgt.pip_z == self.pip_z + self.top) # hard equal
         add(src.pip_z == self.pip_z - self.bot) # hard equal
+
         for cell in [tgt, src]:
             add(cell.pip_x - cell.left == self.pip_x - self.left, self.weight)
             add(cell.pip_x + cell.right == self.pip_x + self.right, self.weight)
             add(cell.pip_y - cell.front == self.pip_y - self.front, self.weight)
             add(cell.pip_y + cell.back == self.pip_y + self.back, self.weight)
-            add(cell.pip_x == self.pip_x, self.weight)
-            add(cell.pip_y == self.pip_y, self.weight)
+            #add(cell.pip_x == self.pip_x, self.weight)
+            #add(cell.pip_y == self.pip_y, self.weight)
+
+        # put the _Cell2 pip at the average x/y coord
+        pips = []
+        def callback(cell, **kw):
+            pips.append((cell.pip_x, cell.pip_y))
+        tgt.visit(callback, cls=_Cell1)
+        src.visit(callback, cls=_Cell1)
+        assert pips
+        n = len(pips)
+        pip_x = (1/n)*reduce(operator.add, [pip[0] for pip in pips], 0)
+        pip_y = (1/n)*reduce(operator.add, [pip[1] for pip in pips], 0)
+        add(self.pip_x == pip_x)
+        add(self.pip_y == pip_y)
 
     def all_chains_src(self):
         a_items = list(self.src.all_src())
@@ -1248,15 +1316,20 @@ class _Cell2(Cell2, Render):
         # now we join the top and bot triangles on the left
         for (p_src, p_tgt) in zip(l_src, l_tgt):
             cell = p_src[1]
+            if cell.color is None:
+                continue
             seg_src, seg_tgt = p_src[0], p_tgt[0]
             seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
             surf = Surface([seg_src, seg, seg_tgt.reversed], cell.color, address=cell)
+            #surf.color = color.rgb(1,0,0,0.2)
             surf.pip_cvs = cell.pip_cvs # grab this attr for below
             surfaces.append(surf)
 
         # now we join the top and bot triangles on the right
         for (p_src, p_tgt) in zip(r_src, r_tgt):
             cell = p_tgt[1]
+            if cell.color is None:
+                continue
             seg_src, seg_tgt = p_src[0], p_tgt[0]
             seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
             surf = Surface([seg_src, seg, seg_tgt.reversed], cell.color, address=cell)
@@ -1265,7 +1338,10 @@ class _Cell2(Cell2, Render):
 
         #surfaces = Surface.merge(surfaces)
         for surface in surfaces:
-            surface.render(view, poset)
+            try:
+                surface.render(view, poset)
+            except:
+                print("_Cell2.render: surface.render Exception")
         for surface in surfaces:
             if surface.pip_cvs is None:
                 continue
@@ -1609,9 +1685,10 @@ class DCell2(Compound, Cell2):
 
     def deepclone(self):
         kw = {}
-        #kw["show_pip"] = self.show_pip
+        kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
+        kw["on_constrain"] = self.on_constrain
         cells = [cell.deepclone() for cell in self.cells]
         cell = _DCell2(cells, **kw)
         check_renderable(cell)
@@ -1644,11 +1721,11 @@ class DCell2(Compound, Cell2):
 
 class _DCell2(DCell2, _Compound, _Cell2):
     bdy = _DCell1
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        self._on_constrain(system, depth, verbose)
-        _Compound.on_constrain(self, system, depth, verbose) # constrain children
+        self._pre_constrain(system, depth, verbose)
+        _Compound.pre_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
         w = 1./self.d_units
@@ -1692,6 +1769,7 @@ class _DCell2(DCell2, _Compound, _Cell2):
 
 
 class HCell2(Compound, Cell2):
+    debug = False
     bdy = HCell1
     def __init__(self, cells, **kw):
         cells = self._associate(cells)
@@ -1703,9 +1781,10 @@ class HCell2(Compound, Cell2):
 
     def deepclone(self):
         kw = {}
-        #kw["show_pip"] = self.show_pip
+        kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
+        kw["on_constrain"] = self.on_constrain
         cells = [cell.deepclone() for cell in self.cells]
         cell = _HCell2(cells, **kw)
         check_renderable(cell)
@@ -1738,11 +1817,11 @@ class HCell2(Compound, Cell2):
 
 class _HCell2(HCell2, _Compound, _Cell2):
     bdy = _HCell1
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        self._on_constrain(system, depth, verbose)
-        _Compound.on_constrain(self, system, depth, verbose) # constrain children
+        self._pre_constrain(system, depth, verbose)
+        _Compound.pre_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         cells = self.cells
         assert cells, "??"
@@ -1773,8 +1852,9 @@ class _HCell2(HCell2, _Compound, _Cell2):
             assert len(lchains) == len(rchains)
             for lchain, rchain in zip(lchains, rchains):
                 for (l,r) in zip(lchain, rchain):
-                    #l.stroke = color.rgb(0.7,0,0) # for debug
-                    #r.stroke = color.rgb(0,0.5,0.5) # for debug
+                    if self.debug:
+                        l.stroke = color.rgb(0.7,0,0,0.5) # for debug
+                        r.stroke = color.rgb(0,0.5,0.5,0.5) # for debug
                     add(l.pip_x == r.pip_x) # hard eq
                     add(l.pip_y == r.pip_y) # hard eq
                     add(l.pip_z == r.pip_z) # hard eq
@@ -1807,9 +1887,10 @@ class VCell2(Compound, Cell2):
 
     def deepclone(self):
         kw = {}
-        #kw["show_pip"] = self.show_pip
+        kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
+        kw["on_constrain"] = self.on_constrain
         cells = [cell.deepclone() for cell in self.cells]
         cell = _VCell2(cells, **kw)
         check_renderable(cell)
@@ -1841,11 +1922,11 @@ class VCell2(Compound, Cell2):
 
 
 class _VCell2(VCell2, _Compound, _Cell2):
-    def on_constrain(self, system, depth, verbose=False):
+    def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
-        self._on_constrain(system, depth, verbose)
-        _Compound.on_constrain(self, system, depth, verbose) # constrain children
+        self._pre_constrain(system, depth, verbose)
+        _Compound.pre_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         z = self.pip_z - self.bot
         cells = self.cells # cells go top down
@@ -2019,7 +2100,6 @@ def test_match():
     n_nn = Cell1(n, n@n)
     n_n = Cell1(n, n, pip_color=None, color=None)
     pair = Cell1(n, n, pip_color=None, color=black)
-    #swap = Cell1(n@n, n@n, show_pip=True, color=black)
     swap = Cell1(n@n, n@n, pip_color=None)
 
 # broken
