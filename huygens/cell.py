@@ -158,10 +158,9 @@ class Segment(object):
 class Surface(object):
     pip_cvs = None
 
-    def __init__(self, segments, color=(0,0,0,1), address=None):
+    def __init__(self, segments, color=(0,0,0,1)):
         self.segments = list(segments)
         self.color = color
-        self.address = address
 
     def __getitem__(self, idx):
         return self.segments[idx]
@@ -240,7 +239,7 @@ class Surface(object):
         return srfs
 
     def render(self, view, poset=None):
-        view.add_surface(self.segments, fill=self.color, address=self.address)
+        view.add_surface(self.segments, fill=self.color)
         if Cell2.DEBUG or 0:
             for seg in self.segments:
                 view.add_curve(*seg, stroke=(0,0,1,0.2), lw=0.2, epsilon=None)
@@ -288,6 +287,15 @@ class Atom(object):
 
     def all_atoms(self):
         yield self
+
+    def h_rev(self):
+        return self.deepclone()
+
+    def v_rev(self):
+        return self.deepclone()
+
+    def d_rev(self):
+        return self.deepclone()
 
 
 class Compound(object):
@@ -785,11 +793,11 @@ class _Cell1(Cell1, Render):
         if self._width is not None:
             add(self.width == self._width)
 
-    def all_src(self): # not needed? XXX
+    def all_src(self):
         for cell in self.src.all_atoms():
             yield cell
 
-    def all_tgt(self): # not needed? XXX
+    def all_tgt(self):
         for cell in self.tgt.all_atoms():
             yield cell
 
@@ -843,55 +851,43 @@ class _Cell1(Cell1, Render):
             pip0 = Mat(cell.pip)
             vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
             leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1) # spider leg
-            if is_tgt:
-                # XXX just let the parent fill in this entire surface XXX
-                line2 = Segment(pip2, line.vs[2], conv(pip0, pip2), pip0)
-            else:
-                line2 = seg_over(pip0, pip2).reversed
+            line2 = seg_over(pip0, pip2).reversed
             triangle = Surface([
-                line2,
-                leg, 
+                line2, # pip2 --> pip0
+                leg,   # pip0 --> pip1
                 line,  # pip1 --> pip2
-            ], color, address=None)
-            if not cell.skip:
-                parent.surfaces.append(triangle)
-            #assert (abs(cell.pip_x - parent.x0) < 2*PIP) == is_tgt
+            ], color)
             if is_tgt:
-                # XXX just let the parent fill in this entire surface XXX
-                parent.l_ports.append( (triangle[0], cell) )
+                parent.l_ports.append((leg, line, cell))
+            elif not cell.skip:
+                parent.surfaces.append(triangle)
             if cell.stroke is not None:
                 try:
                     view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
                 except:
-                    print("view.add_curve: Exception!")
+                    print("_Cell1._render: view.add_curve Exception!")
 
         for cell in src:
             assert isinstance(cell, _Cell0)
             color = cell.color
             pip0 = Mat(cell.pip)
             vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
-            if is_src:
-                # XXX just let the parent fill in this entire surface XXX
-                line2 = Segment(pip2, line.vs[2], conv(pip0, pip2), pip0)
-            else:
-                line2 = seg_over(pip0, pip2).reversed
+            line2 = seg_over(pip0, pip2).reversed
             leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1)
             triangle = Surface([
-                line2,
-                leg, 
+                line2, # pip2 --> pip0
+                leg,   # pip0 --> pip1
                 line,  # pip1 --> pip2
-            ], color, address=None)
-            if not cell.skip:
-                parent.surfaces.append(triangle)
-            #assert (abs(cell.pip_x - parent.x1) < 2*PIP) == is_src
+            ], color)
             if is_src:
-                # XXX just let the parent fill in this entire surface XXX
-                parent.r_ports.append( (triangle[0], cell) )
+                parent.r_ports.append((leg, line, cell))
+            elif not cell.skip:
+                parent.surfaces.append(triangle)
             if cell.stroke is not None:
                 try:
                     view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
                 except:
-                    print("view.add_curve: Exception!")
+                    print("_Cell1._render: view.add_curve Exception!")
 
 
 class DCell1(Compound, Cell1):
@@ -961,12 +957,12 @@ class _DCell1(DCell1, _Compound, _Cell1):
             y += cell.depth
         add(self.pip_y + self.back == y) # hard constrain, yes!
 
-    def all_src(self): # not needed? XXX
+    def all_src(self):
         for cell in self.cells:
           for src in cell.all_src():
             yield src
 
-    def all_tgt(self): # not needed? XXX
+    def all_tgt(self):
         for cell in self.cells:
           for tgt in cell.all_tgt():
             yield tgt
@@ -1110,12 +1106,12 @@ class _HCell1(HCell1, _Compound, _Cell1):
                 add(l.pip_y == r.pip_y) # hard eq !
             i += 1
 
-    def all_src(self): # not needed? XXX
+    def all_src(self):
         assert self.cells
         for src in self.cells[-1].all_src():
             yield src
 
-    def all_tgt(self): # not needed? XXX
+    def all_tgt(self):
         assert self.cells
         for tgt in self.cells[0].all_tgt():
             yield tgt
@@ -1313,30 +1309,31 @@ class _Cell2(Cell2, Render):
         assert len(l_src) == len(l_tgt)
         assert len(r_src) == len(r_tgt)
 
-        # now we join the top and bot triangles on the left
         for (p_src, p_tgt) in zip(l_src, l_tgt):
-            cell = p_src[1]
-            if cell.color is None:
-                continue
-            seg_src, seg_tgt = p_src[0], p_tgt[0]
-            seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
-            surf = Surface([seg_src, seg, seg_tgt.reversed], cell.color, address=cell)
-            #surf.color = color.rgb(1,0,0,0.2)
-            surf.pip_cvs = cell.pip_cvs # grab this attr for below
+            segs = [p_src[0], p_src[1], p_tgt[1].reversed, p_tgt[0].reversed]
+            cell = p_src[2]
+            line = Segment.mk_line(segs[-1][3], segs[0][0])
+            segs.append(line)
+            for i in range(len(segs)):
+                l, r = segs[i], segs[(i+1)%len(segs)]
+                error = l[3] - r[0]
+                assert error.norm() < EPSILON
+            surf = Surface(segs, cell.color)
             surfaces.append(surf)
 
-        # now we join the top and bot triangles on the right
         for (p_src, p_tgt) in zip(r_src, r_tgt):
-            cell = p_tgt[1]
-            if cell.color is None:
-                continue
-            seg_src, seg_tgt = p_src[0], p_tgt[0]
-            seg = Segment.mk_line(seg_src[-1], seg_tgt[-1])
-            surf = Surface([seg_src, seg, seg_tgt.reversed], cell.color, address=cell)
-            surf.pip_cvs = cell.pip_cvs # grab this attr for below
+            segs = [p_src[0], p_src[1], p_tgt[1].reversed, p_tgt[0].reversed]
+            cell = p_src[2]
+            line = Segment.mk_line(segs[-1][3], segs[0][0])
+            segs.append(line)
+            for i in range(len(segs)):
+                l, r = segs[i], segs[(i+1)%len(segs)]
+                error = l[3] - r[0]
+                assert error.norm() < EPSILON
+            surf = Surface(segs, cell.color)
             surfaces.append(surf)
 
-        #surfaces = Surface.merge(surfaces)
+        #surfaces = Surface.merge(surfaces) # does not work very well...
         for surface in surfaces:
             try:
                 surface.render(view, poset)
@@ -1350,7 +1347,7 @@ class _Cell2(Cell2, Render):
         if self.pip_cvs is not None:
             view.add_cvs(Mat(self.pip), self.pip_cvs)
         elif self.pip_color is not None:
-            view.add_circle(Mat(self.pip), self.pip_radius, fill=self.pip_color, address=self)
+            view.add_circle(Mat(self.pip), self.pip_radius, fill=self.pip_color)
 
         return poset
 
@@ -2135,7 +2132,7 @@ def more_test():
 
     names = 'lmnop'
     l, m, n, o, p = [
-        Cell0(name, color=scheme[i%len(scheme)], address=name) 
+        Cell0(name, color=scheme[i%len(scheme)])
         for i, name in enumerate('lmnop')]
     i0 = Cell0("i", color=None)
 
@@ -2233,7 +2230,7 @@ def test_render():
 
     names = 'lmnop'
     l, m, n, o, p = [
-        Cell0(name, color=scheme[i%len(scheme)], address=name) 
+        Cell0(name, color=scheme[i%len(scheme)])
         for i, name in enumerate('lmnop')]
 
     cl = (1,1,0,1)
