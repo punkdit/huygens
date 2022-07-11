@@ -55,7 +55,7 @@ The default coordinate system we use looks like this:
 
 The three directions:
     H : horizontal : operator <<  : x coord : .width property  : .left, .right
-    D : depth      : operator @   : y coord : .depth property  : .front, .back
+    D : depth-wise : operator @   : y coord : .depth property  : .front, .back
     V : vertical   : operator *   : z coord : .height property : .top, .bot
 
 The classes that the user interacts with:
@@ -289,13 +289,16 @@ class Atom(object):
         yield self
 
     def h_rev(self):
-        return self.deepclone()
+        "horizontal reverse"
+        return self.deepclone(h_rev=True)
 
     def v_rev(self):
-        return self.deepclone()
+        "vertical reverse"
+        return self.deepclone(v_rev=True)
 
     def d_rev(self):
-        return self.deepclone()
+        "depth-wise reverse"
+        return self.deepclone(d_rev=True)
 
 
 class Compound(object):
@@ -529,7 +532,7 @@ class Cell0(Atom):
     def __getitem__(self, idx):
         return [self][idx]
 
-    def deepclone(self):
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = dict(self.__dict__)
         kw["assoc"] = self.assoc
         kw["name"] = self.name
@@ -575,7 +578,7 @@ class DCell0(Compound, Cell0):
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
-    def deepclone(self):
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = dict(self.__dict__)
         del kw["name"]
         del kw["cells"]
@@ -583,8 +586,10 @@ class DCell0(Compound, Cell0):
         #kw["stroke"] = self.stroke
         kw["assoc"] = self.assoc
         kw["on_constrain"] = self.on_constrain
+        kw["skip"] = self.skip
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
-        cells = [cell.deepclone() for cell in self.cells]
+        cells = list(reversed(self.cells)) if d_rev else self.cells
+        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell0(cells, **kw)
         check_renderable(cell)
         return cell
@@ -647,9 +652,12 @@ class Cell1(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def deepclone(self):
-        tgt = self.tgt.deepclone()
-        src = self.src.deepclone()
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+        tgt, src = self.tgt, self.src
+        if h_rev:
+            tgt, src = src, tgt
+        tgt = tgt.deepclone(h_rev, v_rev, d_rev)
+        src = src.deepclone(h_rev, v_rev, d_rev)
         kw = {}
         kw["assoc"] = self.assoc
         kw["weight"] = self.weight
@@ -900,14 +908,18 @@ class DCell1(Compound, Cell1):
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepclone(self):
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
+        kw["skip"] = self.skip
         kw["assoc"] = self.assoc
         kw["on_constrain"] = self.on_constrain
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
-        cells = [cell.deepclone() for cell in self.cells]
+        cells = self.cells
+        if d_rev:
+            cells = list(reversed(cells))
+        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell1(cells, **kw)
         if not check_renderable(cell):
             dump(cell)
@@ -1011,14 +1023,16 @@ class HCell1(Compound, Cell1):
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepclone(self):
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
+        kw["skip"] = self.skip
         kw["assoc"] = self.assoc
         kw["on_constrain"] = self.on_constrain
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
-        cells = [cell.deepclone() for cell in self.cells]
+        cells = list(reversed(self.cells)) if h_rev else self.cells
+        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
         cell = _HCell1(cells, **kw)
         check_renderable(cell)
         return cell
@@ -1155,7 +1169,7 @@ class Cell2(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def deepclone(self):
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         kw["assoc"] = self.assoc
         kw["DEBUG"] = self.DEBUG
@@ -1165,8 +1179,11 @@ class Cell2(Atom):
         kw["pip_cvs"] = self.pip_cvs
         kw["cone"] = self.cone
         kw["on_constrain"] = self.on_constrain
-        tgt = self.tgt.deepclone()
-        src = self.src.deepclone()
+        src, tgt = self.src, self.tgt
+        if v_rev:
+            src, tgt = tgt, src
+        tgt = tgt.deepclone(h_rev, v_rev, d_rev)
+        src = src.deepclone(h_rev, v_rev, d_rev)
         cell = _Cell2(tgt, src, **kw)
         check_renderable(cell)
         return cell
@@ -1680,13 +1697,14 @@ class DCell2(Compound, Cell2):
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepclone(self):
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
-        cells = [cell.deepclone() for cell in self.cells]
+        cells = list(reversed(self.cells)) if d_rev else self.cells
+        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell2(cells, **kw)
         check_renderable(cell)
         return cell
@@ -1776,13 +1794,14 @@ class HCell2(Compound, Cell2):
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepclone(self):
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
-        cells = [cell.deepclone() for cell in self.cells]
+        cells = list(reversed(self.cells)) if h_rev else self.cells
+        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
         cell = _HCell2(cells, **kw)
         check_renderable(cell)
         return cell
@@ -1882,13 +1901,14 @@ class VCell2(Compound, Cell2):
             #    #print("VCell2.__init__: WARNING", msg)
             i += 1
 
-    def deepclone(self):
+    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
-        cells = [cell.deepclone() for cell in self.cells]
+        cells = list(reversed(self.cells)) if v_rev else self.cells
+        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
         cell = _VCell2(cells, **kw)
         check_renderable(cell)
         return cell
