@@ -882,7 +882,8 @@ class View(object):
 
     def add_cvs(self, v0, cvs, *args, **kw):
         v0 = self.trafo_view(v0)
-        #scale = 1./self.depth_camera(v0) # ??
+        scale = 4.3/self.depth_camera(v0) # 4.3 ???
+        cvs = Canvas([Scale(scale), cvs])
         gitem = GCvs(v0, cvs, *args, **kw)
         self.add_gitem(gitem)
         return gitem

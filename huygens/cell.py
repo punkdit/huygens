@@ -156,11 +156,11 @@ class Segment(object):
 
 
 class Surface(object):
-    pip_cvs = None
 
-    def __init__(self, segments, color=(0,0,0,1)):
+    def __init__(self, segments, color=(0,0,0,1), pip_cvs=None):
         self.segments = list(segments)
         self.color = color
+        self.pip_cvs = pip_cvs
 
     def __getitem__(self, idx):
         return self.segments[idx]
@@ -240,6 +240,8 @@ class Surface(object):
 
     def render(self, view, poset=None):
         view.add_surface(self.segments, fill=self.color)
+        if self.pip_cvs is not None:
+            view.add_cvs(self.midpoint(), self.pip_cvs)
         if Cell2.DEBUG or 0:
             for seg in self.segments:
                 view.add_curve(*seg, stroke=(0,0,1,0.2), lw=0.2, epsilon=None)
@@ -1327,6 +1329,7 @@ class _Cell2(Cell2, Render):
         assert len(r_src) == len(r_tgt)
 
         for (p_src, p_tgt) in zip(l_src, l_tgt):
+            # these are five-sided Surface's
             segs = [p_src[0], p_src[1], p_tgt[1].reversed, p_tgt[0].reversed]
             cell = p_src[2]
             line = Segment.mk_line(segs[-1][3], segs[0][0])
@@ -1335,10 +1338,11 @@ class _Cell2(Cell2, Render):
                 l, r = segs[i], segs[(i+1)%len(segs)]
                 error = l[3] - r[0]
                 assert error.norm() < EPSILON
-            surf = Surface(segs, cell.color)
+            surf = Surface(segs, cell.color, cell.pip_cvs)
             surfaces.append(surf)
 
         for (p_src, p_tgt) in zip(r_src, r_tgt):
+            # these are five-sided Surface's
             segs = [p_src[0], p_src[1], p_tgt[1].reversed, p_tgt[0].reversed]
             cell = p_src[2]
             line = Segment.mk_line(segs[-1][3], segs[0][0])
@@ -1347,7 +1351,7 @@ class _Cell2(Cell2, Render):
                 l, r = segs[i], segs[(i+1)%len(segs)]
                 error = l[3] - r[0]
                 assert error.norm() < EPSILON
-            surf = Surface(segs, cell.color)
+            surf = Surface(segs, cell.color, cell.pip_cvs)
             surfaces.append(surf)
 
         #surfaces = Surface.merge(surfaces) # does not work very well...
@@ -1359,7 +1363,7 @@ class _Cell2(Cell2, Render):
         for surface in surfaces:
             if surface.pip_cvs is None:
                 continue
-            view.add_cvs(surface.midpoint(), surface.pip_cvs)
+            #view.add_cvs(surface.midpoint(), surface.pip_cvs)
 
         if self.pip_cvs is not None:
             view.add_cvs(Mat(self.pip), self.pip_cvs)
@@ -1666,6 +1670,13 @@ def make_poset(view):
         verts = l.incident(r, INCIDENT)
         if verts:
             poset.add(l, r) # l before r
+    for l in ranked[GSurface]:
+      v0 = l.center
+      for r in ranked[GCvs]:
+        dist = (r.center - l.center).norm()
+        if dist < 0.1: # Argh... this is not exact because of camera view..?
+            print("poset.add", dist)
+            poset.add(l, r)
     for l in ranked[GSurface]:
       for r in ranked[GSurface]:
         if id(l)>=id(r):
