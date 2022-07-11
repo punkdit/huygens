@@ -2033,7 +2033,6 @@ class BraidDeco(Deco):
 
     def on_decorate(self, pre, path, post):
         curve_to = path[1]
-        # is this a bit janky...? maybe use tangent to curve...?
         x = conv(curve_to.x1, curve_to.x2, self.alpha)
         y = conv(curve_to.y1, curve_to.y2, self.alpha)
         curve_to.x2 = x
@@ -2128,14 +2127,14 @@ def test():
 def test_match():
 
     ii = Cell0.ii
-    n = Cell0("n", color=grey, stroke=(0,0,0,1))
-    k = Cell0("k", color=grey, stroke=(0,0,0,1))
+    n = Cell0("n", fill=grey, stroke=(0,0,0,1))
+    k = Cell0("k", fill=grey, stroke=(0,0,0,1))
     _n = Cell1(ii, n)
     n_ = Cell1(n, ii)
     nn_n = Cell1(n@n, n)
     n_nn = Cell1(n, n@n)
-    n_n = Cell1(n, n, pip_color=None, color=None)
-    pair = Cell1(n, n, pip_color=None, color=black)
+    n_n = Cell1(n, n, pip_color=None, stroke=None)
+    pair = Cell1(n, n, pip_color=None, stroke=black)
     swap = Cell1(n@n, n@n, pip_color=None)
 
 # broken
@@ -2171,14 +2170,14 @@ def more_test():
 
     names = 'lmnop'
     l, m, n, o, p = [
-        Cell0(name, color=scheme[i%len(scheme)])
+        Cell0(name, fill=scheme[i%len(scheme)])
         for i, name in enumerate('lmnop')]
-    i0 = Cell0("i", color=None)
+    i0 = Cell0("i", fill=None)
 
-    I_l = Cell1(l, l, pip_color=None, color=None)
-    I_m = Cell1(m, m, pip_color=None, color=None)
-    I_n = Cell1(n, n, pip_color=None, color=None)
-    I_o = Cell1(o, o, pip_color=None, color=None)
+    I_l = Cell1(l, l, pip_color=None, stroke=None)
+    I_m = Cell1(m, m, pip_color=None, stroke=None)
+    I_n = Cell1(n, n, pip_color=None, stroke=None)
+    I_o = Cell1(o, o, pip_color=None, stroke=None)
 
     cell = Cell1(m, m@m) << Cell1(m@m, n)
     cell = cell @ cell
@@ -2219,9 +2218,9 @@ def more_test():
     swap = lambda a,b : Cell1(a@b, b@a)
     # Yang-Baxter
     def yang_baxter(n, m, l, reversed=False, **kw):
-        I_l = Cell1(l, l, pip_color=None, color=None)
-        I_m = Cell1(m, m, pip_color=None, color=None)
-        I_n = Cell1(n, n, pip_color=None, color=None)
+        I_l = Cell1(l, l, pip_color=None, stroke=None)
+        I_m = Cell1(m, m, pip_color=None, stroke=None)
+        I_n = Cell1(n, n, pip_color=None, stroke=None)
         tgt = (I_n @ swap(m, l)) << (swap(n, l) @ I_m) << (I_l @ swap(n, m))
         src = (swap(n, m) @ I_l) << (I_m @ swap(n, l)) << (swap(m, l) @ I_n)
         if reversed:
@@ -2269,7 +2268,7 @@ def test_render():
 
     names = 'lmnop'
     l, m, n, o, p = [
-        Cell0(name, color=scheme[i%len(scheme)])
+        Cell0(name, fill=scheme[i%len(scheme)])
         for i, name in enumerate('lmnop')]
 
     cl = (1,1,0,1)
@@ -2296,9 +2295,9 @@ def test_render():
 
 if __name__ == "__main__":
     print("\n")
-    #test()
-    #test_match()
-    #more_test()
+    test()
+    test_match()
+    more_test()
     test_render()
 
     print("OK")
