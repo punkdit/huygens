@@ -258,7 +258,12 @@ class Atom(object):
 
     def __init__(self, name, **kw):
         self.name = name
-        self.__dict__.update(kw)
+        #self.__dict__.update(kw)
+        for (k,v) in kw.items():
+            assert hasattr(self, k), "attribute %r not found on %s" % (
+                k, self.__class__.__name__)
+            setattr(self, k, v)
+        #print("%s: Atom.__init__"%self.__class__.__name__, list(kw.keys()))
 
     def __str__(self):
         return self.name
@@ -284,7 +289,11 @@ class Atom(object):
 
     def __call__(self, **kw):
         self = self.deepclone() # **kw for deepclone ?
-        self.__dict__.update(kw)
+        name = self.name
+        if "name" in kw:
+            name = kw["name"]
+            del kw["name"]
+        Atom.__init__(self, name, **kw)
         return self
 
     def all_atoms(self):
@@ -521,7 +530,7 @@ def dump(cell):
 class Cell0(Atom):
     "These are the 0-cells, or object's."
 
-    color = None # rename to fill ?
+    fill = None
     stroke = black 
     st_stroke = []
     pip_cvs = None 
@@ -539,7 +548,7 @@ class Cell0(Atom):
         kw["assoc"] = self.assoc
         kw["name"] = self.name
         kw["weight"] = self.weight
-        kw["color"] = self.color
+        kw["fill"] = self.fill
         kw["stroke"] = self.stroke
         kw["st_stroke"] = self.st_stroke
         kw["pip_cvs"] = self.pip_cvs
@@ -857,7 +866,7 @@ class _Cell1(Cell1, Render):
         tgt, src = self.tgt, self.src
         for cell in tgt:
             assert isinstance(cell, _Cell0)
-            color = cell.color
+            color = cell.fill
             pip0 = Mat(cell.pip)
             vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
             leg = Segment(pip0, conv(pip0, vpip1), vpip1, pip1) # spider leg
@@ -879,7 +888,7 @@ class _Cell1(Cell1, Render):
 
         for cell in src:
             assert isinstance(cell, _Cell0)
-            color = cell.color
+            color = cell.fill
             pip0 = Mat(cell.pip)
             vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
             line2 = seg_over(pip0, pip2).reversed
@@ -1338,7 +1347,7 @@ class _Cell2(Cell2, Render):
                 l, r = segs[i], segs[(i+1)%len(segs)]
                 error = l[3] - r[0]
                 assert error.norm() < EPSILON
-            surf = Surface(segs, cell.color, cell.pip_cvs)
+            surf = Surface(segs, cell.fill, cell.pip_cvs)
             surfaces.append(surf)
 
         for (p_src, p_tgt) in zip(r_src, r_tgt):
@@ -1351,7 +1360,7 @@ class _Cell2(Cell2, Render):
                 l, r = segs[i], segs[(i+1)%len(segs)]
                 error = l[3] - r[0]
                 assert error.norm() < EPSILON
-            surf = Surface(segs, cell.color, cell.pip_cvs)
+            surf = Surface(segs, cell.fill, cell.pip_cvs)
             surfaces.append(surf)
 
         #surfaces = Surface.merge(surfaces) # does not work very well...
@@ -1675,7 +1684,6 @@ def make_poset(view):
       for r in ranked[GCvs]:
         dist = (r.center - l.center).norm()
         if dist < 0.1: # Argh... this is not exact because of camera view..?
-            print("poset.add", dist)
             poset.add(l, r)
     for l in ranked[GSurface]:
       for r in ranked[GSurface]:
