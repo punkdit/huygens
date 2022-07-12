@@ -148,6 +148,12 @@ class Segment(object):
         v0, v1, v2, v3 = self.vs
         return Segment(v3, v2, v1, v0, self.color)
 
+    def grow(self, epsilon=0.03):
+        v0, v1, v2, v3 = self.vs
+        v0 = v0 - epsilon*(v1 - v0)
+        v3 = v3 - epsilon*(v2 - v3)
+        return Segment(v0, v1, v2, v3, self.color)
+
     def __getitem__(self, idx):
         return self.vs[idx]
 
@@ -881,6 +887,7 @@ class _Cell1(Cell1, Render):
             elif not cell.skip:
                 parent.surfaces.append(triangle)
             if cell.stroke is not None:
+                leg = leg.grow() # hack to remove gaps 
                 try:
                     view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
                 except:
@@ -903,6 +910,7 @@ class _Cell1(Cell1, Render):
             elif not cell.skip:
                 parent.surfaces.append(triangle)
             if cell.stroke is not None:
+                leg = leg.grow() # hack to remove gaps 
                 try:
                     view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
                 except:
@@ -1613,33 +1621,35 @@ class Poset(object):
             bdy = _bdy
         return deps
 
-    def get_greedy(self):
-        # add some more relations to force rendering of later
-        # GItem's if possible: pip's and curves.
-        items = self.items
-        down = self.down
-        bots = [a for a in items if not down[a]]
-        assert bots
-        names = self.names
-        #print("get_greedy")
-        rank = {}
-        for bot in bots:
-            deps = self.get_deps(bot)
-            rank[bot] = deps
-        bots.sort( key = lambda item : len(rank[item]) )
-        prev = bots[0]
-        found = set(rank[prev])
-        for bot in bots[1:]:
-            for other in rank[bot]:
-                if other not in found:
-                    self.add(prev, other)
-                    found.add(other)
-            prev = bot
+#    def get_greedy(self):
+#        # add some more relations to force rendering of later
+#        # GItem's if possible: pip's and curves.
+#        items = self.items
+#        down = self.down
+#        bots = [a for a in items if not down[a]]
+#        assert bots
+#        names = self.names
+#        #print("get_greedy")
+#        rank = {}
+#        for bot in bots:
+#            deps = self.get_deps(bot)
+#            rank[bot] = deps
+#        bots.sort( key = lambda item : len(rank[item]) )
+#        prev = bots[0]
+#        found = set(rank[prev])
+#        for bot in bots[1:]:
+#            for other in rank[bot]:
+#                if other not in found:
+#                    self.add(prev, other)
+#                    found.add(other)
+#            prev = bot
     
 
 INCIDENT = 0.1 
 
 def make_poset(view):
+    "sort items back to front for rendering into 2d Canvas"
+
     gitems = view.gitems
     #print("make_poset: gitems", len(gitems))
     rank = [GSurface, GCurve, GCircle, GCvs]
@@ -1648,6 +1658,8 @@ def make_poset(view):
     ranked = dict((r,[]) for r in rank)
     for item in gitems:
         ranked[item.__class__].append(item)
+
+    # Argh, this is fragile code... 
 
     for l in ranked[GSurface]:
       for r in ranked[GSurface]:
@@ -1668,6 +1680,7 @@ def make_poset(view):
             continue
         if len(verts)>1:
             poset.add(l, r) # l before r
+            continue
 
       for r in ranked[GCircle] + ranked[GCvs]:
         verts = l.incident(r, INCIDENT)
@@ -1683,12 +1696,22 @@ def make_poset(view):
       v0 = l.center
       for r in ranked[GCvs]:
         dist = (r.center - l.center).norm()
-        if dist < 0.1: # Argh... this is not exact because of camera view..?
+        if dist < INCIDENT: # this is not exact because of camera view..?
             poset.add(l, r)
     for l in ranked[GSurface]:
       for r in ranked[GSurface]:
         if id(l)>=id(r):
             continue
+        if poset.compare(l, r) or poset.compare(r, l):
+            continue
+        deeper = view.get_depth(l) < view.get_depth(r)
+        if deeper:
+            poset.add(l, r)
+        else:
+            poset.add(r, l)
+
+    for l in ranked[GSurface]:
+      for r in ranked[GCurve]:
         if poset.compare(l, r) or poset.compare(r, l):
             continue
         deeper = view.get_depth(l) < view.get_depth(r)

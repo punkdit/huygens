@@ -520,10 +520,10 @@ class System(object):
         assert self.lookup is None, "already called solve!"
         if simplify:
             subs, leqs = gaussian_eliminate(self)
-            for k in subs.keys():
-              for leq in leqs:
-                for k1 in leq.get_leaves():
-                    assert k is not k1, "%s %s" % (k, leq)
+            #for k in subs.keys():
+            #  for leq in leqs:
+            #    for k1 in leq.get_leaves():
+            #        assert k is not k1, "%s %s" % (k, leq)
             #print("items:", len(leqs))
             solver = Solver(leqs)
             lookup = solver.solve(verbose=verbose)
