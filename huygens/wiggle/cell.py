@@ -244,7 +244,7 @@ class Surface(object):
             i += 1
         return srfs
 
-    def render(self, view, poset=None):
+    def render(self, view):
         view.add_surface(self.segments, fill=self.color)
         if self.pip_cvs is not None:
             view.add_cvs(self.midpoint(), self.pip_cvs)
@@ -508,10 +508,10 @@ class _Compound(object):
         for cell in self.cells:
             cell.pre_constrain(system, depth+1, verbose)
 
-    def render(self, view, poset=None):
+    def render(self, view):
         #Shape.render(self, view)
         for cell in self.cells:
-            cell.render(view, poset)
+            cell.render(view)
 
 
 
@@ -565,6 +565,23 @@ class Cell0(Atom):
         check_renderable(cell)
         return cell
 
+    def extrude(self, pip_color=None, **kw):
+        cell = Cell1(self, self, stroke=None, pip_color=None)
+        return cell
+
+    def extrude2(self, **kw):
+        # here we stick the pip_cvs on the Cell2
+        pip_cvs = self.pip_cvs
+        self = self(pip_cvs=None)
+        cell = self.extrude() # extrude to Cell1
+        cell = cell.extrude(pip_cvs=pip_cvs) # extrude to Cell2
+        return cell
+
+    def layout(self, *args, **kw):
+        cell = self.extrude2()
+        cell = cell.layout(*args, **kw)
+        return cell
+
 
 class _Cell0(Cell0, Render):
 
@@ -609,6 +626,17 @@ class DCell0(Compound, Cell0):
         cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell0(cells, **kw)
         check_renderable(cell)
+        return cell
+
+    def extrude(self, pip_color=None, **kw):
+        #cells = [Cell1(cell, cell, stroke=None, pip_color=None) for cell in self.cells]
+        cells = [cell.extrude(**kw) for cell in self.cells]
+        cell = DCell1(cells)
+        return cell
+
+    def extrude2(self, **kw):
+        cells = [cell.extrude2(**kw) for cell in self.cells]
+        cell = DCell2(cells)
         return cell
 
 
@@ -705,6 +733,11 @@ class Cell1(Atom):
         if full:
             self.tgt.traverse(callback, depth+1, full)
             self.src.traverse(callback, depth+1, full)
+
+    def layout(self, *args, **kw):
+        cell = self.extrude()
+        cell = cell.layout(*args, **kw)
+        return cell
 
 
 class _Cell1(Cell1, Render):
@@ -1317,9 +1350,7 @@ class _Cell2(Cell2, Render):
         assert len(a_items) == len(b_items)
         return [(a,b) for (a,b) in zip(a_items, b_items)]
 
-    def render(self, view, poset=None):
-        if poset is None:
-            poset = Poset()
+    def render(self, view):
 
         # We hang a bunch of attr's off self for the visit callback below.
         self.surfaces = surfaces = []
@@ -1339,8 +1370,7 @@ class _Cell2(Cell2, Render):
             print( len(l_src) , len(l_tgt) , end=" ")
             print( len(r_src) , len(r_tgt) )
             for surface in surfaces:
-                surface.render(view, poset)
-            return poset
+                surface.render(view)
 
         assert len(l_src) == len(l_tgt)
         assert len(r_src) == len(r_tgt)
@@ -1374,7 +1404,7 @@ class _Cell2(Cell2, Render):
         #surfaces = Surface.merge(surfaces) # does not work very well...
         for surface in surfaces:
             try:
-                surface.render(view, poset)
+                surface.render(view)
             except:
                 print("_Cell2.render: surface.render Exception")
         for surface in surfaces:
@@ -1386,8 +1416,6 @@ class _Cell2(Cell2, Render):
             view.add_cvs(Mat(self.pip), self.pip_cvs)
         elif self.pip_color is not None:
             view.add_circle(Mat(self.pip), self.pip_radius, fill=self.pip_color)
-
-        return poset
 
     # XXX can't we do this by setting attr's and calling .render() ?
     def render_boundary(self, view, src=True, tgt=True):
@@ -1448,7 +1476,7 @@ class _Cell2(Cell2, Render):
         self.tgt.dbg_render(cvs)
         self.src.dbg_render(cvs)
 
-    def render_cvs(self, pos="center", eyepos=None, lookat=None, up=None):
+    def render_cvs(self, pos="center", eyepos=None, lookat=None, up=None, weld=False):
         view = View(400, 400, sort_gitems=False)
         view.ortho()
         #                .pip_x  .pip_y  .pip_z
@@ -1465,23 +1493,23 @@ class _Cell2(Cell2, Render):
         elif pos == "north":
             z = z2
         elif pos == "northeast":
-            x = x0
+            x = x2
             z = z2
         elif pos == "northwest":
             z = z2
-            x = x2
+            x = x0
         elif pos == "south":
             z = z0
         elif pos == "southeast":
-            x = x0
+            x = x2
             z = z0
         elif pos == "southwest":
             z = z0
-            x = x2
-        elif pos == "east":
             x = x0
-        elif pos == "west":
+        elif pos == "east":
             x = x2
+        elif pos == "west":
+            x = x0
         else:
             assert 0, "pos %r not understood"%(pos,)
         eyepos = [x, y, z] if eyepos is None else eyepos
@@ -1489,8 +1517,11 @@ class _Cell2(Cell2, Render):
         up = [0, 0, 1] if up is None else up
         view.lookat(eyepos, lookat, up)
 
-        poset = Poset()
-        self.render(view, poset)
+        self.render(view)
+
+        if weld:
+            # this only works for simple diagrams...
+            view.weld_surfaces()
 
         make_poset(view)
 

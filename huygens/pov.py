@@ -638,11 +638,46 @@ class GSurface(GItem):
         items += [ClosePath()]
         p = path.path(items)
         p.address = self.address
-        #cvs.stroke(p, [RGBA(1,0,0,0.5), LineWidth(0.1)]) 
         if self.fill is not None:
             cvs.fill(p, [RGBA(*self.fill)])
+        #cvs.stroke(p, [RGBA(0,0,0)])
         if self.stroke is not None:
             cvs.stroke(p, [RGBA(*self.stroke)])
+
+    def __len__(self):
+        return len(self.segments)
+
+    def __getitem__(self, idx):
+        return self.segments[idx]
+
+    def reversed(self):
+        rev_seg = lambda seg : tuple(reversed(seg))
+        segments = [rev_seg(seg) for seg in reversed(self)]
+        return GSurface(segments, self.fill, self.stroke)
+
+    @staticmethod
+    def eq_seg(left, right, epsilon=1e-4):
+        r = sum((a-b).norm() for (a, b) in zip(left, right))
+        return r < epsilon
+
+    def weld(self, other):
+        n, m = len(self), len(other)
+        ijs = [(i,j) for i in range(n) for j in range(m)]
+        eq_seg = GSurface.eq_seg
+        for (i,j) in ijs:
+            if not eq_seg(self[i], other[j]):
+                continue
+            break
+        else:
+            return None # no weld possible
+        # TODO: what if there are multiple weld's ?
+        print("GSurface.weld:", i, j)
+        left = self[i+1:] + self[:i]
+        right = other[j+1:] + other[:j]
+        rev_seg = lambda seg : tuple(reversed(seg))
+        right = [rev_seg(seg) for seg in reversed(right)]
+        segments = left + right
+        return GSurface(segments, self.fill, self.stroke)
 
 
 #class GBall(GItem):
@@ -906,6 +941,35 @@ class View(object):
         gitem = GSurface(segments, *args, **kw)
         self.add_gitem(gitem)
         return gitem
+
+    def weld_surfaces(view):
+        #print("View.weld_surfaces")
+        surfaces = {} # map fill color -> GSurface
+        for gitem in view.gitems:
+            if not isinstance(gitem, GSurface):
+                continue
+            if gitem.stroke is not None: # has outline
+                continue
+            surfaces.setdefault(gitem.fill, []).append(gitem)
+        for (fill, gitems) in surfaces.items():
+          i = 0
+          while i+1 < len(gitems):
+            j = i+1
+            while j < len(gitems):
+                a, b = gitems[i], gitems[j]
+                c = a.weld(b)
+                if c is None:
+                    arev = a.reversed() # Argh.. cache it if needed
+                    c = arev.weld(b)
+                if c is None:
+                    j += 1
+                    continue
+                gitems[i] = c
+                gitems.pop(j)
+                idx = view.gitems.index(a)
+                view.gitems[idx] = c
+                view.gitems.remove(b)
+            i += 1
 
     def add_mesh(self, verts, normals, *args, **kw):
         verts = [self.trafo_view(v) for v in verts]
