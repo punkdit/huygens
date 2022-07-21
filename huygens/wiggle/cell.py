@@ -719,8 +719,20 @@ class Cell1(Atom):
         check_renderable(cell)
         return cell
 
-    def extrude(self, pip_color=None, **kw):
-        return Cell2(self, self, pip_color=pip_color, **kw)
+    def extrude(self, pip_color=None, rigid=False, **kw):
+        def on_constrain(cell, system):
+            system.add(cell.pip_x == cell.tgt.pip_x)
+            system.add(cell.pip_x == cell.src.pip_x)
+            system.add(cell.pip_y == cell.tgt.pip_y)
+            system.add(cell.pip_y == cell.src.pip_y)
+        if not rigid:
+            on_constrain = None
+        def on_constrain(cell, system):
+            pip_x, pip_y = cell.pip_x, cell.pip_y
+            system.add(pip_x == (1/2)*(cell.tgt.pip_x + cell.src.pip_x))
+            system.add(pip_y == (1/2)*(cell.tgt.pip_y + cell.src.pip_y))
+        cell = Cell2(self, self, pip_color=pip_color, cone=1., on_constrain=on_constrain, **kw)
+        return cell
 
     def reassoc(self):
         yield [self]
@@ -978,8 +990,8 @@ class DCell1(Compound, Cell1):
             assert 0, "found non Render's"
         return cell
 
-    def extrude(self, pip_color=None, **kw):
-        cells = [cell.extrude(pip_color=pip_color, **kw) for cell in self.cells]
+    def extrude(self, pip_color=None, rigid=False, **kw):
+        cells = [cell.extrude(pip_color=pip_color, rigid=rigid, **kw) for cell in self.cells]
         return DCell2(cells, **kw)
 
     def traverse(self, callback, depth=0, full=True):
@@ -1089,8 +1101,8 @@ class HCell1(Compound, Cell1):
         check_renderable(cell)
         return cell
 
-    def extrude(self, pip_color=None, **kw):
-        cells = [cell.extrude(pip_color=pip_color, **kw) for cell in self.cells]
+    def extrude(self, pip_color=None, rigid=False, **kw):
+        cells = [cell.extrude(pip_color=pip_color, rigid=rigid, **kw) for cell in self.cells]
         return HCell2(cells, pip_color=pip_color, **kw)
 
     def traverse(self, callback, depth=0, full=True):
@@ -1202,7 +1214,7 @@ class Cell2(Atom):
 
     DEBUG = False
     pip_color = black
-    pip_radius = 0.5
+    pip_radius = 0.4
     pip_cvs = None
     cone = 0.6 # closer to 1. is more cone-like
     on_constrain = None
@@ -1335,8 +1347,8 @@ class _Cell2(Cell2, Render):
         n = len(pips)
         pip_x = (1/n)*reduce(operator.add, [pip[0] for pip in pips], 0)
         pip_y = (1/n)*reduce(operator.add, [pip[1] for pip in pips], 0)
-        add(self.pip_x == pip_x)
-        add(self.pip_y == pip_y)
+        add(self.pip_x == pip_x, self.weight)
+        add(self.pip_y == pip_y, self.weight)
 
     def all_chains_src(self):
         a_items = list(self.src.all_src())
@@ -1523,6 +1535,7 @@ class _Cell2(Cell2, Render):
             # this only works for simple diagrams...
             view.weld_surfaces()
 
+        # sort gitem's back to front for rendering onto Canvas
         make_poset(view)
 
         #shuffle(view.gitems)
