@@ -479,7 +479,7 @@ class System(object):
             # strict
             self.items.append(item)
             s = str(item)
-            assert s not in self.str_items, "redundant constraint"
+            #assert s not in self.str_items, "redundant constraint"
             self.str_items.add(s)
         elif isinstance(item, Eq):
             # allow equality violation at a cost == weight

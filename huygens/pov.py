@@ -623,12 +623,15 @@ class GSurface(GItem):
         self.segments = segments
         self.fill = fill
         self.stroke = stroke
+        #self.fuzz = fuzz
 
     def render(self, view, cvs):
         GItem.render(self, cvs)
         items = []
+        #center = self.center
+        #fuzz = self.fuzz
         for seg in self.segments:
-            #p0, p1, p2, p3 = gitem.get_path(view)
+            #seg = [p + fuzz*(p-center) for p in seg] # not great...
             p0, p1, p2, p3 = [view.trafo_canvas(v) for v in seg]
             if not items:
                 items.append(path.moveto(*p0))
@@ -671,7 +674,7 @@ class GSurface(GItem):
         else:
             return None # no weld possible
         # TODO: what if there are multiple weld's ?
-        print("GSurface.weld:", i, j)
+        #print("GSurface.weld:", i, j)
         left = self[i+1:] + self[:i]
         right = other[j+1:] + other[:j]
         rev_seg = lambda seg : tuple(reversed(seg))

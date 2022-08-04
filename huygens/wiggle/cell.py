@@ -1495,11 +1495,15 @@ class _Cell2(Cell2, Render):
         # negative dir:  .left   .front  .bot
         # positive dir:  .right  .back   .top
         x1, y1, z1 = self.center
-        R = 3.
-        x0, x2 = x1-R*self.left, x1+R*self.right
+        if pos[0].isupper():
+            R = 5.
+        else:
+            R = 2.
+        x0, x2 = x1-0.8*R*self.left, x1+0.8*R*self.right
         z0, z2 = z1-R*self.bot, z1+R*self.top
         R = 3.
         x, y, z = 0., -R, 0.
+        pos = pos.lower()
         if pos == "center":
             x, z = 0., 0.
         elif pos == "north":
