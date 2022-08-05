@@ -16,6 +16,7 @@ from huygens.sat import System, Listener, Variable
 from huygens.back import Compound, Deco, Path, Transform, Scale
 from huygens.front import path, style, canvas, color, Canvas
 from huygens.back import Visitor
+from huygens.namespace import st_normal, st_thin, st_thick, st_Thick, st_THick, st_THIck
 from huygens.argv import argv
 
 if argv.noerr:
@@ -41,7 +42,7 @@ def conv(a, b, alpha=0.5):
 
 """
 
-The default coordinate system we use looks like this:
+The default coordinate system we use _looks like this:
 
    z
    ^
@@ -250,7 +251,7 @@ class Surface(object):
             view.add_cvs(self.midpoint(), self.pip_cvs)
         if Cell2.DEBUG or 0:
             for seg in self.segments:
-                view.add_curve(*seg, stroke=(0,0,1,0.2), lw=0.2, epsilon=None)
+                view.add_curve(*seg, stroke=(0,0,1,0.2), epsilon=None)
 
 
 # -------------------------------------------------------
@@ -538,7 +539,7 @@ class Cell0(Atom):
 
     fill = None
     stroke = black 
-    st_stroke = []
+    st_stroke = st_normal
     pip_cvs = None 
     skip = False
     on_constrain = None
@@ -678,9 +679,9 @@ class Cell1(Atom):
     """
 
     stroke = black
-    st_stroke = []
+    st_stroke = st_Thick
     pip_color = black
-    pip_radius = 0.3
+    pip_radius = 0.06
     pip_cvs = None
     _width = None # hmmmmm......
     skip = False
@@ -906,7 +907,7 @@ class _Cell1(Cell1, Render):
 
         line = seg_over(pip1, pip2)
         if self.stroke is not None:
-            view.add_curve(*line, lw=0.2, stroke=self.stroke, st_stroke=self.st_stroke)
+            view.add_curve(*line, stroke=self.stroke, st_stroke=self.st_stroke)
 
         # show spider (1-cell) pip
         if self.pip_cvs is not None:
@@ -1214,7 +1215,7 @@ class Cell2(Atom):
 
     DEBUG = False
     pip_color = black
-    pip_radius = 0.4
+    pip_radius = 0.10
     pip_cvs = None
     cone = 0.6 # closer to 1. is more cone-like
     on_constrain = None
@@ -1452,7 +1453,7 @@ class _Cell2(Cell2, Render):
 
             line = seg_over(pip1, pip2)
             if color is not None:
-                #view.add_curve(*line, lw=0.2, stroke=color)
+                #view.add_curve(*line, stroke=color)
                 # show spider (1-cell) pip
                 if self.pip_color:
                     view.add_circle(pip1, self.pip_radius, fill=color)
@@ -1488,12 +1489,11 @@ class _Cell2(Cell2, Render):
         self.tgt.dbg_render(cvs)
         self.src.dbg_render(cvs)
 
-    def render_cvs(self, pos="center", eyepos=None, lookat=None, up=None, weld=False):
-        view = View(400, 400, sort_gitems=False)
-        view.ortho()
+    def get_view(self,  pos="center", eyepos=None, lookat=None, up=None):
         #                .pip_x  .pip_y  .pip_z
         # negative dir:  .left   .front  .bot
         # positive dir:  .right  .back   .top
+        view = View(100, 100)
         x1, y1, z1 = self.center
         if pos[0].isupper():
             R = 5.
@@ -1531,9 +1531,55 @@ class _Cell2(Cell2, Render):
         eyepos = [x, y, z] if eyepos is None else eyepos
         lookat = [x1, y1, z1] if lookat is None else lookat
         up = [0, 0, 1] if up is None else up
+        #eyepos, lookat, up = Mat(eyepos), Mat(lookat), Mat(up)
         view.lookat(eyepos, lookat, up)
+        return view
+
+    def get_view_ortho(self,  pos="center", eyepos=None, lookat=None, up=None):
+        view = View(100, 100)
+        view.ortho()
+        pos = pos.lower()
+        if pos=="center":
+            view.rotate(-90, 1, 0, 0)
+        elif pos=="east":
+            view.rotate(-90, 1, 0, 0)
+            view.rotate(-10, 0, 0, 1)
+        elif pos=="west":
+            view.rotate(-90, 1, 0, 0)
+            view.rotate(+10, 0, 0, 1)
+        elif pos=="north":
+            view.rotate(-70, 1, 0, 0)
+        elif pos=="northeast":
+            view.rotate(-70, 1, 0, 0)
+            view.rotate(-10, 0, 0, 1)
+        elif pos=="northwest":
+            view.rotate(-70, 1, 0, 0)
+            view.rotate(+10, 0, 0, 1)
+        elif pos=="south":
+            view.rotate(-100, 1, 0, 0)
+        elif pos=="southeast":
+            view.rotate(-100, 1, 0, 0)
+            view.rotate(-10, 0, 0, 1)
+        elif pos=="southwest":
+            view.rotate(-100, 1, 0, 0)
+            view.rotate(+10, 0, 0, 1)
+        else:
+            assert 0, "what is this: %r"%(pos,)
+        return view
+
+    def render_cvs(self, pos="center", eyepos=None, lookat=None, up=None, 
+            weld=False, ortho=True):
+
+        if ortho:
+            view = self.get_view_ortho(pos, eyepos, lookat, up)
+        else:
+            view = self.get_view(pos, eyepos, lookat, up)
 
         self.render(view)
+        #print("proj:")
+        #print(view.proj)
+        #print("model:")
+        #print(view.model)
 
         if weld:
             # this only works for simple diagrams...
@@ -2356,7 +2402,7 @@ def test_render():
     cell = cell @ l_l.extrude()
 
     f = cell.layout(width=1.5, height=1, depth=2.)
-    cvs = f.render_cvs("north", eyepos=[-0.3,-3,0.8], )
+    cvs = f.render_cvs(pos="northwest")
     cvs.writePDFfile("test_render.pdf")
 
     return
@@ -2366,10 +2412,10 @@ def test_render():
 
 if __name__ == "__main__":
     print("\n")
-    test()
-    test_match()
-    more_test()
+    #test()
+    #test_match()
+    #more_test()
     test_render()
 
-    print("OK")
+    print("OK\n")
 

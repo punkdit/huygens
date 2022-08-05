@@ -35,6 +35,9 @@ class Mat(object):
     def det(self):
         return numpy.linalg.det(self.A[:3, :3])
 
+    def transpose(self):
+        return Mat(self.A.transpose())
+
     def __len__(self):
         return self.shape[0]
 
@@ -327,9 +330,9 @@ class Mat(object):
         A[0, 0] = 2. / (right - left)
         A[1, 1] = 2. / (top - bottom)
         A[2, 2] = -2. / (farval - nearval)
-        A[3, 0] = -(right + left) / (right - left)
-        A[3, 1] = -(top + bottom) / (top - bottom)
-        A[3, 2] = -(farval + nearval) / (farval - nearval)
+        A[0, 3] = -(right + left) / (right - left)
+        A[1, 3] = -(top + bottom) / (top - bottom)
+        A[2, 3] = -(farval + nearval) / (farval - nearval)
         A[3, 3] = 1.
         M = Mat(A)
         return M
@@ -584,7 +587,7 @@ class GCvs(GItem):
         
 class GCurve(GItem):
     def __init__(self, v0, v1, v2, v3, 
-            lw=1., stroke=(0,0,0,0), 
+            lw=None, stroke=None,
             st_stroke=[style.linecap.round], address=None, **kw):
         GItem.__init__(self, [v0, v3], address=address, **kw)
         self.v0 = v0
@@ -608,7 +611,12 @@ class GCurve(GItem):
             view.trafo_canvas(self.v2), view.trafo_canvas(self.v3)) # D.R.Y.
         p = path.curve(x0, y0, x1, y1, x2, y2, x3, y3)
         p.address = self.address
-        cvs.stroke(p, [LineWidth(self.lw), RGBA(*self.stroke)]+self.st_stroke)
+        st = []
+        if self.lw is not None:
+            st.append(LineWidth(self.lw))
+        if self.stroke is not None:
+            st.append(RGBA(*self.stroke))
+        cvs.stroke(p, st+self.st_stroke)
 
 
 class GSurface(GItem):
@@ -920,16 +928,18 @@ class View(object):
 
     def add_cvs(self, v0, cvs, *args, **kw):
         v0 = self.trafo_view(v0)
-        scale = 4.3/self.depth_camera(v0) # 4.3 ???
+        #scale = 4.3/self.depth_camera(v0) # 4.3 ???
+        scale = 1.
         cvs = Canvas([Scale(scale), cvs])
         gitem = GCvs(v0, cvs, *args, **kw)
         self.add_gitem(gitem)
         return gitem
 
-    def add_curve(self, v0, v1, v2, v3, lw=0.2, *args, **kw):
+    def add_curve(self, v0, v1, v2, v3, lw=None, *args, **kw):
         v0, v1, v2, v3 = (
             self.trafo_view(v0), self.trafo_view(v1), self.trafo_view(v2), self.trafo_view(v3))
-        lw /= self.depth_camera(v1)
+        if lw is not None:
+            lw /= self.depth_camera(v1)
         gitem = GCurve(v0, v1, v2, v3, lw, *args, **kw)
         self.add_gitem(gitem)
         return gitem

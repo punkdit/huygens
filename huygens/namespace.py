@@ -32,8 +32,6 @@ st_round = [style.linecap.round, style.linejoin.round]
 st_dashed = [style.linestyle.dashed]
 st_dotted = [style.linestyle.dotted]
 
-st_thick = [style.linewidth.Thick]
-
 st_north = [text.halign.boxcenter, text.valign.top]
 st_northeast = [text.halign.boxright, text.valign.top]
 st_northwest = [text.halign.boxleft, text.valign.top]
