@@ -309,14 +309,17 @@ class Atom(object):
     def h_rev(self):
         "horizontal reverse"
         return self.deepclone(h_rev=True)
+    h_op = h_rev
 
     def v_rev(self):
         "vertical reverse"
         return self.deepclone(v_rev=True)
+    v_op = v_rev
 
     def d_rev(self):
         "depth-wise reverse"
         return self.deepclone(d_rev=True)
+    d_op = d_rev
 
 
 class Compound(object):
@@ -1215,7 +1218,7 @@ class Cell2(Atom):
 
     DEBUG = False
     pip_color = black
-    pip_radius = 0.10
+    pip_radius = 0.08
     pip_cvs = None
     cone = 0.6 # closer to 1. is more cone-like
     on_constrain = None
