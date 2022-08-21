@@ -598,6 +598,18 @@ class GCurve(GItem):
         self.stroke = stroke
         self.st_stroke = st_stroke
 
+    def eq(self, other, epsilon=1e-4):
+        assert isinstance(other, GCurve)
+        return (
+            (self.v0 - other.v0).norm() < epsilon and 
+            (self.v1 - other.v1).norm() < epsilon and 
+            (self.v2 - other.v2).norm() < epsilon and 
+            (self.v3 - other.v3).norm() < epsilon and
+            self.stroke == other.stroke and
+            self.lw == other.lw and
+            self.st_stroke == other.st_stroke
+        )
+
     def get_path(self, view):
         (x0, y0), (x1, y1), (x2, y2), (x3, y3) = (
             view.trafo_canvas(self.v0), view.trafo_canvas(self.v1),

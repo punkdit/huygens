@@ -71,8 +71,10 @@ These all have "shadow" classes that actually do the layout & rendering
 
 We need this shadow hierarchy because the user can reuse (alias) object's
 when building a term (a compound 2-cell),
-but when rendering we need a uniqe cell object for each occurance of a cell in a 
+but when rendering we need a unique cell object for each occurance of a cell in a 
 compound cell. This transition is accomplished by the .deepclone method.
+Think of this like how a copiler translates from a high level syntax
+to a lower level syntax.
 
 Important atributes:
                    .pip_x  .pip_y  .pip_z
@@ -1433,60 +1435,60 @@ class _Cell2(Cell2, Render):
         elif self.pip_color is not None:
             view.add_circle(Mat(self.pip), self.pip_radius, fill=self.pip_color)
 
-    # XXX can't we do this by setting attr's and calling .render() ?
-    def render_boundary(self, view, src=True, tgt=True):
-        (x0, y0, z0, x1, y1, z1) = self.rect
-        x01 = conv(x0, x1)
-        y01 = conv(y0, y1)
-        z01 = conv(z0, z1)
-
-        pip2 = Mat(self.pip)
-        cone = 1. - self.cone
-        cone = max(PIP, cone)
-
-        def seg_over(v1, v2):
-            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
-            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
-            return line
-
-        def callback(self):
-            assert self.__class__ == _Cell1
-            color = self.color
-            pip1 = Mat(self.pip)
-
-            line = seg_over(pip1, pip2)
-            if color is not None:
-                #view.add_curve(*line, stroke=color)
-                # show spider (1-cell) pip
-                if self.pip_color:
-                    view.add_circle(pip1, self.pip_radius, fill=color)
-
-            tgt, src = self.tgt, self.src
-            for cell in tgt:
-                v = Mat(cell.pip)
-                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
-                leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
-                view.add_curve(*leg, stroke=cell.stroke)
-
-            for cell in src:
-                v = Mat(cell.pip)
-                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
-                leg = Segment(v, conv(v, vpip1), vpip1, pip1)
-                view.add_curve(*leg, stroke=cell.stroke)
-
-        if tgt:
-            z = z1
-            self.tgt.visit(callback, cls=_Cell1)
-
-        if src:
-            z = z0
-            self.src.visit(callback, cls=_Cell1)
-
-    def render_src(self, view):
-        self.render_boundary(view, src=True, tgt=False)
-
-    def render_tgt(self, view):
-        self.render_boundary(view, src=False, tgt=True)
+#    # XXX can't we do this by setting attr's and calling .render() ?
+#    def render_boundary(self, view, src=True, tgt=True):
+#        (x0, y0, z0, x1, y1, z1) = self.rect
+#        x01 = conv(x0, x1)
+#        y01 = conv(y0, y1)
+#        z01 = conv(z0, z1)
+#
+#        pip2 = Mat(self.pip)
+#        cone = 1. - self.cone
+#        cone = max(PIP, cone)
+#
+#        def seg_over(v1, v2):
+#            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
+#            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
+#            return line
+#
+#        def callback(self):
+#            assert self.__class__ == _Cell1
+#            color = self.color
+#            pip1 = Mat(self.pip)
+#
+#            line = seg_over(pip1, pip2)
+#            if color is not None:
+#                #view.add_curve(*line, stroke=color)
+#                # show spider (1-cell) pip
+#                if self.pip_color:
+#                    view.add_circle(pip1, self.pip_radius, fill=color)
+#
+#            tgt, src = self.tgt, self.src
+#            for cell in tgt:
+#                v = Mat(cell.pip)
+#                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
+#                leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
+#                view.add_curve(*leg, stroke=cell.stroke)
+#
+#            for cell in src:
+#                v = Mat(cell.pip)
+#                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
+#                leg = Segment(v, conv(v, vpip1), vpip1, pip1)
+#                view.add_curve(*leg, stroke=cell.stroke)
+#
+#        if tgt:
+#            z = z1
+#            self.tgt.visit(callback, cls=_Cell1)
+#
+#        if src:
+#            z = z0
+#            self.src.visit(callback, cls=_Cell1)
+#
+#    def render_src(self, view):
+#        self.render_boundary(view, src=True, tgt=False)
+#
+#    def render_tgt(self, view):
+#        self.render_boundary(view, src=False, tgt=True)
 
     def dbg_render(self, cvs):
         self.tgt.dbg_render(cvs)
@@ -1817,10 +1819,23 @@ def make_poset(view):
         else:
             poset.add(r, l)
 
-    #print("make_poset: pairs", len(poset.pairs))
-    #poset.get_greedy()
-    #poset.todot("poset.dot")
     gitems = poset.get_linear()
+
+    # remove duplicate GCurve's
+    i = 0
+    while i < len(gitems):
+        if not isinstance(gitems[i], GCurve):
+            i += 1
+            continue # <---- continue
+        j = i+1
+        while j < len(gitems):
+            if isinstance(gitems[j], GCurve) and gitems[i].eq(gitems[j]):
+                gitems.pop(j)
+                #print("pop", j)
+            else:
+                j += 1
+        i += 1
+
     view.gitems[:] = gitems
 
 
@@ -1913,11 +1928,6 @@ class _DCell2(DCell2, _Compound, _Cell2):
         for cell in self.cells:
             chains += cell.all_chains_tgt()
         return chains
-
-#    def render(self, view):
-#        #Shape.render(self, view)
-#        for cell in reversed(self.cells):
-#            cell.render(view)
 
 
 
@@ -2136,6 +2146,14 @@ class _VCell2(VCell2, _Compound, _Cell2):
             for cell in chain:
                 assert isinstance(cell, Cell0)
         return chains
+
+    def render(self, view):
+        #Shape.render(self, view)
+        n = len(self.cells)
+        for i, cell in enumerate(self.cells):
+            tgt = (i==0)
+            src = True
+            cell.render(view)
 
 
 setop(Cell2, "__matmul__", DCell2)
