@@ -651,10 +651,10 @@ class Path(Compound):
         idx = n-2
         while idx>=0:
             item = self[idx]
-            assert isinstance(item, LineTo), "not implemented"
+            assert isinstance(item, LineTo), "%s not implemented"%(item.__class__,)
             x, y = item.x, item.y
             item = self[idx+1]
-            assert isinstance(item, CurveTo), "not implemented"
+            assert isinstance(item, CurveTo), "%s not implemented"%(item.__class__,)
             x0, y0 = item.x0, item.y0
             x1, y1 = item.x1, item.y1
             x2, y2 = item.x2, item.y2
