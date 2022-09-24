@@ -43,6 +43,10 @@ st_west = [text.halign.boxleft, text.valign.middle]
 st_hcenter = [text.halign.boxcenter]
 st_center = [text.halign.boxcenter, text.valign.middle]
 
+st_footnote = [text.size.footnote] # does not work...??
+st_small = [text.size.small] # does not work...??
+st_large = [text.size.large] # does not work...??
+
 st_arrow = [deco.earrow]
 
 orange = color.rgb(0.8, 0.2, 0.0)
