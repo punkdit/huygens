@@ -56,6 +56,10 @@ st_rarrow = [deco.earrow(reverse=True)]
 thin = style.linewidth.thin
 normal = style.linewidth.normal
 st_normal = [normal]
+st_THIN = [style.linewidth.THIN]
+st_THIn = [style.linewidth.THIn]
+st_THin = [style.linewidth.THin]
+st_Thin = [style.linewidth.Thin]
 st_thin = [style.linewidth.thin]
 st_thick = [style.linewidth.thick]
 st_Thick = [style.linewidth.Thick]
