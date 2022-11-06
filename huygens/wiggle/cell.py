@@ -323,9 +323,13 @@ class Atom(object):
         return self.deepclone(d_rev=True)
     d_op = d_rev
 
+    def is_flat(self):
+        return True
+
     def _repr_svg_(self):
         item = self.layout()
-        flat = item.d_units == 1
+        #flat = item.d_units == 1
+        flat = item.is_flat()
         pos = "center" if flat else "northeast"
         item = item.render_cvs(weld=flat, pos=pos)
         svg = item._repr_svg_()
@@ -591,6 +595,9 @@ class Cell0(Atom):
         cell = cell.extrude(pip_cvs=pip_cvs) # extrude to Cell2
         return cell
 
+    def is_flat(self):
+        return True
+
     def layout(self, *args, **kw):
         cell = self.extrude2()
         cell = cell.layout(*args, **kw)
@@ -652,6 +659,11 @@ class DCell0(Compound, Cell0):
         cells = [cell.extrude2(**kw) for cell in self.cells]
         cell = DCell2(cells)
         return cell
+
+    def is_flat(self):
+        if len(self) > 1:
+            return False
+        return len(self)==0 or self[0].is_flat()
 
 
 class _DCell0(DCell0, _Compound, _Cell0):
@@ -759,6 +771,9 @@ class Cell1(Atom):
         if full:
             self.tgt.traverse(callback, depth+1, full)
             self.src.traverse(callback, depth+1, full)
+
+    def is_flat(self):
+        return self.src.is_flat() and self.tgt.is_flat()
 
     def layout(self, *args, **kw):
         cell = self.extrude()
@@ -1016,6 +1031,12 @@ class DCell1(Compound, Cell1):
         for cell in self.cells:
             cell.traverse(callback, depth+1, full)
 
+    def is_flat(self):
+        if len(self) > 1:
+            return False
+        return len(self)==0 or self[0].is_flat()
+
+
 
 class _DCell1(DCell1, _Compound, _Cell1):
 
@@ -1126,6 +1147,12 @@ class HCell1(Compound, Cell1):
             self.src.traverse(callback, depth+1, full)
         for cell in self.cells:
             cell.traverse(callback, depth+1, full)
+
+    def is_flat(self):
+        for cell in self.cells:
+            if not cell.is_flat():
+                return False
+        return True
 
 
 class _HCell1(HCell1, _Compound, _Cell1):
@@ -1277,6 +1304,9 @@ class Cell2(Atom):
     @property
     def h_units(self): # height units
         return 1
+
+    def is_flat(self):
+        return self.src.is_flat() and self.tgt.is_flat()
 
     def vflip(self): # XXX pass all attr's along
         tgt, src = self.src, self.tgt
@@ -1879,6 +1909,11 @@ class DCell2(Compound, Cell2):
     def d_units(self):
         return sum(cell.d_units for cell in self.cells)
 
+    def is_flat(self):
+        if len(self) > 1:
+            return False
+        return len(self)==0 or self[0].is_flat()
+
     @property
     def h_units(self):
         return max(cell.h_units for cell in self.cells)
@@ -1974,6 +2009,12 @@ class HCell2(Compound, Cell2):
     @property
     def h_units(self):
         return max(cell.h_units for cell in self.cells)
+
+    def is_flat(self):
+        for cell in self.cells:
+            if not cell.is_flat():
+                return False
+        return True
 
     def vflip(self):
         cells = [cell.vflip() for cell in self.cells]
@@ -2081,6 +2122,12 @@ class VCell2(Compound, Cell2):
     @property
     def h_units(self):
         return sum(cell.h_units for cell in self.cells)
+
+    def is_flat(self):
+        for cell in self.cells:
+            if not cell.is_flat():
+                return False
+        return True
 
     def vflip(self):
         cells = [cell.vflip() for cell in reversed(self.cells)]
