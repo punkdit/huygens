@@ -422,7 +422,7 @@ class Canvas(Compound):
         return data
 
     # svg output does not work on github  :P 
-    def X_repr_svg_(self):
+    def _repr_svg_(self):
         fd, name = mkstemp(suffix=".svg")
         self.writeSVGfile(name)
         os.close(fd)

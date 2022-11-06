@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-render 2-morphisms in a bicategory using sheet/string diagrams.
+render 2-morphisms in a monoidal bicategory using sheet/string diagrams.
 
 """
 
@@ -322,6 +322,14 @@ class Atom(object):
         "depth-wise reverse"
         return self.deepclone(d_rev=True)
     d_op = d_rev
+
+    def _repr_svg_(self):
+        item = self.layout()
+        flat = item.d_units == 1
+        pos = "center" if flat else "northeast"
+        item = item.render_cvs(weld=flat, pos=pos)
+        svg = item._repr_svg_()
+        return svg
 
 
 class Compound(object):
