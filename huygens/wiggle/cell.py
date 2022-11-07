@@ -10,6 +10,7 @@ import operator
 from functools import reduce
 from math import pi, sin, cos
 from time import sleep
+import warnings
 
 from huygens.front import color
 from huygens.sat import System, Listener, Variable
@@ -328,12 +329,20 @@ class Atom(object):
 
     def _repr_svg_(self):
         item = self.layout()
-        #flat = item.d_units == 1
         flat = item.is_flat()
         pos = "center" if flat else "northeast"
         item = item.render_cvs(weld=flat, pos=pos)
         svg = item._repr_svg_()
         return svg
+
+    def render_cvs(self, pos="center", eyepos=None, lookat=None, up=None, weld=None, ortho=True):
+        item = self.layout()
+        flat = item.is_flat()
+        if pos is None:
+            pos = "center" if flat else "northeast"
+        weld = flat if weld is None else weld
+        cvs = item.render_cvs(pos, eyepos, lookat, up, weld, ortho)
+        return cvs
 
 
 class Compound(object):
@@ -965,7 +974,7 @@ class _Cell1(Cell1, Render):
                 try:
                     view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
                 except:
-                    print("_Cell1._render: view.add_curve Exception!")
+                    warnings.warn("_Cell1._render: view.add_curve Exception!")
 
         for cell in src:
             assert isinstance(cell, _Cell0)
@@ -988,7 +997,7 @@ class _Cell1(Cell1, Render):
                 try:
                     view.add_curve(*leg, stroke=cell.stroke, st_stroke=cell.st_stroke)
                 except:
-                    print("_Cell1._render: view.add_curve Exception!")
+                    warnings.warn("_Cell1._render: view.add_curve Exception!")
 
 
 class DCell1(Compound, Cell1):
@@ -1422,9 +1431,9 @@ class _Cell2(Cell2, Render):
         self.src.visit(_Cell1._render, cls=_Cell1, view=view, parent=self)
 
         if len(l_src) != len(l_tgt) or len(r_src) != len(r_tgt):
-            print("_Cell2.render: FAIL", id(self), end=" ")
-            print( len(l_src) , len(l_tgt) , end=" ")
-            print( len(r_src) , len(r_tgt) )
+            warnings.warn("_Cell2.render: FAIL", id(self), end=" ")
+            warnings.warn( len(l_src) , len(l_tgt) , end=" ")
+            warnings.warn( len(r_src) , len(r_tgt) )
             for surface in surfaces:
                 surface.render(view)
 
@@ -1462,7 +1471,7 @@ class _Cell2(Cell2, Render):
             try:
                 surface.render(view)
             except:
-                print("_Cell2.render: surface.render Exception")
+                warnings.warn("_Cell2.render: surface.render Exception")
         for surface in surfaces:
             if surface.pip_cvs is None:
                 continue
@@ -1536,7 +1545,7 @@ class _Cell2(Cell2, Render):
         #                .pip_x  .pip_y  .pip_z
         # negative dir:  .left   .front  .bot
         # positive dir:  .right  .back   .top
-        view = View(100, 100)
+        view = View(200, 200)
         x1, y1, z1 = self.center
         if pos[0].isupper():
             R = 5.
@@ -1575,6 +1584,7 @@ class _Cell2(Cell2, Render):
         lookat = [x1, y1, z1] if lookat is None else lookat
         up = [0, 0, 1] if up is None else up
         #eyepos, lookat, up = Mat(eyepos), Mat(lookat), Mat(up)
+        view.perspective()
         view.lookat(eyepos, lookat, up)
         return view
 
@@ -1610,8 +1620,7 @@ class _Cell2(Cell2, Render):
             assert 0, "what is this: %r"%(pos,)
         return view
 
-    def render_cvs(self, pos="center", eyepos=None, lookat=None, up=None, 
-            weld=False, ortho=True):
+    def render_cvs(self, pos="center", eyepos=None, lookat=None, up=None, weld=False, ortho=True):
 
         if ortho:
             view = self.get_view_ortho(pos, eyepos, lookat, up)
