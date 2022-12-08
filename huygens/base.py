@@ -106,6 +106,7 @@ class Matrix(Base):
         assert abs(Mi[2,2]-1.) < EPSILON
         m = Matrix(Mi[0,0], Mi[1,0], Mi[0,1], Mi[1,1], Mi[0,2], Mi[1,2])
         return m
+    __invert__ = inv
 
     the_identity = None
     def is_identity(self):
