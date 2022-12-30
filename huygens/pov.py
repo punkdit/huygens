@@ -17,6 +17,26 @@ import numpy
 scalar = numpy.float64
 EPSILON = 1e-6
 
+
+
+def mulclose(gen, max_size=1000):
+    found = list(gen)
+    done = False
+    while not done:
+        done = True
+        for g in gen:
+          for h in found:
+            gh = g*h
+            if gh not in found:
+                found.append(gh)
+                done = False
+        assert len(found) <= max_size, len(found)
+        if len(found) == max_size:
+            break
+    return found
+
+
+
 class Mat(object):
     def __init__(self, cs):
         A = numpy.array(cs, dtype=scalar)
@@ -135,6 +155,11 @@ class Mat(object):
         A = numpy.identity(n)
         return cls(A)
 
+    @classmethod
+    def zeros(cls, rows, cols):
+        A = numpy.zeros((rows, cols))
+        return Mat(A)
+
     def is_identity(self):
         n = len(self)
         A = numpy.identity(n)
@@ -166,6 +191,11 @@ class Mat(object):
         A = r*self.A
         return Mat(A)
 
+    def __truediv__(self, r):
+        r = 1./float(r)
+        A = r*self.A
+        return Mat(A)
+
     def __call__(self, v):
         assert len(v) == self.shape[1]
         w = numpy.dot(self.A, v)
@@ -174,6 +204,7 @@ class Mat(object):
     def inv(self):
         A = numpy.linalg.inv(self.A)
         return Mat(A)
+    __invert__ = inv
 
     def __pow__(self, n):
         assert n>=0, "inverse not implemented"
@@ -184,6 +215,15 @@ class Mat(object):
             M = self*M
             n -= 1
         return M
+
+    def order(self):
+        I = Mat.identity(len(self))
+        n = 1
+        A = self
+        while A != I:
+            A = self*A
+            n += 1
+        return n
 
     def __getitem__(self, idx):
         if type(idx) is tuple:
@@ -276,6 +316,34 @@ class Mat(object):
         return M
 
     @classmethod
+    def reflection(cls, *xs):
+        "reflection along an axis"
+        xs = list(xs)
+        n = len(xs) # dimensions
+        v = Mat(xs)
+        v = v.normalized()
+        frame = [v]
+        #for u in [[1,0,0], [0,1,0], [0,0,1]]:
+        for i in range(n):
+            u = [0.]*n
+            u[i] = 1.
+            u = Mat(u)
+            for v0 in frame:
+                u = u - u.dot(v0) * v0
+                r = u.norm()
+                if r < EPSILON:
+                    break
+                u /= r
+            else:
+                frame.append(u)
+        assert len(frame) == n, "umm??"
+        m = - v * v.transpose()
+        for u in frame[1:]:
+            uu = u * u.transpose()
+            m += uu
+        return m
+
+    @classmethod
     def rotate3(cls, angle, x, y, z):
         M = cls.rotate(angle, x, y, z)
         return M.promote(M[:3, :3])
@@ -340,7 +408,7 @@ class Mat(object):
     def norm(self):
         A = self.A
         r = (A*A).sum()**0.5
-        return r
+        return float(r)
 
     def normalized(self):
         r = self.norm()
@@ -358,10 +426,10 @@ class Mat(object):
         return Mat(cs)
 
     def dot(self, other):
-        assert self.shape == (3, 1)
-        assert other.shape == (3, 1)
+        assert self.shape == other.shape
+        assert self.shape[1] == 1
         r = (self.A*other.A).sum()
-        return r
+        return float(r)
 
     @classmethod
     def lookat(cls, eye, center, up):
@@ -447,6 +515,9 @@ class GItem(object):
         self.verts = verts
         self.center = center
         self.address = address
+
+    def crop(self, root, offset=0.):
+        assert 0, "%s.crop not implemented"%(self.__class__.__name__,)
 
     def render(self, cvs):
         pass
@@ -537,11 +608,33 @@ class GMesh(GItem):
 
 class GLine(GItem):
     def __init__(self, v0, v1, lw=1., stroke=(0,0,0,1), address=None):
+        assert isinstance(v0, Mat)
+        assert isinstance(v1, Mat)
         GItem.__init__(self, [v0, v1], address=address)
         self.v0 = v0
         self.v1 = v1
         self.lw = lw
         self.stroke = stroke
+
+    def crop(self, root, offset=0.):
+        v0, v1 = self.v0, self.v1
+        r0, r1 = v0.dot(root), v1.dot(root)
+        a0, a1 = r0 - offset, r1 - offset
+        if a0 >= -EPSILON and a1 >= -EPSILON:
+            gitem = self
+        elif a0 < -EPSILON and a1 < -EPSILON:
+            gitem = None
+        elif a0 < -EPSILON and a1 >= -EPSILON:
+            x = -a0 / (a1 - a0)
+            v0 = x*v0 + (1-x)*v1
+            gitem = GLine(v0, v1, self.lw, self.stroke, self.address)
+        elif a0 >= -EPSILON and a1 < -EPSILON:
+            x = -a1 / (a0 - a1)
+            v1 = (1-x)*v0 + x*v1
+            gitem = GLine(v0, v1, self.lw, self.stroke, self.address)
+        else:
+            assert 0, "wut?!"
+        return gitem
 
     def render(self, view, cvs):
         GItem.render(self, cvs)
@@ -559,6 +652,11 @@ class GCircle(GItem):
         self.lw = lw
         self.fill = fill
         self.stroke = stroke
+
+    def crop(self, root, offset=0.):
+        r = root.dot(self.v0)
+        if r >= offset-EPSILON:
+            return self
 
     def render(self, view, cvs):
         GItem.render(self, cvs)
@@ -758,6 +856,19 @@ class View(object):
         view.model = self.model.copy()
         view.lights = list(self.lights)
         return view
+
+    def crop(self, root, offset=0.):
+        # more testing needed... XXX
+        root = root.normalized()
+        #print("View.crop", root)
+        v = self.trafo_view(Mat([0,0,0,1]))
+        offset = root.dot(v) + offset # is this right for offset!=0 ?
+        gitems = []
+        for gitem in self.gitems:
+            gitem = gitem.crop(root, offset)
+            if gitem is not None:
+                gitems.append(gitem)
+        self.gitems = gitems
     
     def perspective(self, fovy=45.):
         width, height = self.viewport[2:]
