@@ -76,6 +76,11 @@ class Bound(Base):
         ury = self.ury / SCALE_CM_TO_POINT
         return Bound(llx, lly, urx, ury)
 
+    def apply_matrix(self, m):
+        llx, lly = m.transform_point(self.llx, self.lly)
+        urx, ury = m.transform_point(self.urx, self.ury)
+        return Bound(llx, lly, urx, ury)
+
     def nonempty(self):
         return (self.llx is not None or self.lly is not None or 
             self.urx is not None or self.ury is not None)
@@ -90,6 +95,14 @@ class Bound(Base):
     @property
     def center(self):
         return 0.5*(self.llx + self.urx), 0.5*(self.lly + self.ury)
+
+    @property
+    def north(self):
+        return 0.5*(self.llx + self.urx), self.ury
+
+    @property
+    def south(self):
+        return 0.5*(self.llx + self.urx), self.lly
 
     @property
     def width(self):
@@ -112,6 +125,10 @@ class Bound(Base):
 
 
 class Visitor(object):
+    def push(self, item):
+        pass
+    def pop(self):
+        pass
     def on_visit(self, item):
         return item
 
@@ -176,6 +193,26 @@ class Replacer(Visitor):
         return item
 
 
+class TrafoVisit(Visitor):
+    "keep track of a Matrix transform"
+    def __init__(self, find):
+        self.find = find
+        self.m = Matrix()
+        self.stack = []
+        self.result = None
+    def push(self, item):
+        self.stack.append(self.m)
+    def pop(self):
+        self.m = self.stack.pop()
+    def on_visit(self, item):
+        if item is self.find:
+            self.result = self.m
+        elif isinstance(item, Transform):
+            m = item.get_matrix()
+            self.m = m*self.m # a*b or b*a ?
+
+
+
 # ----------------------------------------------------------------------------
 # 
 #
@@ -230,6 +267,7 @@ class Item(Base):
     def __hash__(self):
         # XXX this is not in agreement with __eq__/__ne__
         return id(self)
+
 
 
 class Empty(Item):
@@ -555,10 +593,12 @@ class Compound(Item):
 
     def visit(self, visitor, leaves_only=True):
         # depth first visit
+        visitor.push(self)
         for item in self.items:
             item.visit(visitor, leaves_only) # recurse
         if not leaves_only:
             Item.visit(self, visitor, leaves_only)
+        visitor.pop()
 
     def pstr(self, indent=0):
         lines = []
@@ -600,6 +640,18 @@ class Compound(Item):
         visitor = PathVisitor()
         self.visit(visitor)
         return Path(*visitor.items)
+
+    def find_bound_box(self, item):
+        "find the bound box of an item contained within self"
+        visitor = TrafoVisit(item)
+        self.visit(visitor, False)
+        m = visitor.result
+        if m is None:
+            return None
+        bb = item.get_bound_box()
+        bb = bb.apply_matrix(m)
+        return bb
+
 
 
 class PathVisitor(Visitor):

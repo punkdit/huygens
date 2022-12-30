@@ -144,7 +144,7 @@ def rgbhex(spec):
     r, g, b = [1.*int(spec[2*i:2*i+2], 16)/255. for i in range(3)]
     return RGB(r, g, b)
 
-color = NS(rgb=RGBA, rgba=RGBA, rgbhex=rgbhex)
+color = NS(rgb=RGBA, rgba=RGBA, rgbfromhexstring=rgbhex)
 
 
 style = NS(
