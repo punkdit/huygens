@@ -607,7 +607,7 @@ class GMesh(GItem):
 
 
 class GLine(GItem):
-    def __init__(self, v0, v1, lw=1., stroke=(0,0,0,1), address=None):
+    def __init__(self, v0, v1, lw=1., stroke=(0,0,0,1), st_stroke=[], address=None):
         assert isinstance(v0, Mat)
         assert isinstance(v1, Mat)
         GItem.__init__(self, [v0, v1], address=address)
@@ -615,6 +615,7 @@ class GLine(GItem):
         self.v1 = v1
         self.lw = lw
         self.stroke = stroke
+        self.st_stroke = list(st_stroke)
 
     def crop(self, root, offset=0.):
         v0, v1 = self.v0, self.v1
@@ -627,11 +628,11 @@ class GLine(GItem):
         elif a0 < -EPSILON and a1 >= -EPSILON:
             x = -a0 / (a1 - a0)
             v0 = x*v0 + (1-x)*v1
-            gitem = GLine(v0, v1, self.lw, self.stroke, self.address)
+            gitem = GLine(v0, v1, self.lw, self.stroke, self.st_stroke, self.address)
         elif a0 >= -EPSILON and a1 < -EPSILON:
             x = -a1 / (a0 - a1)
             v1 = (1-x)*v0 + x*v1
-            gitem = GLine(v0, v1, self.lw, self.stroke, self.address)
+            gitem = GLine(v0, v1, self.lw, self.stroke, self.st_stroke, self.address)
         else:
             assert 0, "wut?!"
         return gitem
@@ -641,7 +642,8 @@ class GLine(GItem):
         (x0, y0), (x1, y1) = view.trafo_canvas(self.v0), view.trafo_canvas(self.v1)
         p = path.line(x0, y0, x1, y1)
         p.address = self.address
-        cvs.stroke(p, [LineWidth(self.lw),RGBA(*self.stroke), style.linecap.round])
+        st = [LineWidth(self.lw), RGBA(*self.stroke), style.linecap.round] + self.st_stroke 
+        cvs.stroke(p, st)
 
         
 class GCircle(GItem):
