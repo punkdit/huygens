@@ -930,6 +930,16 @@ class RGBA(Deco):
         return rgb
     __radd__ = __add__
 
+    def get_hex(self):
+        s = ""
+        for c in self.cl[:3]:
+            c = int(round(c*255))
+            c = hex(c)[2:]
+            if len(c)==1:
+                c = "0"+c
+            s += c.upper()
+        return "#"+s
+
     def process_cairo(self, cxt):
         cxt.set_source_rgba(*self.cl)
 
