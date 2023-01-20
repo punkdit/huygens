@@ -122,7 +122,7 @@ class Bound(Base):
 
     @property
     def southeast(self):
-        return self.urx, self.ury
+        return self.urx, self.lly
 
     @property
     def southwest(self):
