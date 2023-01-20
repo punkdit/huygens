@@ -113,6 +113,22 @@ class Bound(Base):
         return self.llx, 0.5*(self.lly + self.ury)
 
     @property
+    def northeast(self):
+        return self.urx, self.ury
+
+    @property
+    def northwest(self):
+        return self.llx, self.ury
+
+    @property
+    def southeast(self):
+        return self.urx, self.ury
+
+    @property
+    def southwest(self):
+        return self.llx, self.lly
+
+    @property
     def width(self):
         return self.urx - self.llx
 
