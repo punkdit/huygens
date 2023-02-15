@@ -344,6 +344,11 @@ class Atom(object):
         cvs = item.render_cvs(pos, eyepos, lookat, up, weld, ortho)
         return cvs
 
+    def str(self, depth=0, rev=True):
+        return "%s%s(%s, %s)"%(
+            "  "*depth,
+            self.__class__.__name__, self.src.name, self.tgt.name)
+
 
 class Compound(object):
     def __len__(self):
@@ -391,9 +396,10 @@ class Compound(object):
         for cell in self.cells:
             cell.traverse(cb, depth+1, full)
 
-    def str(self, depth=0):
+    def str(self, depth=0, rev=True):
         lines = [Atom.str(self, depth)]
-        lines += [cell.str(depth+1) for cell in self.cells]
+        cells = reversed(self.cells) if rev else self.cells
+        lines += [cell.str(depth+1) for cell in cells]
         return "\n".join(lines)
 
 
