@@ -297,6 +297,12 @@ class Atom(object):
     def traverse(self, cb, depth=0, full=True):
         cb(self, depth)
 
+    def rewrite(self, cb):
+        cell = cb(self)
+        #assert cell.src.name == self.src.name # ?
+        #assert cell.tgt.name == self.tgt.name # ?
+        return self if cell is None else cell
+
     def __call__(self, **kw):
         self = self.deepclone() # **kw for deepclone ?
         name = self.name
@@ -345,9 +351,9 @@ class Atom(object):
         return cvs
 
     def str(self, depth=0, rev=True):
-        return "%s%s(%s, %s)"%(
+        return "%s%s(%s, %s, %s)"%(
             "  "*depth,
-            self.__class__.__name__, self.src.name, self.tgt.name)
+            self.__class__.__name__, self.tgt.name, self.src.name, hex(id(self)))
 
 
 class Compound(object):
@@ -396,7 +402,14 @@ class Compound(object):
         for cell in self.cells:
             cell.traverse(cb, depth+1, full)
 
-    def str(self, depth=0, rev=True):
+    def rewrite(self, cb):
+        # depth-first rewrite
+        cells = [cell.rewrite(cb) for cell in self.cells]
+        cell = self.__class__(cells)
+        cell = Atom.rewrite(self, cb)
+        return cell
+
+    def str(self, depth=0, rev=False):
         lines = [Atom.str(self, depth)]
         cells = reversed(self.cells) if rev else self.cells
         lines += [cell.str(depth+1) for cell in cells]
