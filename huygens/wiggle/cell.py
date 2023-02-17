@@ -611,6 +611,10 @@ class Cell0(Atom):
         check_renderable(cell)
         return cell
 
+    @property
+    def i(self):
+        return self.extrude()
+
     def extrude(self, pip_color=None, **kw):
         cell = Cell1(self, self, stroke=None, pip_color=None)
         return cell
@@ -772,6 +776,10 @@ class Cell1(Atom):
         cell = _Cell1(tgt, src, self.name, **kw)
         check_renderable(cell)
         return cell
+
+    @property
+    def i(self):
+        return self.extrude()
 
     def extrude(self, pip_color=None, rigid=False, **kw):
         def on_constrain(cell, system):
