@@ -657,7 +657,7 @@ class _Cell0(Cell0, Render):
 class DCell0(Compound, Cell0):
     def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        name = "@".join(cell.name for cell in cells) or "ii"
+        name = "@".join(cell.name for cell in cells) or "ident"
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
@@ -719,7 +719,7 @@ class _DCell0(DCell0, _Compound, _Cell0):
 
 setop(Cell0, "__matmul__", DCell0)
 
-Cell0.ii = DCell0([])
+Cell0.ident = DCell0([])
 
 
 
@@ -2288,7 +2288,7 @@ def test():
     #assert m != n
     #assert m@m == m@m
 
-    ii = Cell0.ii
+    ident = Cell0.ident
     mm = m@m
     mmm = m@m@m
     mmmm = m@m@m@m
@@ -2314,11 +2314,11 @@ def test():
     cell = Cell2(cell, Cell1(mm,m))
 
 
-    mm_ = Cell1(mm, ii)
+    mm_ = Cell1(mm, ident)
     m_m = Cell1(m, m)
     mm_m = Cell1(mm, m)
-    _mm = Cell1(ii, mm)
-    _m = Cell1(ii, m)
+    _mm = Cell1(ident, mm)
+    _m = Cell1(ident, m)
     cell = Cell2(_mm, _mm) << Cell2(mm_, mm_)
     cell = Cell2(m_m, (m_m @ _m) << mm_m)
 
@@ -2347,11 +2347,11 @@ def test():
 
 def test_match():
 
-    ii = Cell0.ii
+    ident = Cell0.ident
     n = Cell0("n", fill=grey, stroke=(0,0,0,1))
     k = Cell0("k", fill=grey, stroke=(0,0,0,1))
-    _n = Cell1(ii, n)
-    n_ = Cell1(n, ii)
+    _n = Cell1(ident, n)
+    n_ = Cell1(n, ident)
     nn_n = Cell1(n@n, n)
     n_nn = Cell1(n, n@n)
     n_n = Cell1(n, n, pip_color=None, stroke=None)
@@ -2404,8 +2404,8 @@ def more_test():
     cell = cell @ cell
 
     # i don't think we can handle bubbles... 
-    ii = Cell0.ii
-    bubble = Cell1(ii, m@m) << Cell1(m@m, ii)
+    ident = Cell0.ident
+    bubble = Cell1(ident, m@m) << Cell1(m@m, ident)
 
     cell = bubble
 
@@ -2516,9 +2516,9 @@ def test_render():
 
 if __name__ == "__main__":
     print("\n")
-    #test()
-    #test_match()
-    #more_test()
+    test()
+    test_match()
+    more_test()
     test_render()
 
     print("OK\n")
