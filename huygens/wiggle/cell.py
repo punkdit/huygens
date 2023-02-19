@@ -773,7 +773,7 @@ class Cell1(Atom):
         kw["skip"] = self.skip
         kw["on_constrain"] = self.on_constrain
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
-        cell = _Cell1(tgt, src, self.name, **kw)
+        cell = _Cell1(tgt, src, **kw)
         check_renderable(cell)
         return cell
 
