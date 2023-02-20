@@ -611,6 +611,13 @@ class Cell0(Atom):
         check_renderable(cell)
         return cell
 
+#    # FAIL FAIL FAIL
+#    @property
+#    def i(self):
+#        cell = self(skip = True)
+#        cell = Cell1(cell, cell, stroke=None, pip_color=None, skip=True)
+#        return cell
+
     @property
     def i(self):
         return self.extrude()
