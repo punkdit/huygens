@@ -1096,7 +1096,7 @@ class _DCell1(DCell1, _Compound, _Cell1):
         _Compound.pre_constrain(self, system, depth, verbose) # constrain children
         add = system.add
         y = self.pip_y - self.front
-        w = 1./len(self)
+        w = 1./len(self) if len(self) else None
         for cell in self.cells:
 
             #add(self.width == cell.width) # fit width
