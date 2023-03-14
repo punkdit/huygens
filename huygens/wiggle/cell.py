@@ -1307,7 +1307,7 @@ class Cell2(Atom):
         assert isinstance(tgt, Cell1), tgt.__class__.__name__
         assert isinstance(src, Cell1), src.__class__.__name__
         assert tgt.src.name == src.src.name, "%s != %s" % (tgt.src, src.src)
-        assert tgt.tgt.name == src.tgt.name, "%s != %s" % (tgt.tgt, tgt.src)
+        assert tgt.tgt.name == src.tgt.name, "%s != %s" % (tgt.tgt, src.tgt)
         assert "color" not in kw, "this is called pip_color now"
         assert "show_pip" not in kw, "just set pip_color to None"
         if name is None:
