@@ -27,6 +27,13 @@ st_grey = [grey]
 st_darkgrey = [darkgrey]
 st_black = [black]
 
+st_bevel = st_joinbevel = [style.linejoin.bevel]
+st_miter = st_joinmiter = [style.linejoin.miter]
+st_joinround = [style.linejoin.round]
+st_butt = st_capbutt = [style.linecap.butt]
+st_capround = [style.linecap.round]
+st_square = st_capsquare = [style.linecap.square]
+
 st_round = [style.linecap.round, style.linejoin.round]
 
 st_dashed = [style.linestyle.dashed]

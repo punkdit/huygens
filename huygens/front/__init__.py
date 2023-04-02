@@ -389,7 +389,10 @@ class Canvas(Compound):
         surface = self._write_cairo(method, name)
         surface.finish()
 
-    def writePNGfile(self, name, trim=1):
+    def writePNGfile(self, name, trim=1, bg=None):
+        if bg is not None:
+            bb = self.get_bound_box()
+            self = Canvas().fill(path.rect(bb.llx, bb.lly, bb.width, bb.height), [bg]).append(self)
         if name=="/dev/null" or name.endswith(".png"):
             pass
         else:
