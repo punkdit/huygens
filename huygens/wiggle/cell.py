@@ -2556,10 +2556,10 @@ def test_weld():
 if __name__ == "__main__":
     print("\n")
 
-    #test()
-    #test_match()
-    #more_test()
-    #test_render()
+    test()
+    test_match()
+    more_test()
+    test_render()
     test_weld()
 
     print("OK\n")
