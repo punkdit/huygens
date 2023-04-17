@@ -2524,17 +2524,43 @@ def test_render():
     cvs = f.render_cvs(pos="northwest")
     cvs.writePDFfile("test_render.pdf")
 
-    return
+
+
+def test_weld():
+
+    print("test_weld()")
+    scheme = "ff5e5b-d8d8d8-ffffea-00cecb-ffed66"
+    scheme = scheme.split("-")
+    scheme = [color.rgbhex(rgb).alpha(0.5) for rgb in scheme]
+
+    A = Cell0("A", stroke=None, fill=scheme[0])
+    B = Cell0("B", stroke=None, fill=scheme[1])
+    i_A = Cell1(A, A, stroke=None, pip_color=None) # st_dotted ??
+    i_B = Cell1(B, B, stroke=None, pip_color=None) # st_dotted ??
+    f = Cell1(B, A, pip_color=None)
+    g = Cell1(A, B, pip_color=None)
+    e = Cell2(i_A, g<<f)
+    i = Cell2(i_B, f<<g)
+    e_op = e.v_op()
+    i_op = i.v_op()
+
+    cell = i*i_op
+    item = cell.layout()
+    cvs = item.render_cvs(weld=True)
+    
+    cvs.writePDFfile("test_weld.pdf")
 
 
 
 
 if __name__ == "__main__":
     print("\n")
-    test()
-    test_match()
-    more_test()
-    test_render()
+
+    #test()
+    #test_match()
+    #more_test()
+    #test_render()
+    test_weld()
 
     print("OK\n")
 

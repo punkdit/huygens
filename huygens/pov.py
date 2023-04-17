@@ -800,7 +800,11 @@ class GSurface(GItem):
         rev_seg = lambda seg : tuple(reversed(seg))
         right = [rev_seg(seg) for seg in reversed(right)]
         segments = left + right
-        return GSurface(segments, self.fill, self.stroke)
+        try:
+            return GSurface(segments, self.fill, self.stroke)
+        except AssertionError:
+            print("huygens.pov.GSurface.weld: AssertionError")
+
 
 
 #class GBall(GItem):
