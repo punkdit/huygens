@@ -77,37 +77,42 @@ def make_text(text, tex_engine="pdftex"):
     cache = "__huygens__"
     if not file_exists(cache):
         os.mkdir(cache)
+
     os.chdir(cache) # <---------- chdir <-----
 
-    if tex_engine == "pdftex" or tex_engine == "xetex":
-        output = tex_output(text)
-    elif tex_engine=="pdflatex":
-        output = latex_output(text)
-    elif tex_engine == "xelatex":
-        output = xelatex_output(text)
-    else:
-        assert 0, tex_engine
+    try:
 
-    data = output.encode('utf-8')
-    stem = hashlib.sha1(data).hexdigest()
-
-    tex_name = "%s.tex"%stem
-    svg_name = "%s.svg"%stem
-    pdf_name = "%s.pdf"%stem
-
-    if not file_exists(svg_name):
-
-        f = open(tex_name, 'w')
-        print(output, file=f)
-        f.close()
+        if tex_engine == "pdftex" or tex_engine == "xetex":
+            output = tex_output(text)
+        elif tex_engine=="pdflatex":
+            output = latex_output(text)
+        elif tex_engine == "xelatex":
+            output = xelatex_output(text)
+        else:
+            assert 0, tex_engine
     
-        command("%s %s"%(tex_engine, tex_name))
-        command("pdf2svg %s %s" % (pdf_name, svg_name))
+        data = output.encode('utf-8')
+        stem = hashlib.sha1(data).hexdigest()
+    
+        tex_name = "%s.tex"%stem
+        svg_name = "%s.svg"%stem
+        pdf_name = "%s.pdf"%stem
+    
+        if not file_exists(svg_name):
+    
+            f = open(tex_name, 'w')
+            print(output, file=f)
+            f.close()
+        
+            command("%s %s"%(tex_engine, tex_name))
+            command("pdf2svg %s %s" % (pdf_name, svg_name))
+    
+        from huygens import loadsvg
+        item = loadsvg.loadsvg(svg_name)
 
-    from huygens import loadsvg
-    item = loadsvg.loadsvg(svg_name)
+    finally:
 
-    os.chdir("..") # <---------- chdir <-----
+        os.chdir("..") # <---------- chdir <-----
 
     return item
 
