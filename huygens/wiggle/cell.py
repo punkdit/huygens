@@ -315,6 +315,25 @@ class Atom(object):
     def all_atoms(self):
         yield self
 
+    @property
+    def level(self):
+        if isinstance(self, Cell0):
+            return 0
+        if isinstance(self, Cell1):
+            return 1
+        if isinstance(self, Cell2):
+            return 2
+        assert 0, "wup"
+        return None
+
+    @staticmethod
+    def unify(lhs, rhs):
+        while lhs.level < rhs.level:
+            lhs = lhs.i
+        while lhs.level > rhs.level:
+            rhs = rhs.i
+        return lhs, rhs 
+
     def h_rev(self):
         "horizontal reverse"
         return self.deepclone(h_rev=True)
@@ -416,10 +435,10 @@ class Compound(object):
         return "\n".join(lines)
 
 
-def setop(cls, opname, parent):
-    def meth(left, right):
-        return parent([left, right])
-    setattr(cls, opname, meth)
+#def setop(cls, opname, parent):
+#    def meth(left, right):
+#        return parent([left, right])
+#    setattr(cls, opname, meth)
 
 
 def dbg_constrain(self, depth):
@@ -595,6 +614,12 @@ class Cell0(Atom):
     def __getitem__(self, idx):
         return [self][idx]
 
+    def __matmul__(self, other):
+        if self.level != other.level:
+            self, other = Atom.unify(self, other)
+            return self.__matmul__(other)
+        return DCell0([self, other])
+
     def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
         kw = dict(self.__dict__)
         kw["assoc"] = self.assoc
@@ -728,7 +753,7 @@ class _DCell0(DCell0, _Compound, _Cell0):
 
 
 
-setop(Cell0, "__matmul__", DCell0)
+#setop(Cell0, "__matmul__", DCell0)
 
 Cell0.ident = DCell0([])
 
@@ -783,6 +808,18 @@ class Cell1(Atom):
         cell = _Cell1(tgt, src, **kw)
         check_renderable(cell)
         return cell
+
+    def __matmul__(self, other):
+        if self.level != other.level:
+            self, other = Atom.unify(self, other)
+            return self.__matmul__(other)
+        return DCell1([self, other])
+
+    def __lshift__(self, other):
+        if self.level != other.level:
+            self, other = Atom.unify(self, other)
+            return self.__lshift__(other)
+        return HCell1([self, other])
 
     @property
     def i(self):
@@ -1284,8 +1321,8 @@ class _HCell1(HCell1, _Compound, _Cell1):
 
 
 
-setop(Cell1, "__matmul__", DCell1)
-setop(Cell1, "__lshift__", HCell1)
+#setop(Cell1, "__matmul__", DCell1)
+#setop(Cell1, "__lshift__", HCell1)
 
 
 
@@ -1335,6 +1372,24 @@ class Cell2(Atom):
         cell = _Cell2(tgt, src, **kw)
         check_renderable(cell)
         return cell
+
+    def __matmul__(self, other):
+        if self.level != other.level:
+            self, other = Atom.unify(self, other)
+            return self.__matmul__(other)
+        return DCell2([self, other])
+
+    def __lshift__(self, other):
+        if self.level != other.level:
+            self, other = Atom.unify(self, other)
+            return self.__lshift__(other)
+        return HCell2([self, other])
+
+    def __mul__(self, other):
+        if self.level != other.level:
+            self, other = Atom.unify(self, other)
+            return self.__mul__(other)
+        return VCell2([self, other])
 
     @property
     def w_units(self): # width units
@@ -2254,9 +2309,9 @@ class _VCell2(VCell2, _Compound, _Cell2):
             cell.render(view)
 
 
-setop(Cell2, "__matmul__", DCell2)
-setop(Cell2, "__lshift__", HCell2)
-setop(Cell2, "__mul__", VCell2)
+#setop(Cell2, "__matmul__", DCell2)
+#setop(Cell2, "__lshift__", HCell2)
+#setop(Cell2, "__mul__", VCell2)
 
 # -------------------------------------------------------
 
