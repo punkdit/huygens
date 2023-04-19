@@ -243,7 +243,7 @@ class Canvas(Compound):
         return self # yes...
 
     def scale(self, sx, sy=None, x=0., y=0.):
-        self.append(Scale(x, y))
+        self.append(Scale(sx, sy, x, y))
         return self # yes...
 
     def rotate(self, angle, x=0., y=0.):

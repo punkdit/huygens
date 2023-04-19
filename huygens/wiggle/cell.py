@@ -2573,10 +2573,13 @@ def test_render():
     cell = Cell2(tgt, l_ll, pip_color=color.rgb(0.5))
     #cell = cell << ll_l.extrude()
     #cell = l_l.extrude() @ cell
-    cell = cell @ l_l.extrude()
 
-    f = cell.layout(width=1.5, height=1, depth=2.)
-    cvs = f.render_cvs(pos="northwest")
+    #cell = cell @ l_l.extrude()
+    #f = cell.layout(width=1.5, height=1, depth=2.)
+
+    f = cell.layout(width=1.0, height=0.7, depth=0.5)
+
+    cvs = f.render_cvs(pos="northeast")
     cvs.writePDFfile("test_render.pdf")
 
 
@@ -2611,11 +2614,11 @@ def test_weld():
 if __name__ == "__main__":
     print("\n")
 
-    test()
-    test_match()
-    more_test()
+#    test()
+#    test_match()
+#    more_test()
     test_render()
-    test_weld()
+#    test_weld()
 
     print("OK\n")
 
