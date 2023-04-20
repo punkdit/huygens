@@ -17,9 +17,6 @@ to define composable elements.
 Geometry and layout of these elements is generated using a linear constraint solver.
 Therefore, this system becomes a declarative graphics layout package.
 
-The huygens package is at an early stage of development, so expect
-things to change drastically and without warning.
-
 User guide
 ----------
 

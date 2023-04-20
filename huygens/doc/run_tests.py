@@ -31,7 +31,7 @@ def run_test(func, dummy=False):
 
     items = func()
 
-    if not isinstance(items, collections.Iterator):
+    if not isinstance(items, collections.abc.Iterator):
         yield TestRun(func, func.__code__.co_firstlineno, result=items)
         return
 
@@ -106,7 +106,7 @@ def harvest(path, name, dummy=False):
     funcs = []
     for attr in dir(m):
         value = getattr(m, attr)
-        if attr.startswith("test_") and isinstance(value, collections.Callable):
+        if attr.startswith("test_") and isinstance(value, collections.abc.Callable):
             funcs.append(value)
 
     funcs.sort(key = lambda f : (f.__module__, f.__code__.co_firstlineno))
