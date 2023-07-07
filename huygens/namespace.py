@@ -54,7 +54,9 @@ st_footnote = [text.size.footnote] # does not work...??
 st_small = [text.size.small] # does not work...??
 st_large = [text.size.large] # does not work...??
 
+st_barrow = [deco.barrow]
 st_arrow = [deco.earrow]
+st_marrow = [deco.marrow]
 
 orange = color.rgb(0.8, 0.2, 0.0)
 st_arrow = [deco.earrow()]

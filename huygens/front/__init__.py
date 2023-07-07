@@ -247,6 +247,7 @@ class Canvas(Compound):
         return self # yes...
 
     def rotate(self, angle, x=0., y=0.):
+        "rotate by angle in radians around point x,y"
         self.append(Rotate(angle, x, y))
         return self # yes...
 
