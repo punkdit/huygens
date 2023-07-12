@@ -40,7 +40,6 @@ grey = (0,0,0,0.2)
 def conv(a, b, alpha=0.5):
     return (1.-alpha)*a + alpha*b
 
-
 """
 
 The default coordinate system we use _looks like this:
@@ -584,6 +583,8 @@ class _Compound(object):
 
 IDENT = "<ident>"
 
+nothing = lambda cell : cell
+
 def check_renderable(cell):
     fail = []
     def callback(cell, depth):
@@ -622,7 +623,7 @@ class Cell0(Atom):
             return self.__matmul__(other)
         return DCell0([self, other])
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = dict(self.__dict__)
         kw["assoc"] = self.assoc
         kw["name"] = self.name
@@ -635,6 +636,7 @@ class Cell0(Atom):
         kw["on_constrain"] = self.on_constrain
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cell = _Cell0(**kw)
+        cell = cb(cell)
         check_renderable(cell)
         return cell
 
@@ -700,7 +702,7 @@ class DCell0(Compound, Cell0):
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = dict(self.__dict__)
         del kw["name"]
         del kw["cells"]
@@ -713,6 +715,7 @@ class DCell0(Compound, Cell0):
         cells = list(reversed(self.cells)) if d_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell0(cells, **kw)
+        cell = cb(cell)
         check_renderable(cell)
         return cell
 
@@ -754,17 +757,19 @@ class _DCell0(DCell0, _Compound, _Cell0):
             y += cell.depth
         add(self.pip_y + self.back == y) # hard equal
 
-Cell0.ident = DCell0([])
+if 1:
+    Cell0.ident = DCell0([])
 
-#class Identity0(DCell0):
-#    def __init__(self):
-#        DCell0.__init__(self, [])
-
-#class Identity0(Cell0):
-#    def __init__(self):
-#        Cell0.__init__(self, IDENT)
-#
-#Cell0.ident = Identity0()
+else:
+    #class Identity0(DCell0):
+    #    def __init__(self):
+    #        DCell0.__init__(self, [])
+    
+    class Identity0(Cell0):
+        def __init__(self):
+            Cell0.__init__(self, IDENT)
+    
+    Cell0.ident = Identity0()
 
 
 
@@ -796,7 +801,7 @@ class Cell1(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         tgt, src = self.tgt, self.src
         if h_rev:
             tgt, src = src, tgt
@@ -815,6 +820,7 @@ class Cell1(Atom):
         kw["on_constrain"] = self.on_constrain
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cell = _Cell1(tgt, src, **kw)
+        cell = cb(cell)
         check_renderable(cell)
         return cell
 
@@ -863,6 +869,16 @@ class Cell1(Atom):
 
     def is_flat(self):
         return self.src.is_flat() and self.tgt.is_flat()
+
+    def insert_identity_src(self, idx):
+        assert 0
+
+    def insert_identity_tgt(self, idx):
+        assert self.__class__ is Cell1
+        tgts = list(self.tgt) if isinstance(self.tgt, DCell0) else [self.tgt]
+        tgts.insert(idx, Cell0.ident)
+        tgt = DCell0(tgts)
+        return Cell1(tgt, self.src)
 
     def layout(self, *args, **kw):
         cell = self.extrude()
@@ -1090,7 +1106,7 @@ class DCell1(Compound, Cell1):
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = {}
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
@@ -1103,6 +1119,7 @@ class DCell1(Compound, Cell1):
             cells = list(reversed(cells))
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell1(cells, **kw)
+        cell = cb(cell)
         if not check_renderable(cell):
             dump(cell)
             assert 0, "found non Render's"
@@ -1194,8 +1211,6 @@ class _DCell1(DCell1, _Compound, _Cell1):
             child.dbg_render(bg)
 
 
-
-
 class HCell1(Compound, Cell1):
     def __init__(self, cells, **kw):
         cells = self._associate(cells)
@@ -1203,16 +1218,75 @@ class HCell1(Compound, Cell1):
         src = cells[-1].src
         i = 0
         while i+1 < len(cells):
-            if cells[i].src.name != cells[i+1].tgt.name:
-                print("HCell1.__init__:", cells[i].src.name, "!=", cells[i+1].tgt.name)
-                msg = ("can't compose %s and %s"%(cells[i], cells[i+1]))
-                raise TypeError(msg)
+            cells[i:i+2] = HCell1.unify(*cells[i:i+2])
             i += 1
         name = "(" + "<<".join(cell.name for cell in cells) + ")"
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    @staticmethod
+    def unify(lhs, rhs):
+        assert isinstance(lhs, Cell1)
+        assert isinstance(rhs, Cell1)
+        src, tgt = lhs.src, rhs.tgt
+        if src.name == tgt.name:
+            return lhs, rhs
+        assert isinstance(src, Cell0)
+        assert isinstance(tgt, Cell0)
+        src = src.cells if isinstance(src, DCell0) else [src]
+        tgt = tgt.cells if isinstance(tgt, DCell0) else [tgt]
+        #print(src, tgt)
+        assert [cell for cell in src if cell.name != IDENT] == [cell for cell in tgt if cell.name !=IDENT]
+        idx = jdx = 0
+        insert_left = []
+        insert_right = []
+        while idx < len(src) or jdx < len(tgt):
+            if idx < len(src) and jdx < len(tgt):
+                left = src[idx]
+                right = tgt[jdx]
+                if left == right:
+                    idx += 1
+                    jdx += 1
+                elif left.name == IDENT:
+                    print("left skip", left, jdx)
+                    insert_right.append(jdx)
+                    idx += 1
+                elif right.name == IDENT:
+                    print("right skip", left, idx)
+                    insert_left.append(idx)
+                    jdx += 1
+                else:
+                    raise TypeError("BOTH: cannot compose %s and %s"%(left, right))
+            elif idx < len(src):
+                left = src[idx]
+                if left.name == IDENT:
+                    print("left skip", left, jdx)
+                    insert_right.append(jdx)
+                    idx += 1
+                else:
+                    raise TypeError("left cannot compose %s" % (left))
+            elif jdx < len(tgt):
+                right = tgt[jdx]
+                if right.name == IDENT:
+                    print("right skip", right, idx)
+                    insert_left.append(idx)
+                    jdx += 1
+                else:
+                    raise TypeError("right cannot compose %s" % (right))
+            else:
+                assert 0
+        #assert len(insert_left) + len(insert_right) == 1, "TODO"
+        #if insert_left:
+        #    idx = insert_left[0]
+        for idx in reversed(insert_left):
+            lhs = lhs.insert_identity_src(idx)
+        for jdx in reversed(insert_right):
+            rhs = rhs.insert_identity_tgt(jdx)
+        return lhs, rhs
+        #msg = ("FINAL: can't compose %s and %s"%(lhs, rhs))
+        #raise TypeError(msg)
+
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = {}
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
@@ -1223,6 +1297,7 @@ class HCell1(Compound, Cell1):
         cells = list(reversed(self.cells)) if h_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _HCell1(cells, **kw)
+        cell = cb(cell)
         check_renderable(cell)
         return cell
 
@@ -1362,7 +1437,7 @@ class Cell2(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = {}
         kw["assoc"] = self.assoc
         kw["DEBUG"] = self.DEBUG
@@ -1378,6 +1453,7 @@ class Cell2(Atom):
         tgt = tgt.translate(h_rev, v_rev, d_rev)
         src = src.translate(h_rev, v_rev, d_rev)
         cell = _Cell2(tgt, src, **kw)
+        cell = cb(cell)
         check_renderable(cell)
         return cell
 
@@ -1995,7 +2071,7 @@ class DCell2(Compound, Cell2):
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
@@ -2004,6 +2080,7 @@ class DCell2(Compound, Cell2):
         cells = list(reversed(self.cells)) if d_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell2(cells, **kw)
+        cell = cb(cell)
         check_renderable(cell)
         return cell
 
@@ -2092,7 +2169,7 @@ class HCell2(Compound, Cell2):
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
@@ -2101,6 +2178,7 @@ class HCell2(Compound, Cell2):
         cells = list(reversed(self.cells)) if h_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _HCell2(cells, **kw)
+        cell = cb(cell)
         check_renderable(cell)
         return cell
 
@@ -2205,7 +2283,7 @@ class VCell2(Compound, Cell2):
             #    #print("VCell2.__init__: WARNING", msg)
             i += 1
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
@@ -2214,6 +2292,7 @@ class VCell2(Compound, Cell2):
         cells = list(reversed(self.cells)) if v_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _VCell2(cells, **kw)
+        cell = cb(cell)
         check_renderable(cell)
         return cell
 

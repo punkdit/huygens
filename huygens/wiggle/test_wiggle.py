@@ -57,6 +57,7 @@ def test_compose_units():
 
     cell = (M @ unit(N)) << M
     dump(cell)
+    cell.render_cvs(pos="northeast").writePDFfile("test")
     return
 
     cell = (unit(N) @ M) << M
