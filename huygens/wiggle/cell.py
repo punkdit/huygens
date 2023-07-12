@@ -73,7 +73,7 @@ These all have "shadow" classes that actually do the layout & rendering
 We need this shadow hierarchy because the user can reuse (alias) object's
 when building a term (a compound 2-cell),
 but when rendering we need a unique cell object for each occurance of a cell in a 
-compound cell. This transition is accomplished by the .deepclone method.
+compound cell. This transition is accomplished by the .translate method.
 Think of this like how a copiler translates from a high level syntax
 to a lower level syntax.
 
@@ -304,13 +304,16 @@ class Atom(object):
         return self if cell is None else cell
 
     def __call__(self, **kw):
-        self = self.deepclone() # **kw for deepclone ?
+        self = self.translate() # **kw for translate ?
         name = self.name
         if "name" in kw:
             name = kw["name"]
             del kw["name"]
         Atom.__init__(self, name, **kw)
         return self
+
+    def deepclone(self, **kw):
+        assert 0, "method renamed as .translate"
 
     def all_atoms(self):
         yield self
@@ -336,17 +339,17 @@ class Atom(object):
 
     def h_rev(self):
         "horizontal reverse"
-        return self.deepclone(h_rev=True)
+        return self.translate(h_rev=True)
     h_op = h_rev
 
     def v_rev(self):
         "vertical reverse"
-        return self.deepclone(v_rev=True)
+        return self.translate(v_rev=True)
     v_op = v_rev
 
     def d_rev(self):
         "depth-wise reverse"
-        return self.deepclone(d_rev=True)
+        return self.translate(d_rev=True)
     d_op = d_rev
 
     def is_flat(self):
@@ -614,7 +617,7 @@ class Cell0(Atom):
             return self.__matmul__(other)
         return DCell0([self, other])
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         kw = dict(self.__dict__)
         kw["assoc"] = self.assoc
         kw["name"] = self.name
@@ -691,7 +694,7 @@ class DCell0(Compound, Cell0):
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         kw = dict(self.__dict__)
         del kw["name"]
         del kw["cells"]
@@ -702,7 +705,7 @@ class DCell0(Compound, Cell0):
         kw["skip"] = self.skip
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cells = list(reversed(self.cells)) if d_rev else self.cells
-        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
+        cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell0(cells, **kw)
         check_renderable(cell)
         return cell
@@ -779,12 +782,12 @@ class Cell1(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         tgt, src = self.tgt, self.src
         if h_rev:
             tgt, src = src, tgt
-        tgt = tgt.deepclone(h_rev, v_rev, d_rev)
-        src = src.deepclone(h_rev, v_rev, d_rev)
+        tgt = tgt.translate(h_rev, v_rev, d_rev)
+        src = src.translate(h_rev, v_rev, d_rev)
         kw = {}
         kw["assoc"] = self.assoc
         kw["weight"] = self.weight
@@ -1073,7 +1076,7 @@ class DCell1(Compound, Cell1):
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
@@ -1084,7 +1087,7 @@ class DCell1(Compound, Cell1):
         cells = self.cells
         if d_rev:
             cells = list(reversed(cells))
-        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
+        cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell1(cells, **kw)
         if not check_renderable(cell):
             dump(cell)
@@ -1194,7 +1197,7 @@ class HCell1(Compound, Cell1):
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
@@ -1203,7 +1206,7 @@ class HCell1(Compound, Cell1):
         kw["on_constrain"] = self.on_constrain
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
         cells = list(reversed(self.cells)) if h_rev else self.cells
-        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
+        cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _HCell1(cells, **kw)
         check_renderable(cell)
         return cell
@@ -1343,7 +1346,7 @@ class Cell2(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         kw["assoc"] = self.assoc
         kw["DEBUG"] = self.DEBUG
@@ -1356,8 +1359,8 @@ class Cell2(Atom):
         src, tgt = self.src, self.tgt
         if v_rev:
             src, tgt = tgt, src
-        tgt = tgt.deepclone(h_rev, v_rev, d_rev)
-        src = src.deepclone(h_rev, v_rev, d_rev)
+        tgt = tgt.translate(h_rev, v_rev, d_rev)
+        src = src.translate(h_rev, v_rev, d_rev)
         cell = _Cell2(tgt, src, **kw)
         check_renderable(cell)
         return cell
@@ -1409,7 +1412,7 @@ class Cell2(Atom):
     def layout(self, *args, **kw):
         if self.did_layout:
             return self
-        cell = self.deepclone()
+        cell = self.translate()
         Render.layout(cell, *args, **kw)
         return cell
 
@@ -1976,14 +1979,14 @@ class DCell2(Compound, Cell2):
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
         cells = list(reversed(self.cells)) if d_rev else self.cells
-        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
+        cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell2(cells, **kw)
         check_renderable(cell)
         return cell
@@ -2073,14 +2076,14 @@ class HCell2(Compound, Cell2):
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
         cells = list(reversed(self.cells)) if h_rev else self.cells
-        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
+        cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _HCell2(cells, **kw)
         check_renderable(cell)
         return cell
@@ -2186,14 +2189,14 @@ class VCell2(Compound, Cell2):
             #    #print("VCell2.__init__: WARNING", msg)
             i += 1
 
-    def deepclone(self, h_rev=False, v_rev=False, d_rev=False):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False):
         kw = {}
         kw["assoc"] = self.assoc
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
         cells = list(reversed(self.cells)) if v_rev else self.cells
-        cells = [cell.deepclone(h_rev, v_rev, d_rev) for cell in cells]
+        cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _VCell2(cells, **kw)
         check_renderable(cell)
         return cell
@@ -2337,7 +2340,7 @@ def test():
     o = Cell0("o")
     p = Cell0("p")
 
-    l = l.deepclone()
+    l = l.translate()
 
     assert str(m@n) == "m@n", str(m@n)
     #assert m != n
@@ -2353,7 +2356,7 @@ def test():
 
     f = Cell2(B, B)
 
-    assert str(mm.deepclone()) == "m@m"
+    assert str(mm.translate()) == "m@m"
 
     #cell = Cell2(B, AA) * Cell2(AA, A)
     #cell = cell @ (f*f*f)
@@ -2362,7 +2365,7 @@ def test():
     cell = Cell1(mm,mm) << Cell1(mm,mm)
     cell = Cell1(mm,mm)<<((Cell1(m,mmm)) @ Cell1(m,m)) << Cell1(mmmm,m)
 
-    c = cell.deepclone()
+    c = cell.translate()
     assert str(cell) == str(c)
 
 
@@ -2377,7 +2380,7 @@ def test():
     cell = Cell2(_mm, _mm) << Cell2(mm_, mm_)
     cell = Cell2(m_m, (m_m @ _m) << mm_m)
 
-    c = cell.deepclone()
+    c = cell.translate()
     #show_uniq(cell)
     #show_uniq(c)
 

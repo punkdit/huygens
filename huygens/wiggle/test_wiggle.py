@@ -18,7 +18,7 @@ scheme = [grey, blue, yellow, red, pink] # colour scheme
 
 
 def dump(cell):
-    cell = cell.deepclone()
+    cell = cell.translate()
     print(cell)
     for path in cell.get_paths():
         print("\t", ' '.join(str(c) for c in path))
@@ -67,8 +67,8 @@ def test_compose_units():
     bot = (l_unit(M) @ mul(N).i) << (pull_over(unit(N), M) @ N.i.i)
     top = (M.i.i @ l_unit(N))
 
-    lhs = top.src.deepclone()
-    rhs = bot.tgt.deepclone()
+    lhs = top.src.translate()
+    rhs = bot.tgt.translate()
 
     dump(lhs)
     dump(rhs)
