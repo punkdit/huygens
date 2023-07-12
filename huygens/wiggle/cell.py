@@ -435,12 +435,6 @@ class Compound(object):
         return "\n".join(lines)
 
 
-#def setop(cls, opname, parent):
-#    def meth(left, right):
-#        return parent([left, right])
-#    setattr(cls, opname, meth)
-
-
 def dbg_constrain(self, depth):
     print("  "*depth, "%s.pre_constrain"%(self.__class__.__name__), self.name)
 
@@ -752,8 +746,6 @@ class _DCell0(DCell0, _Compound, _Cell0):
         add(self.pip_y + self.back == y) # hard equal
 
 
-
-#setop(Cell0, "__matmul__", DCell0)
 
 Cell0.ident = DCell0([])
 
@@ -1257,6 +1249,7 @@ class _HCell1(HCell1, _Compound, _Cell1):
         #print("_HCell1.get_paths", left, right)
         lpaths = [[] for _ in left.src]
         for lpath in left.get_paths():
+            #print("_HCell1.get_paths: lpath =", lpath)
             if isinstance(lpath[-1], _Cell1):
                 yield lpath
                 continue
@@ -1266,6 +1259,7 @@ class _HCell1(HCell1, _Compound, _Cell1):
             idx = left.src.index(cell0)
             #print("lpaths: idx = ", idx)
             lpaths[idx].append(lpath)
+        #print("_HCell1.get_paths", lpaths)
 
         for rpath in right.get_paths():
             if isinstance(rpath[0], _Cell1):
@@ -1318,11 +1312,6 @@ class _HCell1(HCell1, _Compound, _Cell1):
     def dbg_render(self, cvs):
         for child in self.cells:
             child.dbg_render(cvs)
-
-
-
-#setop(Cell1, "__matmul__", DCell1)
-#setop(Cell1, "__lshift__", HCell1)
 
 
 
@@ -2308,10 +2297,6 @@ class _VCell2(VCell2, _Compound, _Cell2):
             src = True
             cell.render(view)
 
-
-#setop(Cell2, "__matmul__", DCell2)
-#setop(Cell2, "__lshift__", HCell2)
-#setop(Cell2, "__mul__", VCell2)
 
 # -------------------------------------------------------
 
