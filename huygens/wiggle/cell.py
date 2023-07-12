@@ -278,6 +278,9 @@ class Atom(object):
     def __str__(self):
         return self.name
 
+    def __repr__(self):
+        return "%s(%s)"%(self.__class__.__name__, self.name)
+
     def visit(self, callback, cls=None, is_tgt=True, is_src=True, **kw):
         if cls is None or self.__class__ == cls:
             callback(self, is_tgt=is_tgt, is_src=is_src, **kw)
@@ -330,7 +333,7 @@ class Atom(object):
         return None
 
     @staticmethod
-    def unify(lhs, rhs):
+    def elevate(lhs, rhs):
         while lhs.level < rhs.level:
             lhs = lhs.i
         while lhs.level > rhs.level:
@@ -579,6 +582,8 @@ class _Compound(object):
 
 # -------------------------------------------------------
 
+IDENT = "<ident>"
+
 def check_renderable(cell):
     fail = []
     def callback(cell, depth):
@@ -613,7 +618,7 @@ class Cell0(Atom):
 
     def __matmul__(self, other):
         if self.level != other.level:
-            self, other = Atom.unify(self, other)
+            self, other = Atom.elevate(self, other)
             return self.__matmul__(other)
         return DCell0([self, other])
 
@@ -690,7 +695,8 @@ class _Cell0(Cell0, Render):
 class DCell0(Compound, Cell0):
     def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        name = "@".join(cell.name for cell in cells) or "ident"
+        #name = "@".join(cell.name for cell in cells if cell.name != IDENT) or IDENT
+        name = "@".join(cell.name for cell in cells) or IDENT
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
@@ -748,9 +754,17 @@ class _DCell0(DCell0, _Compound, _Cell0):
             y += cell.depth
         add(self.pip_y + self.back == y) # hard equal
 
-
-
 Cell0.ident = DCell0([])
+
+#class Identity0(DCell0):
+#    def __init__(self):
+#        DCell0.__init__(self, [])
+
+#class Identity0(Cell0):
+#    def __init__(self):
+#        Cell0.__init__(self, IDENT)
+#
+#Cell0.ident = Identity0()
 
 
 
@@ -806,13 +820,13 @@ class Cell1(Atom):
 
     def __matmul__(self, other):
         if self.level != other.level:
-            self, other = Atom.unify(self, other)
+            self, other = Atom.elevate(self, other)
             return self.__matmul__(other)
         return DCell1([self, other])
 
     def __lshift__(self, other):
         if self.level != other.level:
-            self, other = Atom.unify(self, other)
+            self, other = Atom.elevate(self, other)
             return self.__lshift__(other)
         return HCell1([self, other])
 
@@ -1190,6 +1204,7 @@ class HCell1(Compound, Cell1):
         i = 0
         while i+1 < len(cells):
             if cells[i].src.name != cells[i+1].tgt.name:
+                print("HCell1.__init__:", cells[i].src.name, "!=", cells[i+1].tgt.name)
                 msg = ("can't compose %s and %s"%(cells[i], cells[i+1]))
                 raise TypeError(msg)
             i += 1
@@ -1265,6 +1280,7 @@ class _HCell1(HCell1, _Compound, _Cell1):
         #print("_HCell1.get_paths", lpaths)
 
         for rpath in right.get_paths():
+            #print("_HCell1.get_paths: rpath =", rpath)
             if isinstance(rpath[0], _Cell1):
                 yield rpath
                 continue
@@ -1367,19 +1383,19 @@ class Cell2(Atom):
 
     def __matmul__(self, other):
         if self.level != other.level:
-            self, other = Atom.unify(self, other)
+            self, other = Atom.elevate(self, other)
             return self.__matmul__(other)
         return DCell2([self, other])
 
     def __lshift__(self, other):
         if self.level != other.level:
-            self, other = Atom.unify(self, other)
+            self, other = Atom.elevate(self, other)
             return self.__lshift__(other)
         return HCell2([self, other])
 
     def __mul__(self, other):
         if self.level != other.level:
-            self, other = Atom.unify(self, other)
+            self, other = Atom.elevate(self, other)
             return self.__mul__(other)
         return VCell2([self, other])
 

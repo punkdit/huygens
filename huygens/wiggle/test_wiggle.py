@@ -51,6 +51,10 @@ def test_compose_units():
     #dump(cell.i)
     #return
 
+    cell = M @ unit(N)
+    print(cell.tgt, "<------", cell.src, [str(c) for c in cell.src])
+
+
     cell = (M @ unit(N)) << M
     dump(cell)
     return
@@ -117,7 +121,7 @@ def test_level():
 if __name__ == "__main__":
 
     test_level()
-    test_compose()
+    test_compose_units()
 
     print("OK\n")
 
