@@ -1,8 +1,16 @@
 #!/usr/bin/env python
 
+#from huygens.wiggle import cell_experimental
+#assert 0
+import huygens
+huygens.EXPERIMENTAL = True
+
 from huygens.namespace import *
 from huygens.wiggle import Cell0, Cell1, Cell2
-from huygens.wiggle.strict import l_unit, mul, pull_over, unit, braid_over, pull_over, pull_over_i, assoc
+from huygens.wiggle.strict import l_unit, mul, comul, pull_over, unit, braid_over, pull_over, pull_over_i, assoc
+
+import warnings
+warnings.filterwarnings('ignore')
 
 pink = color.rgba(1.0, 0.37, 0.36, 0.5)
 cream = color.rgba(1.0, 1.0, 0.92, 0.5)
@@ -41,23 +49,54 @@ def test_compose():
     cell.render_cvs()
 
 
+#counter = 0
+#def save(cell):
+#    global counter
+
+def save(cell, name):
+    print("writePDFfile: %s.pdf"%name)
+    cell = cell.layout() # ARGHHH
+    cell.render_cvs(pos="northeast").writePDFfile(name)
+    print()
+    print("_"*79)
+
+
 def test_compose_units():
     M = Cell0("M", fill=scheme[0])
     N = Cell0("N", fill=scheme[1])
 
-    # below fails to compose because of identity 0-cells
+    cell = (M @ unit(N)) << (M.i << M.i)
+    save(cell, "test_0")
 
-    #cell = M @ M @ N
-    #dump(cell.i)
-    #return
+    cell = M.i
+    cell = cell.insert_identity_src(1)
 
-    cell = M @ unit(N)
-    print(cell.tgt, "<------", cell.src, [str(c) for c in cell.src])
+    unitor = Cell2(M.i, mul(M)<<(unit(M) @ M))
+    cell = unitor << Cell1(M,M, stroke=blue, pip_color=blue).i
+    save(cell, "test_unitor")
 
+    #cell = unitor << mul(M)
+    src = mul(M) << comul(M)
+    cell = Cell2(M.i, src)
+    #cell = cell.v_op()
+    counitor = unitor.h_op()
+    cell = unitor << counitor
+    bot = cell.v_op()
+    cell = cell * bot
+    save(cell, "test_mul")
 
-    cell = (M @ unit(N)) << M
-    dump(cell)
-    cell.render_cvs(pos="northeast").writePDFfile("test")
+    cell = M @ unit(N) @ M
+    cell = cell << comul(M)
+    cell = cell.translate()
+    print(cell.src)
+    for path in cell.get_paths():
+        print(path)
+        #for cell in path:
+        #    if isinstance(cell, Cell0) and cell.is_identity():
+        #        print(repr(cell))
+    assert len(list(cell.get_paths())) == 3
+    save(cell, "test_1")
+
     return
 
     cell = (unit(N) @ M) << M

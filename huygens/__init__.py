@@ -42,3 +42,5 @@ def config(text=None, tex_header=None, latex_header=None, xelatex_header=None):
     return prev
 
 
+EXPERIMENTAL = False
+

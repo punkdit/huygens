@@ -527,13 +527,14 @@ class System(object):
             #print("items:", len(leqs))
             solver = Solver(leqs)
             lookup = solver.solve(verbose=verbose)
-            #print(lookup)
-            for (src,tgt) in subs.items():
+            #print("System.solve: lookup =", lookup)
+            for (src, tgt) in subs.items():
                 #print(src, tgt, tgt.evaluate(lookup))
                 assert src.weight==0.
                 if src in lookup:
                     print(src, tgt, lookup[src])
                 assert src not in lookup
+                #print(src, "-->", tgt)
                 lookup[src] = tgt.evaluate(lookup)
         else:
             items = self.items

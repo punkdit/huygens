@@ -12,9 +12,9 @@ from math import pi, sin, cos
 from time import sleep
 import warnings
 
-import huygens
-assert not huygens.EXPERIMENTAL
-#assert 0
+#import sys
+#this = sys.modules[__name__]
+#sys.modules["huygens.wiggle.cell"] = this
 
 from huygens.front import color
 from huygens.sat import System, Listener, Variable
@@ -282,7 +282,7 @@ class Atom(object):
         return self.name
 
     def __repr__(self):
-        return "%s(%s)"%(self.__class__.__name__, self.name)
+        return "%s(%s, %s)"%(self.__class__.__name__, self.name, id(self))
 
     def visit(self, callback, cls=None, is_tgt=True, is_src=True, **kw):
         if cls is None or self.__class__ == cls:
@@ -471,6 +471,8 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
         stem = self.__class__.__name__ + "." + attr
         v = system.listen_var(self, attr, stem, weight, vmin)
         assert getattr(self, attr, None) is None, str(self.__dict__)
+        #if attr=="pip_x":
+        #    print(repr(self), "setattr", attr)
         setattr(self, attr, v)
         return v
 
@@ -545,9 +547,9 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
         return system
 
     did_layout = None
-    def layout(self, *args, callback=None, verbose=False, simplify=True, **kw):
+    def _layout(self, *args, callback=None, verbose=False, simplify=True, **kw):
         # top-level call 
-        #print("Render.layout")
+        #print("Render._layout")
         if self.did_layout:
             #print("already did_layout")
             return self.did_layout
@@ -615,6 +617,11 @@ class Cell0(Atom):
     skip = False
     on_constrain = None
 
+    def __init__(self, name, **kw):
+        Atom.__init__(self, name, **kw)
+#        if self.is_identity() and not flag:
+#            assert self.__class__ is Identity0
+
     def __len__(self):
         return 1
 
@@ -639,10 +646,16 @@ class Cell0(Atom):
         kw["skip"] = self.skip
         kw["on_constrain"] = self.on_constrain
         assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
+        #print("Cell0.translate", repr(self))
         cell = _Cell0(**kw)
         cell = cb(cell)
         check_renderable(cell)
         return cell
+
+    _weak_name = None
+    @property
+    def weak_name(self):
+        return self._weak_name or self.name
 
 #    # FAIL FAIL FAIL
 #    @property
@@ -670,6 +683,9 @@ class Cell0(Atom):
     def is_flat(self):
         return True
 
+    def is_identity(self):
+        return self.name == IDENT
+
     def layout(self, *args, **kw):
         cell = self.extrude2()
         cell = cell.layout(*args, **kw)
@@ -691,6 +707,7 @@ class _Cell0(Cell0, Render):
         Render.pre_constrain(self, system, depth, verbose)
         back = self.listen_var(system, "back")
         front = self.listen_var(system, "front")
+        #print("_Cell0.pre_constrain", back, front)
 
         # put the pip in the middle
         system.add(back == front)
@@ -701,8 +718,8 @@ class _Cell0(Cell0, Render):
 class DCell0(Compound, Cell0):
     def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        #name = "@".join(cell.name for cell in cells if cell.name != IDENT) or IDENT
         name = "@".join(cell.name for cell in cells) or IDENT
+        self._weak_name = "@".join(cell.name for cell in cells if not cell.is_identity())
         Cell0.__init__(self, name, **kw)
         self.cells = cells
 
@@ -750,29 +767,49 @@ class _DCell0(DCell0, _Compound, _Cell0):
             return
         add = system.add
         y = self.pip_y - self.front
-        w = 1./len(self)
+        cells = self.cells
+        #non_ident_cells = [cell for cell in cells if not cell.is_identity()]
+        w = 1./len(cells)
         # Evenly space the pip's along y coord, 
         # _aligned to self pip_x & pip_z
-        for cell in self.cells:
+        for cell in cells:
             add(self.pip_x == cell.pip_x, self.weight) # _align
             add(self.pip_z == cell.pip_z) # _align
-            add(cell.pip_y - cell.front == y, self.weight) # soft equal
-            add(cell.depth == w*self.depth, self.weight) # soft equal
+            if cell.is_identity():
+                add(cell.front==0)
+                add(cell.back==0)
+                add(cell.pip_y==y)
+            else:
+                add(cell.pip_y - cell.front == y, self.weight) # soft equal
+                add(cell.depth == w*self.depth, self.weight) # soft equal
             y += cell.depth
         add(self.pip_y + self.back == y) # hard equal
 
-if 1:
+#class Identity0(DCell0):
+#    def __init__(self):
+#        DCell0.__init__(self, [])
+
+#flag = False
+class Identity0(Cell0):
+    def __init__(self):
+        Cell0.__init__(self, IDENT, stroke=None)
+    
+    def translate(self, *args, **kw):
+#        global flag
+#        flag = True
+        cell = Cell0.translate(self, *args, **kw)
+        cell.__class__ = _Identity0 # wuf !
+        #print("translate", repr(cell))
+#        flag = False
+        return cell
+
+class _Identity0(Identity0, _Cell0):
+    pass
+
+if 0:
     Cell0.ident = DCell0([])
 
 else:
-    #class Identity0(DCell0):
-    #    def __init__(self):
-    #        DCell0.__init__(self, [])
-    
-    class Identity0(Cell0):
-        def __init__(self):
-            Cell0.__init__(self, IDENT)
-    
     Cell0.ident = Identity0()
 
 
@@ -805,8 +842,9 @@ class Cell1(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
-        tgt, src = self.tgt, self.src
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing, src=None, tgt=None):
+        src = self.src if src is None else src
+        tgt = self.tgt if tgt is None else tgt
         if h_rev:
             tgt, src = src, tgt
         tgt = tgt.translate(h_rev, v_rev, d_rev)
@@ -874,20 +912,56 @@ class Cell1(Atom):
     def is_flat(self):
         return self.src.is_flat() and self.tgt.is_flat()
 
-    def insert_identity_src(self, idx):
-        assert 0
-
-    def insert_identity_tgt(self, idx):
-        assert self.__class__ is Cell1
-        tgts = list(self.tgt) if isinstance(self.tgt, DCell0) else [self.tgt]
-        tgts.insert(idx, Cell0.ident)
-        tgt = DCell0(tgts)
-        return Cell1(tgt, self.src)
+    def is_identity(self):
+        return self.src.is_identity() and self.tgt.is_identity()
 
     def layout(self, *args, **kw):
         cell = self.extrude()
         cell = cell.layout(*args, **kw)
         return cell
+
+    # ---------------------------------------------------------
+    # move these to _Cell1 ?
+    def insert_identity_src_spider(self, idx):
+        srcs = list(self.src)
+        srcs.insert(idx, Cell0.ident)
+        src = DCell0(srcs)
+        cell = self.translate(src=src)
+        return cell
+
+    def insert_identity_src(self, idx):
+        assert not hasattr(self, "pip_x")
+        if idx == 0:
+            cell = Cell0.ident.i @ self
+            cell = cell.translate()
+        elif idx == len(self.src):
+            cell = self @ Cell0.ident.i
+            cell = cell.translate()
+        else:
+            assert 0 < idx < len(self.src)
+            cell = self.insert_identity_src_spider(idx)
+        return cell
+
+    def insert_identity_tgt_spider(self, idx):
+        tgts = list(self.tgt)
+        tgts.insert(idx, Cell0.ident)
+        tgt = DCell0(tgts)
+        cell = self.translate(tgt=tgt)
+        return cell
+
+    def insert_identity_tgt(self, idx):
+        assert not hasattr(self, "pip_x")
+        if idx == 0:
+            cell = Cell0.ident.i @ self
+            cell = cell.translate()
+        elif idx == len(self.tgt):
+            cell = self @ Cell0.ident.i
+            cell = cell.translate()
+        else:
+            assert 0 < idx < len(self.tgt)
+            cell = self.insert_identity_tgt_spider(idx)
+        return cell
+    # ---------------------------------------------------------
 
 
 class _Cell1(Cell1, Render):
@@ -913,6 +987,57 @@ class _Cell1(Cell1, Render):
         print("\t", src)
         assert 0
     
+    @staticmethod
+    def path_unify(tgt, src, left, right):
+        if len(left)==len(right):
+            return left, right
+#        for l in left:
+#            print("\tleft:", repr(l))
+#        for r in right:
+#            print("\tright:", repr(r))
+        _left = []
+        _right = []
+        idx = jdx = 0
+        while idx < len(left) or jdx < len(right):
+            if idx < len(left) and jdx < len(right):
+                l = left[idx]
+                r = right[jdx]
+                if l.name == r.name:
+                    _left.append(l)
+                    _right.append(r)
+                    idx += 1
+                    jdx += 1
+                elif l.is_identity():
+                    assert not r.is_identity()
+                    idx += 1
+                elif r.is_identity():
+                    assert not l.is_identity()
+                    jdx += 1
+                else:
+                    tgt.fail_match(src)
+            elif idx < len(left):
+                l = left[idx]
+                if l.is_identity():
+                    idx += 1
+                else:
+                    tgt.fail_match(src)
+            elif jdx < len(right):
+                r = right[jdx]
+                if r.is_identity():
+                    jdx += 1
+                else:
+                    tgt.fail_match(src)
+            else:
+                assert 0
+
+        #tgt.fail_match(src, "tgt path len %d != src path len %d"%(len(left), len(right)))
+#        for l in _left:
+#            print("\tleft:", repr(l), id(l))
+#        for r in _right:
+#            print("\tright:", repr(r), id(r))
+        assert len(_left) == len(_right)
+        return _left, _right
+
     def match(tgt, src):
         assert isinstance(src, Cell1)
         if tgt.name == src.name:
@@ -929,14 +1054,12 @@ class _Cell1(Cell1, Render):
     
         send = {}
         found = set() # XXX just use send
-        for (left,right) in zip(lhs, rhs):
-          if len(left)!=len(right):
-              for l in left:
-                  print("\tleft:", l)
-              for r in right:
-                  print("\tright:", r)
-              tgt.fail_match(src, 
-                  "tgt path len %d != src path len %d"%(len(left), len(right)))
+        for (left, right) in zip(lhs, rhs):
+          #print(left)
+          #print(right)
+          left, right = _Cell1.path_unify(tgt, src, left, right)
+          #print(left)
+          #print(right)
           li = ri = 0
           while li<len(left) and ri<len(right):
             l, r = left[li], right[ri]
@@ -951,6 +1074,9 @@ class _Cell1(Cell1, Render):
                 tgt.fail_match(src)
             if isinstance(l, Cell1):
                 if (l,r) not in found:
+                    #print((l,r, hasattr(l, "pip_x"), hasattr(r, "pip_x")))
+                    assert hasattr(l, "pip_x"), repr(l)
+                    assert hasattr(r, "pip_x"), repr(r)
                     yield (l,r)
                     found.add((l,r))
             li += 1
@@ -959,6 +1085,7 @@ class _Cell1(Cell1, Render):
     def eq_constrain(self, other, system):
         add = system.add
         for attr in "pip_x pip_y pip_z front back left right".split():
+            assert hasattr(self, attr), (self, id(self), self.__dict__)
             lhs = getattr(self, attr)
             rhs = getattr(other, attr)
             add(lhs == rhs)
@@ -1003,11 +1130,13 @@ class _Cell1(Cell1, Render):
 
     def all_src(self):
         for cell in self.src.all_atoms():
-            yield cell
+            if not cell.is_identity():
+                yield cell
 
     def all_tgt(self):
         for cell in self.tgt.all_atoms():
-            yield cell
+            if not cell.is_identity():
+                yield cell
 
     def dbg_render(self, bg):
         from huygens import namespace as ns
@@ -1053,8 +1182,12 @@ class _Cell1(Cell1, Render):
             view.add_circle(pip1, self.pip_radius, fill=self.pip_color)
 
         tgt, src = self.tgt, self.src
+        #print("_render", (tgt, src))
         for cell in tgt:
+            #print("\t", cell, cell.fill)
             assert isinstance(cell, _Cell0)
+            if cell.is_identity():
+                continue
             color = cell.fill
             pip0 = Mat(cell.pip)
             vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
@@ -1077,7 +1210,10 @@ class _Cell1(Cell1, Render):
                     warnings.warn("_Cell1._render: view.add_curve Exception!")
 
         for cell in src:
+            #print("\t", cell, cell.fill)
             assert isinstance(cell, _Cell0)
+            if cell.is_identity():
+                continue
             color = cell.fill
             pip0 = Mat(cell.pip)
             vpip1 = Mat([conv(pip0[0], pip1[0]), pip0[1], pip0[2]])
@@ -1146,6 +1282,14 @@ class DCell1(Compound, Cell1):
             return False
         return len(self)==0 or self[0].is_flat()
 
+    # ---------------------------------------------------------
+    def insert_identity_src(self, idx):
+        assert 0, "not implemented"
+
+    def insert_identity_tgt(self, idx):
+        assert 0, "not implemented"
+    # ---------------------------------------------------------
+
 
 
 class _DCell1(DCell1, _Compound, _Cell1):
@@ -1181,11 +1325,13 @@ class _DCell1(DCell1, _Compound, _Cell1):
     def all_src(self):
         for cell in self.cells:
           for src in cell.all_src():
+            assert not src.is_identity(), "use continue?"
             yield src
 
     def all_tgt(self):
         for cell in self.cells:
           for tgt in cell.all_tgt():
+            assert not tgt.is_identity(), "use continue?"
             yield tgt
 
     def dbg_render(self, bg):
@@ -1218,18 +1364,19 @@ class _DCell1(DCell1, _Compound, _Cell1):
 class HCell1(Compound, Cell1):
     def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        tgt = cells[0].tgt
-        src = cells[-1].src
         i = 0
         while i+1 < len(cells):
             cells[i:i+2] = HCell1.unify(*cells[i:i+2])
             i += 1
+        tgt = cells[0].tgt
+        src = cells[-1].src
         name = "(" + "<<".join(cell.name for cell in cells) + ")"
         Cell1.__init__(self, tgt, src, name, **kw)
         self.cells = cells
 
     @staticmethod
     def unify(lhs, rhs):
+        "insert ident's so we can compose lhs<<rhs"
         assert isinstance(lhs, Cell1)
         assert isinstance(rhs, Cell1)
         src, tgt = lhs.src, rhs.tgt
@@ -1239,8 +1386,11 @@ class HCell1(Compound, Cell1):
         assert isinstance(tgt, Cell0)
         src = src.cells if isinstance(src, DCell0) else [src]
         tgt = tgt.cells if isinstance(tgt, DCell0) else [tgt]
-        #print(src, tgt)
-        assert [cell for cell in src if cell.name != IDENT] == [cell for cell in tgt if cell.name !=IDENT]
+        l = [cell.name for cell in src if not cell.is_identity()]
+        r = [cell.name for cell in tgt if not cell.is_identity()]
+        if l != r:
+            raise TypeError("cannot compose: %s != %s"%(l,r))
+#        print("HCell1.unify", (lhs, rhs))
         idx = jdx = 0
         insert_left = []
         insert_right = []
@@ -1248,31 +1398,31 @@ class HCell1(Compound, Cell1):
             if idx < len(src) and jdx < len(tgt):
                 left = src[idx]
                 right = tgt[jdx]
-                if left == right:
+                if left.name == right.name:
                     idx += 1
                     jdx += 1
-                elif left.name == IDENT:
-                    print("left skip", left, jdx)
+                elif left.is_identity():
+#                    print("\tleft skip", left, jdx)
                     insert_right.append(jdx)
                     idx += 1
-                elif right.name == IDENT:
-                    print("right skip", left, idx)
+                elif right.is_identity():
+#                    print("\tright skip", left, idx)
                     insert_left.append(idx)
                     jdx += 1
                 else:
                     raise TypeError("BOTH: cannot compose %s and %s"%(left, right))
             elif idx < len(src):
                 left = src[idx]
-                if left.name == IDENT:
-                    print("left skip", left, jdx)
+                if left.is_identity():
+#                    print("\tleft skip", left, jdx)
                     insert_right.append(jdx)
                     idx += 1
                 else:
                     raise TypeError("left cannot compose %s" % (left))
             elif jdx < len(tgt):
                 right = tgt[jdx]
-                if right.name == IDENT:
-                    print("right skip", right, idx)
+                if right.is_identity():
+#                    print("\tright skip", right, idx)
                     insert_left.append(idx)
                     jdx += 1
                 else:
@@ -1282,10 +1432,12 @@ class HCell1(Compound, Cell1):
         #assert len(insert_left) + len(insert_right) == 1, "TODO"
         #if insert_left:
         #    idx = insert_left[0]
+#        print("HCell1.unify", insert_left, insert_right)
         for idx in reversed(insert_left):
             lhs = lhs.insert_identity_src(idx)
         for jdx in reversed(insert_right):
             rhs = rhs.insert_identity_tgt(jdx)
+#        print("HCell1.unify: return ", (lhs, rhs))
         return lhs, rhs
         #msg = ("FINAL: can't compose %s and %s"%(lhs, rhs))
         #raise TypeError(msg)
@@ -1322,6 +1474,14 @@ class HCell1(Compound, Cell1):
             if not cell.is_flat():
                 return False
         return True
+
+    # ---------------------------------------------------------
+    def insert_identity_src(self, idx):
+        assert 0, "not implemented"
+
+    def insert_identity_tgt(self, idx):
+        assert 0, "not implemented"
+    # ---------------------------------------------------------
 
 
 class _HCell1(HCell1, _Compound, _Cell1):
@@ -1400,11 +1560,13 @@ class _HCell1(HCell1, _Compound, _Cell1):
     def all_src(self):
         assert self.cells
         for src in self.cells[-1].all_src():
+            assert not src.is_identity(), "use continue?"
             yield src
 
     def all_tgt(self):
         assert self.cells
         for tgt in self.cells[0].all_tgt():
+            assert not tgt.is_identity(), "use continue?"
             yield tgt
 
     def dbg_render(self, cvs):
@@ -1430,8 +1592,9 @@ class Cell2(Atom):
     def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell1), tgt.__class__.__name__
         assert isinstance(src, Cell1), src.__class__.__name__
-        assert tgt.src.name == src.src.name, "%s != %s" % (tgt.src, src.src)
-        assert tgt.tgt.name == src.tgt.name, "%s != %s" % (tgt.tgt, src.tgt)
+        assert tgt.src.weak_name == src.src.weak_name, "%s != %s, %s != %s" % (
+            tgt.src, src.src, tgt.src.weak_name, src.src.weak_name)
+        assert tgt.tgt.weak_name == src.tgt.weak_name, "%s != %s" % (tgt.tgt, src.tgt)
         assert "color" not in kw, "this is called pip_color now"
         assert "show_pip" not in kw, "just set pip_color to None"
         if name is None:
@@ -1509,7 +1672,7 @@ class Cell2(Atom):
         if self.did_layout:
             return self
         cell = self.translate()
-        Render.layout(cell, *args, **kw)
+        Render._layout(cell, *args, **kw)
         return cell
 
 
@@ -1608,11 +1771,12 @@ class _Cell2(Cell2, Render):
         self.src.visit(_Cell1._render, cls=_Cell1, view=view, parent=self)
 
         if len(l_src) != len(l_tgt) or len(r_src) != len(r_tgt):
-            warnings.warn("_Cell2.render: FAIL", id(self), end=" ")
-            warnings.warn( len(l_src) , len(l_tgt) , end=" ")
-            warnings.warn( len(r_src) , len(r_tgt) )
+            warnings.warn("_Cell2.render: FAIL")
+            warnings.warn(str((len(l_src), len(l_tgt))))
+            warnings.warn(str((len(r_src), len(r_tgt))))
             for surface in surfaces:
                 surface.render(view)
+            return
 
         assert len(l_src) == len(l_tgt)
         assert len(r_src) == len(r_tgt)
@@ -1658,61 +1822,6 @@ class _Cell2(Cell2, Render):
             view.add_cvs(Mat(self.pip), self.pip_cvs)
         elif self.pip_color is not None:
             view.add_circle(Mat(self.pip), self.pip_radius, fill=self.pip_color)
-
-#    # XXX can't we do this by setting attr's and calling .render() ?
-#    def render_boundary(self, view, src=True, tgt=True):
-#        (x0, y0, z0, x1, y1, z1) = self.rect
-#        x01 = conv(x0, x1)
-#        y01 = conv(y0, y1)
-#        z01 = conv(z0, z1)
-#
-#        pip2 = Mat(self.pip)
-#        cone = 1. - self.cone
-#        cone = max(PIP, cone)
-#
-#        def seg_over(v1, v2):
-#            v12 = Mat([v1[0], v1[1], v2[2]]) # a point over v1
-#            line = Segment(v1, v1 + cone*(v12-v1), v2 + cone*(v12-v2), v2)
-#            return line
-#
-#        def callback(self):
-#            assert self.__class__ == _Cell1
-#            color = self.color
-#            pip1 = Mat(self.pip)
-#
-#            line = seg_over(pip1, pip2)
-#            if color is not None:
-#                #view.add_curve(*line, stroke=color)
-#                # show spider (1-cell) pip
-#                if self.pip_color:
-#                    view.add_circle(pip1, self.pip_radius, fill=color)
-#
-#            tgt, src = self.tgt, self.src
-#            for cell in tgt:
-#                v = Mat(cell.pip)
-#                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
-#                leg = Segment(v, conv(v, vpip1), vpip1, pip1) # spider leg
-#                view.add_curve(*leg, stroke=cell.stroke)
-#
-#            for cell in src:
-#                v = Mat(cell.pip)
-#                vpip1 = Mat([conv(v[0], pip1[0]), v[1], v[2]])
-#                leg = Segment(v, conv(v, vpip1), vpip1, pip1)
-#                view.add_curve(*leg, stroke=cell.stroke)
-#
-#        if tgt:
-#            z = z1
-#            self.tgt.visit(callback, cls=_Cell1)
-#
-#        if src:
-#            z = z0
-#            self.src.visit(callback, cls=_Cell1)
-#
-#    def render_src(self, view):
-#        self.render_boundary(view, src=True, tgt=False)
-#
-#    def render_tgt(self, view):
-#        self.render_boundary(view, src=False, tgt=True)
 
     def dbg_render(self, cvs):
         self.tgt.dbg_render(cvs)
@@ -2244,14 +2353,15 @@ class _HCell2(HCell2, _Compound, _Cell2):
             x += cell.width
         add(self.pip_x + self.right == x) # hard equal
 
+        #return
+
         # Now weld the Cell0 pip's together!
         i = 0
         while i+1 < len(self):
             lhs, rhs = self.cells[i:i+2]
-            lhs, rhs = self.cells[i:i+2]
             lchains = lhs.all_chains_src()
             rchains = rhs.all_chains_tgt()
-            assert len(lchains) == len(rchains)
+            assert len(lchains) == len(rchains), (lchains, rchains)
             for lchain, rchain in zip(lchains, rchains):
                 for (l,r) in zip(lchain, rchain):
                     if self.debug:
