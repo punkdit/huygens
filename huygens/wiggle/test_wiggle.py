@@ -61,6 +61,39 @@ def save(cell, name):
     print("_"*79)
 
 
+def test_strict():
+    M = Cell0("M", fill=scheme[0])
+    N = Cell0("N", fill=scheme[1])
+
+    f = Cell1(N, M)
+    m_mm = mul(M)
+    n_nn = mul(N)
+    m_ = unit(M)
+    n_ = unit(N)
+
+    f_mul = Cell2(f << m_mm, n_nn << (f@f), pip_color=blue)
+    f_unit = Cell2(f << m_, n_, pip_color=blue)
+
+    mid = f_mul << (unit(M).i @ M.i.i)
+    bot = mul(N).i << (f_unit @ f.i) << (M.i.i)
+
+    #bot = (f_unit @ f.i) << (M.i.i)
+
+#    print("\n\ntranslate")
+#    bot.translate()
+
+    save(mid, "test_mid")
+    save(bot, "test_bot")
+    return
+
+    print("mid*bot")
+    cell = mid * bot
+
+    print("\n\n")
+    save(cell, "test_strict")
+
+
+
 def test_compose_units():
     M = Cell0("M", fill=scheme[0])
     N = Cell0("N", fill=scheme[1])
@@ -160,7 +193,8 @@ def test_level():
 
 if __name__ == "__main__":
 
-    test_level()
+    #test_strict()
+    #test_level()
     test_compose_units()
 
     print("OK\n")

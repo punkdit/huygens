@@ -11,6 +11,7 @@ from functools import reduce
 from math import pi, sin, cos
 from time import sleep
 import warnings
+import traceback as tb
 
 #import sys
 #this = sys.modules[__name__]
@@ -471,8 +472,8 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
         stem = self.__class__.__name__ + "." + attr
         v = system.listen_var(self, attr, stem, weight, vmin)
         assert getattr(self, attr, None) is None, str(self.__dict__)
-        #if attr=="pip_x":
-        #    print(repr(self), "setattr", attr)
+        if attr=="pip_x":
+            print("Render.listen_var", repr(self), "setattr", attr) # DEBUG
         setattr(self, attr, v)
         return v
 
@@ -523,6 +524,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             width=None, depth=None, height=None, 
             size=1.0, verbose=False):
         # top-level call 
+        #print("\nRender.constrain: begin")
         system = System()
         self.pre_constrain(system, 0, verbose=verbose)
         system.add(self.pip_x == x)
@@ -544,6 +546,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             #print("constrain", cell.__class__, cell, cell.on_constrain)
             cell.post_constrain(system)
         self.visit(constrain)
+        #print("\nRender.constrain: end")
         return system
 
     did_layout = None
@@ -842,7 +845,11 @@ class Cell1(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
+        self.stack = tb.extract_stack() # <<<<<<<<< DEBUG <<<<<<<<<<<<<<<<<<<
+        self.prev = self # <<<<<<<<<< DEBUG
+
     def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing, src=None, tgt=None):
+        assert not hasattr(self, "x_pip"), "um, should we allow this?" # DEBUG
         src = self.src if src is None else src
         tgt = self.tgt if tgt is None else tgt
         if h_rev:
@@ -864,6 +871,8 @@ class Cell1(Atom):
         cell = _Cell1(tgt, src, **kw)
         cell = cb(cell)
         check_renderable(cell)
+        cell.prev = self.prev # <<<<<<<<<< DEBUG
+        cell.stack = tb.extract_stack() # <<<<<<<<< DEBUG <<<<<<<<<<<<<<<<<<<
         return cell
 
     def __matmul__(self, other):
@@ -951,12 +960,15 @@ class Cell1(Atom):
 
     def insert_identity_tgt(self, idx):
         assert not hasattr(self, "pip_x")
+        print(repr(self), "insert_identity_tgt") # DEBUG
+        #assert 0
+        tb.print_stack() # DEBUG
         if idx == 0:
             cell = Cell0.ident.i @ self
-            cell = cell.translate()
+            #cell = cell.translate()
         elif idx == len(self.tgt):
             cell = self @ Cell0.ident.i
-            cell = cell.translate()
+            #cell = cell.translate()
         else:
             assert 0 < idx < len(self.tgt)
             cell = self.insert_identity_tgt_spider(idx)
@@ -1076,6 +1088,9 @@ class _Cell1(Cell1, Render):
                 if (l,r) not in found:
                     #print((l,r, hasattr(l, "pip_x"), hasattr(r, "pip_x")))
                     assert hasattr(l, "pip_x"), repr(l)
+                    if not hasattr(r, "pip_x"):
+                        for frame in (r.stack):
+                            print("\t", frame)
                     assert hasattr(r, "pip_x"), repr(r)
                     yield (l,r)
                     found.add((l,r))
@@ -1247,6 +1262,7 @@ class DCell1(Compound, Cell1):
         self.cells = cells
 
     def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
+        assert not hasattr(self, "x_pip"), "um, should we allow this?" # DEBUG
         kw = {}
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
@@ -1382,6 +1398,10 @@ class HCell1(Compound, Cell1):
         src, tgt = lhs.src, rhs.tgt
         if src.name == tgt.name:
             return lhs, rhs
+        # We should already be unified if we have been translate'd!
+        assert not isinstance(lhs, _Cell1), "unify called on translate'd"
+        assert not isinstance(rhs, _Cell1), "unify called on translate'd"
+        #print("unify: start", src.name , tgt.name)
         assert isinstance(src, Cell0)
         assert isinstance(tgt, Cell0)
         src = src.cells if isinstance(src, DCell0) else [src]
@@ -1438,11 +1458,15 @@ class HCell1(Compound, Cell1):
         for jdx in reversed(insert_right):
             rhs = rhs.insert_identity_tgt(jdx)
 #        print("HCell1.unify: return ", (lhs, rhs))
+        src, tgt = lhs.src, rhs.tgt
+        #print("unify: done", src.name , tgt.name)
+        assert src.name == tgt.name, (src, tgt)
         return lhs, rhs
         #msg = ("FINAL: can't compose %s and %s"%(lhs, rhs))
         #raise TypeError(msg)
 
     def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
+        assert not hasattr(self, "x_pip"), "um, should we allow this?" # DEBUG
         kw = {}
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
@@ -1604,7 +1628,7 @@ class Cell2(Atom):
         self.src = src
         self.hom = (self.tgt, self.src)
 
-    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
+    def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing, tgt=None, src=None):
         kw = {}
         kw["assoc"] = self.assoc
         kw["DEBUG"] = self.DEBUG
@@ -1614,7 +1638,8 @@ class Cell2(Atom):
         kw["pip_cvs"] = self.pip_cvs
         kw["cone"] = self.cone
         kw["on_constrain"] = self.on_constrain
-        src, tgt = self.src, self.tgt
+        tgt = self.tgt if tgt is None else tgt
+        src = self.src if src is None else src
         if v_rev:
             src, tgt = tgt, src
         tgt = tgt.translate(h_rev, v_rev, d_rev)
@@ -2276,8 +2301,19 @@ class HCell2(Compound, Cell2):
     bdy = HCell1
     def __init__(self, cells, **kw):
         cells = self._associate(cells)
-        tgt = self.bdy([cell.tgt for cell in cells])
-        src = self.bdy([cell.src for cell in cells])
+        tgt = self.bdy([cell.tgt for cell in cells]) # FAIL FAIL FAIL
+        for (t,cell) in zip(tgt, cells):
+            #cell.tgt = t
+            assert cell.tgt == t
+        src = self.bdy([cell.src for cell in cells]) # FAIL FAIL FAIL
+        #for cell in cells:
+        #    print("cells:", cell)
+        #for cell in src:
+        #    print("src:", cell)
+        assert len(src) == len(cells), (len(src), len(cells))
+        for (s,cell) in zip(src, cells):
+            #cell.src = s
+            assert cell.src == s, (cells, src)
         name = "(" + "<<".join(cell.name for cell in cells) + ")"
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
@@ -2387,15 +2423,15 @@ class VCell2(Compound, Cell2):
         name = "(" + "*".join(cell.name for cell in cells) + ")"
         Cell2.__init__(self, tgt, src, name, **kw)
         self.cells = cells
-        i = 0
-        while i+1 < len(cells):
-            l, r = cells[i].src, cells[i+1].tgt
-            #list(l.match(r))
-            #if cells[i].src.name != cells[i+1].tgt.name:
-            #    msg = ("can't compose\n%s and\n%s"%(cells[i], cells[i+1]))
-            #    raise TypeError(msg)
-            #    #print("VCell2.__init__: WARNING", msg)
-            i += 1
+#        i = 0
+#        while i+1 < len(cells):
+#            l, r = cells[i].src, cells[i+1].tgt
+#            #list(l.match(r))
+#            #if cells[i].src.name != cells[i+1].tgt.name:
+#            #    msg = ("can't compose\n%s and\n%s"%(cells[i], cells[i+1]))
+#            #    raise TypeError(msg)
+#            #    #print("VCell2.__init__: WARNING", msg)
+#            i += 1
 
     def translate(self, h_rev=False, v_rev=False, d_rev=False, cb=nothing):
         kw = {}
@@ -2405,6 +2441,16 @@ class VCell2(Compound, Cell2):
         kw["on_constrain"] = self.on_constrain
         cells = list(reversed(self.cells)) if v_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
+
+#        i = 0
+#        while i+1 < len(cells):
+#            src, tgt = cells[i:i+2] # Cell2's
+#            src, tgt = src.tgt, tgt.src # Cell1's
+#            for (t, s) in tgt.match(src):
+#                # t, s are Cell1's
+#                pass
+#            i += 1
+
         cell = _VCell2(cells, **kw)
         cell = cb(cell)
         check_renderable(cell)
@@ -2442,6 +2488,7 @@ class VCell2(Compound, Cell2):
 
 
 class _VCell2(VCell2, _Compound, _Cell2):
+
     def pre_constrain(self, system, depth, verbose=False):
         if verbose:
             dbg_constrain(self, depth)
