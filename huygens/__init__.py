@@ -7,16 +7,18 @@ import huygens.text
 tex_header = None
 latex_header = None
 xelatex_header = None
+font_size = "11pt"
 
 _prev = {} # previous config
 
-def config(text=None, tex_header=None, latex_header=None, xelatex_header=None):
+def config(text=None, tex_header=None, latex_header=None, xelatex_header=None, font_size="11pt"):
 
     args = {
         "text":text, 
         "tex_header":tex_header, 
         "latex_header":latex_header,
         "xelatex_header":xelatex_header,
+        "font_size":font_size,
     }
 
     #print("huygens.config(%r)"%(args,))
@@ -34,6 +36,7 @@ def config(text=None, tex_header=None, latex_header=None, xelatex_header=None):
     huygens.text.tex_header = tex_header
     huygens.text.latex_header = latex_header
     huygens.text.xelatex_header = xelatex_header
+    huygens.text.font_size = font_size
 
     global _prev
     prev = _prev

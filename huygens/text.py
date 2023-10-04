@@ -33,7 +33,7 @@ command = verbose_command
 tex_header = None
 latex_header = None
 xelatex_header = None
-
+font_size = "11pt"
 
 def tex_output(text):
     lines = []
@@ -46,7 +46,7 @@ def tex_output(text):
 
 def latex_output(text):
     lines = []
-    lines.append(r"\documentclass[11pt]{article}")
+    lines.append(r"\documentclass[%s]{article}"%font_size)
     lines.append(r"\pagenumbering{gobble}")
     lines.append(r"\def\folio{}")
     if latex_header:
@@ -59,7 +59,7 @@ def latex_output(text):
 
 def xelatex_output(text):
     lines = []
-    lines.append(r"\documentclass[11pt]{article}")
+    lines.append(r"\documentclass[%s]{article}"%font_size)
     lines.append(r"\pagenumbering{gobble}")
     lines.append(r"\usepackage{fontspec}")
     lines.append(r"\setromanfont{Gentium Book Basic}")
