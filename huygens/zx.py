@@ -16,6 +16,8 @@ warnings.filterwarnings('ignore')
 from functools import lru_cache
 cache = lru_cache(maxsize=None)
 
+import numpy
+
 from huygens.namespace import *
 del conv # !
 from huygens.argv import argv
@@ -76,6 +78,7 @@ class Box(object):
         Each occurance will be given a unique Layout object, that
         contains specific coordinate variables for that occurance.
     """
+    DEBUG = False
     def __init__(self, nleft=0, nright=0):
         self.nleft = nleft
         self.nright = nright
@@ -147,7 +150,6 @@ class Spider(Box):
 #        Box.__init__(self, nleft, nright)
 #        self.pip_colour = pip_colour
 
-    DEBUG = False
     pip_cvs = None
     pip_colour = black
     pip_radius = 0.1
@@ -199,6 +201,58 @@ class Hadamard(Spider):
     pip_cvs = Canvas().fill(p, [yellow]).stroke(p)
 #    def __init__(self):
 #        Spider.__init__(self, 1, 1)
+
+
+class Relation(Box):
+    def __init__(self, A, lpip_cvs=None, rpip_cvs=None):
+        A = numpy.array(A)
+        m, n = A.shape
+        Box.__init__(self, m, n)
+        self.A = A
+        self.lpip_cvs = lpip_cvs
+        self.rpip_cvs = rpip_cvs
+
+    def on_render(self, layout, cvs):
+        if self.DEBUG:
+            Box.on_render(self, layout, cvs)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0
+        x1 = x0+width
+        lys, rys = layout.lys, layout.rys
+        A = self.A
+        # index goes top down...
+        lys = list(reversed(lys))
+        rys = list(reversed(rys))
+        for i in range(self.nleft):
+          for j in range(self.nright):
+            if not A[i][j]:
+                continue
+            p = path.line(
+                x0, lys[i], 
+                x1, rys[j])
+            p = path.curve(
+                x0, lys[i], 
+                conv(x0,x1), lys[i],
+                conv(x0,x1), rys[j],
+                x1, rys[j])
+            cvs.stroke(p)
+        lpip_cvs = self.lpip_cvs
+        rpip_cvs = self.rpip_cvs
+        if lpip_cvs is not None:
+            for i in range(self.nleft):
+                cvs.insert(x0, lys[i], lpip_cvs)
+        if rpip_cvs is not None:
+            for i in range(self.nleft):
+                cvs.insert(x1, rys[i], rpip_cvs)
+
+            
+def Permutation(perm, *args, **kw):
+    n = len(perm)
+    assert set(perm) == set(range(n)), "wup"
+    A = numpy.zeros((n, n))
+    for i,j in enumerate(perm):
+        A[j,i] = 1
+    return Relation(A, *args, **kw)
 
 
 class Compound(Box):
@@ -287,7 +341,18 @@ def test():
     box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * (Red(4, 1) + Red())
     box = box + Hadamard(1, 1)
 
-    cvs = box.render()
+    box = Red(1,2) * Relation([[1,0],[1,1]]) * Green(2,1)
+
+    idxs = [4, 2, 3, 1, 0]
+
+    r = Spider.pip_radius
+    lp = path.circle(r, 0, r)
+    rp = path.circle(-r, 0, r)
+    gpip = Canvas().fill(lp, [green]).stroke(lp)
+    rpip = Canvas().fill(rp, [red]).stroke(rp)
+    box = Red(1, len(idxs))*Permutation(idxs, gpip, rpip)*Green(len(idxs),1)
+
+    cvs = box.render(height=2.)
     cvs.writePDFfile("test.pdf")
 
 
