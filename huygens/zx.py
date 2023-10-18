@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+
+"""
+
+"""
+
+from functools import reduce
+import operator 
+from math import pi, sin, cos
+from time import sleep, time
+start_time = time()
+
+import warnings
+warnings.filterwarnings('ignore')
+
+from functools import lru_cache
+cache = lru_cache(maxsize=None)
+
+from huygens.namespace import *
+del conv # !
+from huygens.argv import argv
+
+from huygens.sat import Const, System, Listener
+
+def conv(a, b, alpha=0.5):
+    return (1.-alpha)*a + alpha*b
+
+
+
+class Layout(Listener):
+    """
+        each occurance of a 
+        Box in a Compound will get a Layout object when it comes time to render
+    """
+    def __init__(self, system, box):
+        self.system = system
+        self.box = box
+        #self.arrays = {}
+
+    def on_update(self, name, value): # called from the system
+        if type(name) is tuple:
+            name, idx = name
+            #self.arrays[name][idx] = value
+            getattr(self, name)[idx] = value
+        elif type(name) is str:
+            setattr(self, name, value)
+        else:
+            assert 0, repr(name)
+
+    def get_var(self, name, *args, **kw):
+        assert type(name) is str
+        system = self.system
+        var = system.listen_var(self, name, *args, **kw)
+        setattr(self, name, var)
+        return var
+
+    def get_array(self, name, n, *args, **kw):
+        system = self.system
+        vs = [system.listen_var(self, (name, i), *args, **kw) for i in range(n)]
+        #self.arrays[name] = vs
+        setattr(self, name, vs)
+        return vs
+
+    def add(self, item, weight=None):
+        self.system.add(item, weight)
+
+    def render(self, cvs):
+        cvs = self.box.on_render(self, cvs)
+        return cvs
+
+
+
+class Box(object):
+    """
+        A type of "box" that can have multiple occurances in a diagram.
+        Each occurance will be given a unique Layout object, that
+        contains specific coordinate variables for that occurance.
+    """
+    def __init__(self, nleft=0, nright=0):
+        self.nleft = nleft
+        self.nright = nright
+
+    def __str__(self):
+        return "%s(%s, %s)"%(self.__class__.__name__, self.nleft, self.nright)
+    __repr__ = __str__
+
+    def __mul__(self, other):
+        assert isinstance(other, Box)
+        assert self.nright == other.nleft
+        return HBox(self.nleft, other.nright, [self, other])
+
+    def __add__(self, other):
+        assert isinstance(other, Box)
+        return VBox(self.nleft+other.nleft, self.nright+other.nright, [self, other])
+
+    def on_constrain(self, layout):
+        x0 = layout.get_var("x0")
+        y0 = layout.get_var("y0")
+        width = layout.get_var("width")
+        height = layout.get_var("height")
+        lys = layout.get_array("lys", self.nleft)
+        rys = layout.get_array("rys", self.nright)
+        add = layout.add
+        add(width >= 1.)
+        add(height >= 1.)
+        for i in range(self.nleft):
+            #add(y0 <= lys[i])
+            #add(lys[i] <= y0+height)
+            add(lys[i] == y0 + ((i+0.5)/self.nleft) * height, 10.0)
+        for i in range(self.nright):
+            #add(y0 <= rys[i])
+            #add(rys[i] <= y0+height)
+            add(rys[i] == y0 + ((i+0.5)/self.nright) * height, 10.0)
+
+    def on_render(self, layout, cvs):
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0
+        cvs.stroke(path.rect(x0, y0, width, height), [grey.alpha(0.5)])
+
+    def constrain(self, system):
+        layout = Layout(system, self)
+        self.on_constrain(layout)
+        return layout
+
+    def render(self, x0=0., y0=0., width=None, height=None):
+        system = System()
+        layout = self.constrain(system)
+        system.add(layout.x0 == x0)
+        system.add(layout.y0 == y0)
+        if width is not None:
+            system.add(layout.width == width)
+        if height is not None:
+            system.add(layout.height == height)
+        system.solve(simplify=False) # TODO: simplify=True
+        cvs = Canvas()
+        layout.render(cvs)
+        return cvs
+
+    def _repr_svg_(self):
+        cvs = self.render()
+        svg = cvs._repr_svg_()
+        return svg
+
+
+class Spider(Box):
+#    def __init__(self, nleft, nright, pip_colour=black):
+#        Box.__init__(self, nleft, nright)
+#        self.pip_colour = pip_colour
+
+    DEBUG = False
+    pip_cvs = None
+    pip_colour = black
+    pip_radius = 0.1
+    def on_render(self, layout, cvs):
+        if self.DEBUG:
+            Box.on_render(self, layout, cvs)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0
+        xc = x0 + 0.5*width
+        if self.nleft+self.nright:
+            yc = sum(layout.lys+layout.rys) / (self.nleft + self.nright)
+        else:
+            yc = y0 + 0.5*height
+        for i in range(self.nleft):
+            y = layout.lys[i]
+            p = path.curve(
+                x0, y, 
+                conv(x0, xc), y, 
+                conv(x0, xc), conv(y, yc),
+                xc, yc)
+            cvs.stroke(p)
+            #cvs.stroke(path.line(x0, layout.lys[i], x, y))
+        x1 = x0+width
+        for i in range(self.nright):
+            y = layout.rys[i]
+            p = path.curve(
+                x1, y, 
+                conv(x1, xc), y, 
+                conv(x1, xc), conv(y, yc),
+                xc, yc)
+            #cvs.stroke(path.line(x0+width, layout.rys[i], x, y))
+            cvs.stroke(p)
+        if self.pip_cvs is not None:
+            cvs.insert(xc, yc, self.pip_cvs)
+        else:
+            p = path.circle(xc, yc, self.pip_radius)
+            cvs.fill(p, [self.pip_colour])
+            cvs.stroke(p)
+
+
+class Red(Spider):
+    pip_colour = red
+
+class Green(Spider):
+    pip_colour = green
+
+class Hadamard(Spider):
+    p = path.rect(-0.05, -0.05, 0.1, 0.1)
+    pip_cvs = Canvas().fill(p, [yellow]).stroke(p)
+#    def __init__(self):
+#        Spider.__init__(self, 1, 1)
+
+
+class Compound(Box):
+    def __init__(self, nleft, nright, boxs=[]):
+        Box.__init__(self, nleft, nright)
+        self.boxs = list(boxs)
+
+    def __getitem__(self, idx):
+        return self.boxs[idx]
+
+    def __len__(self):
+        return len(self.boxs)
+
+    def on_render(self, layout, cvs):
+        for i, lay in enumerate(layout.lays):
+            lay.render(cvs)
+
+
+class HBox(Compound):
+    def on_constrain(self, layout):
+        system = layout.system
+        Compound.on_constrain(self, layout)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0 # my origin
+        x = x0
+        n = len(self)
+        lays = []
+        add = system.add
+        for i in range(n):
+            lay = self[i].constrain(layout.system)
+            add(lay.x0 == x) # strict
+            add(lay.y0 == y0)
+            add(lay.height == height)
+            x += lay.width
+            lays.append(lay)
+        add(width == x)
+        for i in range(n-1):
+            left, right = self[i], self[i+1]
+            assert left.nright == right.nleft
+            l, r = lays[i], lays[i+1]
+            #print(l.box, r.box)
+            for j in range(left.nright):
+                add(l.rys[j] == r.lys[j])
+        layout.lays = lays
+        for (l,r) in zip(layout.lys, lays[0].lys):
+            add(l == r)
+        for (l,r) in zip(layout.rys, lays[-1].rys):
+            add(l == r)
+        return layout
+
+
+
+class VBox(Compound):
+    def on_constrain(self, layout):
+        system = layout.system
+        Compound.on_constrain(self, layout)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0 # my origin
+        y = y0
+        n = len(self)
+        lays = []
+        add = system.add
+        for i in range(n):
+            lay = self[i].constrain(layout.system)
+            add(lay.y0 == y)
+            add(lay.x0 == x0)
+            add(lay.width == width)
+            y += lay.height
+            lays.append(lay)
+        add(height == y)
+        i = j = 0
+        for lay in lays:
+            for v in lay.lys:
+                add(v == layout.lys[i])
+                i += 1
+            for v in lay.rys:
+                add(v == layout.rys[j])
+                j += 1
+        assert i==self.nleft
+        assert j==self.nright
+        layout.lays = lays
+        return layout
+
+
+def test():
+    box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * (Red(4, 1) + Red())
+    box = box + Hadamard(1, 1)
+
+    cvs = box.render()
+    cvs.writePDFfile("test.pdf")
+
+
+if __name__ == "__main__":
+
+    test()
+    print("OK\n\n")
+
+
+

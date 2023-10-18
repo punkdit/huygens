@@ -21,7 +21,7 @@ class Expr(object):
     def promote(self, item):
         if isinstance(item, Expr):
             return item
-        assert isinstance(item, (int, float))
+        assert isinstance(item, (int, float)), "whats this: %r"%(item,)
         item = Const(item)
         return item
 
@@ -474,7 +474,7 @@ class System(object):
 
     def add(self, item, weight=None):
         "add a constraint term"
-        assert isinstance(item, Term), "%r expected Term" % item
+        assert isinstance(item, Term), "%r expected Term got %r" % (self, item)
         if weight is None:
             # strict
             self.items.append(item)
