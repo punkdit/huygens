@@ -18,6 +18,7 @@ cache = lru_cache(maxsize=None)
 
 import numpy
 
+import huygens
 from huygens.namespace import *
 del conv # !
 from huygens.argv import argv
@@ -79,9 +80,14 @@ class Box(object):
         contains specific coordinate variables for that occurance.
     """
     DEBUG = False
-    def __init__(self, nleft=0, nright=0):
+
+    st_stroke = st_Thick
+    min_width = 1.0
+    min_height = 1.0
+    def __init__(self, nleft=0, nright=0, **kw):
         self.nleft = nleft
         self.nright = nright
+        self.__dict__.update(kw)
 
     def __str__(self):
         return "%s(%s, %s)"%(self.__class__.__name__, self.nleft, self.nright)
@@ -89,12 +95,14 @@ class Box(object):
 
     def __mul__(self, other):
         assert isinstance(other, Box)
-        assert self.nright == other.nleft
+        assert self.nright == other.nleft, "%s * %s"%(self, other)
         return HBox(self.nleft, other.nright, [self, other])
 
     def __add__(self, other):
         assert isinstance(other, Box)
-        return VBox(self.nleft+other.nleft, self.nright+other.nright, [self, other])
+        #return VBox(self.nleft+other.nleft, self.nright+other.nright, [self, other])
+        return VBox(other.nleft+self.nleft, other.nright+self.nright, [other, self])
+    __lshift__ = __add__
 
     def on_constrain(self, layout):
         x0 = layout.get_var("x0")
@@ -104,8 +112,12 @@ class Box(object):
         lys = layout.get_array("lys", self.nleft)
         rys = layout.get_array("rys", self.nright)
         add = layout.add
-        add(width >= 1.)
-        add(height >= 1.)
+        add(width >= 0.)
+        add(height >= 0.)
+        if self.min_width is not None:
+            add(width >= self.min_width)
+        if self.min_height is not None:
+            add(height >= self.min_height)
         for i in range(self.nleft):
             #add(y0 <= lys[i])
             #add(lys[i] <= y0+height)
@@ -125,7 +137,7 @@ class Box(object):
         self.on_constrain(layout)
         return layout
 
-    def render(self, x0=0., y0=0., width=None, height=None):
+    def render(self, x0=0., y0=0., width=None, height=None, size=None, border=0.1):
         system = System()
         layout = self.constrain(system)
         system.add(layout.x0 == x0)
@@ -134,9 +146,17 @@ class Box(object):
             system.add(layout.width == width)
         if height is not None:
             system.add(layout.height == height)
+        if size is not None:
+            system.add(layout.width == size)
+            system.add(layout.height == size)
         system.solve(simplify=False) # TODO: simplify=True
         cvs = Canvas()
         layout.render(cvs)
+        if border is not None:
+            bb = cvs.get_bound_box()
+            p = path.rect(bb.llx-border, bb.lly-border, 
+                bb.width+2*border, bb.height+2*border)
+            cvs.stroke(p, [white])
         return cvs
 
     def _repr_svg_(self):
@@ -145,119 +165,15 @@ class Box(object):
         return svg
 
 
-class Spider(Box):
-#    def __init__(self, nleft, nright, pip_colour=black):
-#        Box.__init__(self, nleft, nright)
-#        self.pip_colour = pip_colour
-
-    pip_cvs = None
-    pip_colour = black
-    pip_radius = 0.1
-    def on_render(self, layout, cvs):
-        if self.DEBUG:
-            Box.on_render(self, layout, cvs)
-        width, height = layout.width, layout.height
-        x0, y0 = layout.x0, layout.y0
-        xc = x0 + 0.5*width
-        if self.nleft+self.nright:
-            yc = sum(layout.lys+layout.rys) / (self.nleft + self.nright)
-        else:
-            yc = y0 + 0.5*height
-        for i in range(self.nleft):
-            y = layout.lys[i]
-            p = path.curve(
-                x0, y, 
-                conv(x0, xc), y, 
-                conv(x0, xc), conv(y, yc),
-                xc, yc)
-            cvs.stroke(p)
-            #cvs.stroke(path.line(x0, layout.lys[i], x, y))
-        x1 = x0+width
-        for i in range(self.nright):
-            y = layout.rys[i]
-            p = path.curve(
-                x1, y, 
-                conv(x1, xc), y, 
-                conv(x1, xc), conv(y, yc),
-                xc, yc)
-            #cvs.stroke(path.line(x0+width, layout.rys[i], x, y))
-            cvs.stroke(p)
-        if self.pip_cvs is not None:
-            cvs.insert(xc, yc, self.pip_cvs)
-        else:
-            p = path.circle(xc, yc, self.pip_radius)
-            cvs.fill(p, [self.pip_colour])
-            cvs.stroke(p)
-
-
-class Red(Spider):
-    pip_colour = red
-
-class Green(Spider):
-    pip_colour = green
-
-class Hadamard(Spider):
-    p = path.rect(-0.05, -0.05, 0.1, 0.1)
-    pip_cvs = Canvas().fill(p, [yellow]).stroke(p)
-#    def __init__(self):
-#        Spider.__init__(self, 1, 1)
-
-
-class Relation(Box):
-    def __init__(self, A, lpip_cvs=None, rpip_cvs=None):
-        A = numpy.array(A)
-        m, n = A.shape
-        Box.__init__(self, m, n)
-        self.A = A
-        self.lpip_cvs = lpip_cvs
-        self.rpip_cvs = rpip_cvs
-
-    def on_render(self, layout, cvs):
-        if self.DEBUG:
-            Box.on_render(self, layout, cvs)
-        width, height = layout.width, layout.height
-        x0, y0 = layout.x0, layout.y0
-        x1 = x0+width
-        lys, rys = layout.lys, layout.rys
-        A = self.A
-        # index goes top down...
-        lys = list(reversed(lys))
-        rys = list(reversed(rys))
-        for i in range(self.nleft):
-          for j in range(self.nright):
-            if not A[i][j]:
-                continue
-            p = path.line(
-                x0, lys[i], 
-                x1, rys[j])
-            p = path.curve(
-                x0, lys[i], 
-                conv(x0,x1), lys[i],
-                conv(x0,x1), rys[j],
-                x1, rys[j])
-            cvs.stroke(p)
-        lpip_cvs = self.lpip_cvs
-        rpip_cvs = self.rpip_cvs
-        if lpip_cvs is not None:
-            for i in range(self.nleft):
-                cvs.insert(x0, lys[i], lpip_cvs)
-        if rpip_cvs is not None:
-            for i in range(self.nleft):
-                cvs.insert(x1, rys[i], rpip_cvs)
-
-            
-def Permutation(perm, *args, **kw):
-    n = len(perm)
-    assert set(perm) == set(range(n)), "wup"
-    A = numpy.zeros((n, n))
-    for i,j in enumerate(perm):
-        A[j,i] = 1
-    return Relation(A, *args, **kw)
-
-
 class Compound(Box):
-    def __init__(self, nleft, nright, boxs=[]):
-        Box.__init__(self, nleft, nright)
+    def __init__(self, nleft, nright, boxs=[], **kw):
+        Box.__init__(self, nleft, nright, **kw)
+        # assoc ??
+        #for box in boxs:
+        #    if not isinstance(box, self.__class__):
+        #        break
+        #else:
+        #    boxs = reduce(operator.add, [box.boxs for box in boxs])
         self.boxs = list(boxs)
 
     def __getitem__(self, idx):
@@ -306,11 +222,14 @@ class HBox(Compound):
 
 
 class VBox(Compound):
+    """
+    Arrange box's vertically, up the page.
+    """
     def on_constrain(self, layout):
         system = layout.system
         Compound.on_constrain(self, layout)
         width, height = layout.width, layout.height
-        x0, y0 = layout.x0, layout.y0 # my origin
+        x0, y0 = layout.x0, layout.y0 # my origin at lower left corner
         y = y0
         n = len(self)
         lays = []
@@ -337,7 +256,149 @@ class VBox(Compound):
         return layout
 
 
+class Spider(Box):
+    def __init__(self, nleft=0, nright=0, **kw):
+        Box.__init__(self, nleft, nright, **kw)
+        self.__dict__.update(kw)
+
+    label = None
+    pip_cvs = None
+    pip_colour = black
+    pip_radius = 0.1
+    def on_render(self, layout, cvs):
+        if self.DEBUG:
+            Box.on_render(self, layout, cvs)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0
+        xc = x0 + 0.5*width
+        if self.nleft == 1:
+            yc = layout.lys[0]
+        elif self.nright == 1:
+            yc = layout.rys[0]
+        elif self.nleft+self.nright:
+            yc = sum(layout.lys+layout.rys) / (self.nleft + self.nright)
+        else:
+            yc = y0 + 0.5*height
+        for i in range(self.nleft):
+            y = layout.lys[i]
+            p = path.curve(
+                x0, y, 
+                conv(x0, xc), y, 
+                conv(x0, xc), conv(y, yc),
+                xc, yc)
+            cvs.stroke(p, self.st_stroke)
+            #cvs.stroke(path.line(x0, layout.lys[i], x, y))
+        x1 = x0+width
+        for i in range(self.nright):
+            y = layout.rys[i]
+            p = path.curve(
+                x1, y, 
+                conv(x1, xc), y, 
+                conv(x1, xc), conv(y, yc),
+                xc, yc)
+            #cvs.stroke(path.line(x0+width, layout.rys[i], x, y))
+            cvs.stroke(p, self.st_stroke)
+        if self.pip_cvs is not None:
+            cvs.insert(xc, yc, self.pip_cvs)
+        else:
+            p = path.circle(xc, yc, self.pip_radius)
+            cvs.fill(p, [self.pip_colour])
+            cvs.stroke(p)
+        if self.label is not None:
+            cvs.text(xc, yc - 1.2*self.pip_radius, self.label, st_north)
+
+
+class Red(Spider):
+    pip_colour = red
+
+class Green(Spider):
+    pip_colour = green
+
+class Hadamard(Spider):
+    p = path.rect(-0.05, -0.05, 0.1, 0.1)
+    pip_cvs = Canvas().fill(p, [yellow]).stroke(p)
+#    def __init__(self):
+#        Spider.__init__(self, 1, 1)
+
+
+class Relation(Box):
+
+    rigid = True
+    def __init__(self, A, lpip_cvs=None, rpip_cvs=None, **kw):
+        A = numpy.array(A)
+        m, n = A.shape
+        Box.__init__(self, m, n, **kw)
+        self.A = A
+        self.lpip_cvs = lpip_cvs
+        self.rpip_cvs = rpip_cvs
+
+    def on_constrain(self, layout):
+        Box.on_constrain(self, layout)
+        rys = layout.rys
+        lys = layout.lys
+        if self.rigid and len(rys) == len(lys):
+            for (l,r) in zip(lys, rys):
+                layout.add(l==r)
+                
+
+    def on_render(self, layout, cvs):
+        if self.DEBUG:
+            Box.on_render(self, layout, cvs)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0
+        x1 = x0+width
+        lys, rys = layout.lys, layout.rys
+        A = self.A
+        # index goes top down...
+        lys = list(reversed(lys))
+        rys = list(reversed(rys))
+        for i in range(self.nleft):
+          for j in range(self.nright):
+            if not A[i][j]:
+                continue
+            p = path.line(
+                x0, lys[i], 
+                x1, rys[j])
+            p = path.curve(
+                x0, lys[i], 
+                conv(x0,x1), lys[i],
+                conv(x0,x1), rys[j],
+                x1, rys[j])
+            cvs.stroke(p, self.st_stroke)
+        lpip_cvs = self.lpip_cvs
+        rpip_cvs = self.rpip_cvs
+        if lpip_cvs is not None:
+            for i in range(self.nleft):
+                cvs.insert(x0, lys[i], lpip_cvs)
+        if rpip_cvs is not None:
+            for i in range(self.nleft):
+                cvs.insert(x1, rys[i], rpip_cvs)
+
+
+class Identity(Relation):
+    def __init__(self, **kw):
+        A = [[1]]
+        Relation.__init__(self, A, **kw)
+
+            
+def Permutation(perm, *args, **kw):
+    n = len(perm)
+    assert set(perm) == set(range(n)), "wup"
+    A = numpy.zeros((n, n))
+    for i,j in enumerate(perm):
+        A[j,i] = 1
+    return Relation(A, *args, **kw)
+
+
 def test():
+    huygens.config(text="pdflatex", latex_header=r"""
+    \usepackage{amsmath}
+    \usepackage{amssymb}
+    \usepackage{extarrows}
+    \usepackage{mathtools}
+    \newcommand{\tensor}{\otimes}
+    """)
+
     box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * (Red(4, 1) + Red())
     box = box + Hadamard(1, 1)
 
@@ -350,9 +411,18 @@ def test():
     rp = path.circle(-r, 0, r)
     gpip = Canvas().fill(lp, [green]).stroke(lp)
     rpip = Canvas().fill(rp, [red]).stroke(rp)
-    box = Red(1, len(idxs))*Permutation(idxs, gpip, rpip)*Green(len(idxs),1)
+    box = Red(0, len(idxs))*Permutation(idxs, gpip, rpip)*Green(len(idxs),1)
+    #box += Green(1,1, label="$2$")
+    I = Identity()
+    box += I
+    box = box * Relation([[1,0],[0,1]])
 
-    cvs = box.render(height=2.)
+    mul = Green(1, 2)
+    unit = Green(1, 0)
+    #box = mul*(I<<unit)
+
+    #cvs = box.render(height=2.)
+    cvs = box.render()
     cvs.writePDFfile("test.pdf")
 
 
