@@ -40,6 +40,10 @@ class Layout(Listener):
         self.box = box
         #self.arrays = {}
 
+    def __str__(self):
+        return str(self.__dict__)
+    __repr__ = __str__
+
     def on_update(self, name, value): # called from the system
         if type(name) is tuple:
             name, idx = name
@@ -68,8 +72,8 @@ class Layout(Listener):
         self.system.add(item, weight)
 
     def render(self, cvs):
-        cvs = self.box.on_render(self, cvs)
-        return cvs
+        Box.on_render(self.box, self, cvs)
+        self.box.on_render(self, cvs)
 
 
 
@@ -84,9 +88,10 @@ class Box(object):
     st_stroke = st_Thick
     min_width = 1.0
     min_height = 1.0
-    def __init__(self, nleft=0, nright=0, **kw):
+    def __init__(self, nleft=1, nright=1, **kw):
         self.nleft = nleft
         self.nright = nright
+        self.shape = (nleft, nright)
         self.__dict__.update(kw)
 
     def __str__(self):
@@ -96,12 +101,30 @@ class Box(object):
     def __mul__(self, other):
         assert isinstance(other, Box)
         assert self.nright == other.nleft, "%s * %s"%(self, other)
-        return HBox(self.nleft, other.nright, [self, other])
+        if isinstance(self, HBox) and isinstance(other, HBox):
+            boxs = self.boxs + other.boxs
+        elif isinstance(self, HBox):
+            boxs = self.boxs + [other]
+        elif isinstance(other, HBox):
+            boxs = [self] + other.boxs
+        else:
+            boxs = [self, other]
+        return HBox(self.nleft, other.nright, boxs)
 
     def __add__(self, other):
         assert isinstance(other, Box)
         #return VBox(self.nleft+other.nleft, self.nright+other.nright, [self, other])
-        return VBox(other.nleft+self.nleft, other.nright+self.nright, [other, self])
+        #return VBox(other.nleft+self.nleft, other.nright+self.nright, [other, self])
+        self, other = other, self
+        if isinstance(self, VBox) and isinstance(other, VBox):
+            boxs = self.boxs + other.boxs
+        elif isinstance(self, VBox):
+            boxs = self.boxs + [other]
+        elif isinstance(other, VBox):
+            boxs = [self] + other.boxs
+        else:
+            boxs = [self, other]
+        return VBox(other.nleft+self.nleft, other.nright+self.nright, boxs)
     __lshift__ = __add__
 
     def on_constrain(self, layout):
@@ -130,7 +153,13 @@ class Box(object):
     def on_render(self, layout, cvs):
         width, height = layout.width, layout.height
         x0, y0 = layout.x0, layout.y0
-        cvs.stroke(path.rect(x0, y0, width, height), [grey.alpha(0.5)])
+        if self.DEBUG:
+            #cvs.stroke(path.rect(x0, y0, width, height), [grey.alpha(0.5)])
+            r = 0.05
+            st = st_THick+[grey.alpha(0.5)]
+            cvs.stroke(path.rect(x0+r, y0+r, width-2*r, height-2*r), st)
+            #cvs.stroke(path.line(x0, y0, x0+width, y0+height), st)
+            #cvs.stroke(path.line(x0+width, y0, x0, y0+height), st)
 
     def constrain(self, system):
         layout = Layout(system, self)
@@ -199,12 +228,12 @@ class HBox(Compound):
         add = system.add
         for i in range(n):
             lay = self[i].constrain(layout.system)
-            add(lay.x0 == x) # strict
+            add(lay.x0 == x)
             add(lay.y0 == y0)
             add(lay.height == height)
             x += lay.width
             lays.append(lay)
-        add(width == x)
+        add(x0+width == x)
         for i in range(n-1):
             left, right = self[i], self[i+1]
             assert left.nright == right.nleft
@@ -219,6 +248,17 @@ class HBox(Compound):
             add(l == r)
         return layout
 
+    def on_render(self, layout, cvs):
+        if self.DEBUG:
+            width, height = layout.width, layout.height
+            x0, y0 = layout.x0, layout.y0 # my origin
+            r = 0.05
+            cvs.stroke(path.rect(x0+2*r, y0+r, width-4*r, height-2*r),
+                st_THick+[orange.alpha(0.5)])
+        Compound.on_render(self, layout, cvs)
+        print("HBox.on_render", len(self))
+        if len(self) == 2:
+            print(layout)
 
 
 class VBox(Compound):
@@ -241,7 +281,7 @@ class VBox(Compound):
             add(lay.width == width)
             y += lay.height
             lays.append(lay)
-        add(height == y)
+        add(y0+height == y)
         i = j = 0
         for lay in lays:
             for v in lay.lys:
@@ -250,14 +290,23 @@ class VBox(Compound):
             for v in lay.rys:
                 add(v == layout.rys[j])
                 j += 1
-        assert i==self.nleft
-        assert j==self.nright
+        assert i==self.nleft, "i=%d, nleft=%d"%(i, self.nleft)
+        assert j==self.nright, "j=%d, nright=%d"%(j, self.nright)
         layout.lays = lays
         return layout
 
+    def on_render(self, layout, cvs):
+        if self.DEBUG:
+            width, height = layout.width, layout.height
+            x0, y0 = layout.x0, layout.y0 # my origin
+            r = 0.05
+            cvs.stroke(path.rect(x0+r, y0+2*r, width-2*r, height-4*r),
+                st_THick+[blue.alpha(0.5)])
+        Compound.on_render(self, layout, cvs)
+
 
 class Spider(Box):
-    def __init__(self, nleft=0, nright=0, **kw):
+    def __init__(self, nleft=1, nright=1, **kw):
         Box.__init__(self, nleft, nright, **kw)
         self.__dict__.update(kw)
 
@@ -266,12 +315,14 @@ class Spider(Box):
     pip_colour = black
     pip_radius = 0.1
     def on_render(self, layout, cvs):
-        if self.DEBUG:
-            Box.on_render(self, layout, cvs)
+#        if self.DEBUG:
+#            Box.on_render(self, layout, cvs)
         width, height = layout.width, layout.height
         x0, y0 = layout.x0, layout.y0
         xc = x0 + 0.5*width
-        if self.nleft == 1:
+        if self.shape == (1,1):
+            yc = sum(layout.lys+layout.rys) / (self.nleft + self.nright)
+        elif self.nleft == 1:
             yc = layout.lys[0]
         elif self.nright == 1:
             yc = layout.rys[0]
@@ -315,10 +366,9 @@ class Green(Spider):
     pip_colour = green
 
 class Hadamard(Spider):
-    p = path.rect(-0.05, -0.05, 0.1, 0.1)
+    pip_radius = 0.1
+    p = path.rect(-pip_radius, -pip_radius, 2*pip_radius, 2*pip_radius)
     pip_cvs = Canvas().fill(p, [yellow]).stroke(p)
-#    def __init__(self):
-#        Spider.__init__(self, 1, 1)
 
 
 class Relation(Box):
@@ -342,8 +392,8 @@ class Relation(Box):
                 
 
     def on_render(self, layout, cvs):
-        if self.DEBUG:
-            Box.on_render(self, layout, cvs)
+#        if self.DEBUG:
+#            Box.on_render(self, layout, cvs)
         width, height = layout.width, layout.height
         x0, y0 = layout.x0, layout.y0
         x1 = x0+width
@@ -390,6 +440,129 @@ def Permutation(perm, *args, **kw):
     return Relation(A, *args, **kw)
 
 
+class Circuit(object):
+
+    RED = color.rgb(0.9, 0.2, 0.1)
+    GREEN = color.rgb(0.3, 0.7, 0.2)
+    YELLOW = color.rgb(0.9, 0.9, 0.0)
+    
+    # https://zxcalculus.com/accessibility.html
+    #RED = color.rgb(232/255, 165/255, 165/255)
+    #GREEN = color.rgb(216/255, 248/255, 216/255)
+    # YUCK !
+
+    radius = 0.13
+    p = path.circle(0, 0, radius)
+    rcvs = Canvas().fill(p, [RED]).stroke(p)
+    gcvs = Canvas().fill(p, [GREEN]).stroke(p)
+    p = path.rect(-radius, -radius, 2*radius, 2*radius)
+    ycvs = Canvas().fill(p, [YELLOW]).stroke(p)
+
+    @classmethod
+    def get_phase(cls, phase, pip_cvs):
+        cvs = Canvas()
+        cvs.text(0, -1.2*cls.radius, "$%s$"%phase, st_north)
+        cvs = Canvas([cvs, pip_cvs])
+        return cvs
+
+    def __init__(self, n):
+        self.n = n
+
+    def get_P(self, *args):
+        assert len(args) == self.n
+        return Permutation(args)
+
+    def get_SWAP(self, idx=0, jdx=1):
+        f = list(range(self.n))
+        f[idx], f[jdx] = f[jdx], f[idx]
+        return Permutation(f)
+
+    def get_gate(self, idx, box):
+        n = self.n
+        if idx is None:
+            boxs = [box]*n
+        else:
+            boxs = [Identity() if i!=idx else box for i in range(n)]
+        boxs = reversed(list(boxs))
+        return VBox(n, n, boxs)
+
+    def get_H(self, idx=None):
+        box = Spider(1, 1, pip_cvs=self.ycvs)
+        return self.get_gate(idx, box)
+
+    def get_S(self, idx=None):
+        cvs = self.get_phase(1, self.gcvs)
+        box = Spider(1, 1, pip_cvs=cvs)
+        return self.get_gate(idx, box)
+
+    #def get_CZ(self, idx=0, jdx=1):
+
+    def get_pair(self, idx, jdx, lbox, rbox):
+        #if idx > jdx:
+        #    return self.get_pair(jdx, idx, rbox, lbox) # recurse WHOOPS, no..
+        assert idx < jdx
+        assert lbox.shape == (1, 2)
+        assert rbox.shape == (2, 1)
+        n = self.n
+        boxs = [Identity() if i!=idx else lbox for i in range(n)]
+        boxs = reversed(list(boxs))
+        lhs = VBox(n, n+1, boxs)
+        boxs = [Identity() if i!=jdx else rbox for i in range(n)]
+        boxs = reversed(list(boxs))
+        rhs = VBox(n+1, n, boxs)
+        assert idx < jdx
+        perm = [None]*(n+1)
+        for i in range(n):
+            #print()
+            #print("i =", i)
+            #print("perm =", perm)
+            if i < idx:
+                #print("set A")
+                perm[i] = i
+            elif i == idx:
+                #print("set B")
+                perm[i] = i
+                perm[i+1] = jdx
+            elif i < jdx:
+                #print("set C")
+                perm[i+1] = i
+            else:
+                #print("set D")
+                perm[i+1] = i+1
+            #print("perm =", perm)
+        assert None not in perm
+        #print("perm:", perm)
+        mid = Permutation(perm, rigid=False)
+        mid = Relation(mid.A.transpose())
+        #return lhs * mid * rhs
+        return HBox(n, n, [lhs, mid, rhs])
+
+    def get_CNOT(self, idx=0, jdx=1):
+        assert idx != jdx
+        n = self.n
+        if idx < jdx:
+            src = Spider(1, 2, pip_cvs=self.gcvs)
+            tgt = Spider(2, 1, pip_cvs=self.rcvs)
+            box = self.get_pair(idx, jdx, src, tgt)
+        else:
+            src = Spider(2, 1, pip_cvs=self.gcvs)
+            tgt = Spider(1, 2, pip_cvs=self.rcvs)
+            box = self.get_pair(jdx, idx, tgt, src)
+        return box
+
+    def get_CZ(self, idx=0, jdx=1):
+        assert idx != jdx
+        n = self.n
+        if idx > jdx:
+            idx, jdx = jdx, idx
+        src = Spider(1, 2, pip_cvs=self.gcvs)
+        src = src * (Identity() + Hadamard())
+        tgt = Spider(2, 1, pip_cvs=self.gcvs)
+        box = self.get_pair(idx, jdx, src, tgt)
+        return box
+
+
+
 def test():
     huygens.config(text="pdflatex", latex_header=r"""
     \usepackage{amsmath}
@@ -399,7 +572,7 @@ def test():
     \newcommand{\tensor}{\otimes}
     """)
 
-    box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * (Red(4, 1) + Red())
+    box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * (Red(4, 1) + Red(0,0))
     box = box + Hadamard(1, 1)
 
     box = Red(1,2) * Relation([[1,0],[1,1]]) * Green(2,1)
@@ -420,6 +593,11 @@ def test():
     mul = Green(1, 2)
     unit = Green(1, 0)
     #box = mul*(I<<unit)
+
+    s = Circuit(5)
+    box = s.get_H(3) * s.get_S(1) * s.get_CNOT(0, 2) * s.get_CNOT(4, 1) * s.get_CZ(1, 3)
+    box = s.get_CNOT(4,0)*s.get_CZ(1, 4)
+    #box = s.get_CNOT(2, 3)
 
     #cvs = box.render(height=2.)
     cvs = box.render()
