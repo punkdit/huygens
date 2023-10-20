@@ -23,6 +23,15 @@ from huygens.namespace import *
 del conv # !
 from huygens.argv import argv
 
+
+huygens.config(text="pdflatex", latex_header=r"""
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{extarrows}
+\usepackage{mathtools}
+\newcommand{\tensor}{\otimes}
+""")
+
 from huygens.sat import Const, System, Listener
 
 def conv(a, b, alpha=0.5):
@@ -256,9 +265,6 @@ class HBox(Compound):
             cvs.stroke(path.rect(x0+2*r, y0+r, width-4*r, height-2*r),
                 st_THick+[orange.alpha(0.5)])
         Compound.on_render(self, layout, cvs)
-        print("HBox.on_render", len(self))
-        if len(self) == 2:
-            print(layout)
 
 
 class VBox(Compound):
@@ -382,6 +388,11 @@ class Relation(Box):
         self.lpip_cvs = lpip_cvs
         self.rpip_cvs = rpip_cvs
 
+    @property
+    def t(self):
+        A = self.A.transpose()
+        return Relation(A, self.rpip_cvs, self.lpip_cvs)
+
     def on_constrain(self, layout):
         Box.on_constrain(self, layout)
         rys = layout.rys
@@ -440,6 +451,58 @@ def Permutation(perm, *args, **kw):
     return Relation(A, *args, **kw)
 
 
+class Element(Relation):
+    def __init__(self, n):
+        A = numpy.identity(n, dtype=int)
+        Relation.__init__(self, A)
+
+
+class CNOT(Element):
+    def __init__(self, n, idx, jdx):
+        Element.__init__(self, n)
+        self.idx = idx
+        self.jdx = jdx
+
+    def on_render(self, layout, cvs):
+        Element.on_render(self, layout, cvs)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0
+        lys = list(reversed(layout.lys)) # arghhh
+        idx, jdx = self.idx, self.jdx
+        x = x0 + 0.5*width
+        yi, yj = lys[idx], lys[jdx]
+        cvs.stroke(path.line(x, yi, x, yj), self.st_stroke)
+        cvs.insert(x, yi, Circuit.gcvs)
+        cvs.insert(x, yj, Circuit.rcvs)
+
+
+class CZ(Element):
+    def __init__(self, n, idx, jdx):
+        Element.__init__(self, n)
+        self.idx = idx
+        self.jdx = jdx
+
+    def on_render(self, layout, cvs):
+        Element.on_render(self, layout, cvs)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0
+        lys = list(reversed(layout.lys)) # arghhh
+        idx, jdx = self.idx, self.jdx
+        x = x0 + 0.5*width
+        yi, yj = lys[idx], lys[jdx]
+        if yi > yj:
+            yi, yj = yj, yi
+        cvs.stroke(path.line(x, yi, x, yj), self.st_stroke)
+        cvs.insert(x, yi, Circuit.gcvs)
+        cvs.insert(x, yj, Circuit.gcvs)
+        if (idx+jdx)%2:
+            y = conv(yi, yj)
+            cvs.insert(x, y, Circuit.ycvs)
+        else:
+            y = conv(yi, yj) - 0.5*abs(yj-yi)/abs(idx-jdx)
+            cvs.insert(x, y, Circuit.ycvs)
+
+
 class Circuit(object):
 
     RED = color.rgb(0.9, 0.2, 0.1)
@@ -451,7 +514,7 @@ class Circuit(object):
     #GREEN = color.rgb(216/255, 248/255, 216/255)
     # YUCK !
 
-    radius = 0.13
+    radius = Spider.pip_radius
     p = path.circle(0, 0, radius)
     rcvs = Canvas().fill(p, [RED]).stroke(p)
     gcvs = Canvas().fill(p, [GREEN]).stroke(p)
@@ -538,6 +601,9 @@ class Circuit(object):
         return HBox(n, n, [lhs, mid, rhs])
 
     def get_CNOT(self, idx=0, jdx=1):
+        return CNOT(self.n, idx, jdx)
+
+    def ugly_get_CNOT(self, idx=0, jdx=1):
         assert idx != jdx
         n = self.n
         if idx < jdx:
@@ -551,6 +617,9 @@ class Circuit(object):
         return box
 
     def get_CZ(self, idx=0, jdx=1):
+        return CZ(self.n, idx, jdx)
+
+    def ugly_get_CZ(self, idx=0, jdx=1):
         assert idx != jdx
         n = self.n
         if idx > jdx:
@@ -561,17 +630,26 @@ class Circuit(object):
         box = self.get_pair(idx, jdx, src, tgt)
         return box
 
+    def get_expr(self, expr):
+        if expr == ():
+            op = self.get_identity()
+        elif type(expr) is tuple:
+            #print("get_expr", expr)
+            op = reduce(operator.mul, [self.get_expr(e) for e in expr]) # recurse
+        else:
+            expr = "self.get_"+expr
+            #print("\tget_expr", expr)
+            op = eval(expr, {"self":self})
+        return op
+
+    def render_expr(self, expr):
+        op = self.get_expr(expr)
+        cvs = op.render()
+        return cvs
+
 
 
 def test():
-    huygens.config(text="pdflatex", latex_header=r"""
-    \usepackage{amsmath}
-    \usepackage{amssymb}
-    \usepackage{extarrows}
-    \usepackage{mathtools}
-    \newcommand{\tensor}{\otimes}
-    """)
-
     box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * (Red(4, 1) + Red(0,0))
     box = box + Hadamard(1, 1)
 
@@ -595,9 +673,15 @@ def test():
     #box = mul*(I<<unit)
 
     s = Circuit(5)
-    box = s.get_H(3) * s.get_S(1) * s.get_CNOT(0, 2) * s.get_CNOT(4, 1) * s.get_CZ(1, 3)
-    box = s.get_CNOT(4,0)*s.get_CZ(1, 4)
+    box = (s.get_H(3) * s.get_S(1) * s.get_CNOT(0, 2) * s.get_CNOT(4, 1)
+        * s.get_CZ(0, 1)
+        * s.get_CZ(0, 2)
+        * s.get_CZ(0, 3)
+        * s.get_CZ(1, 3)
+    )
+    #box = s.get_CNOT(4,0)*s.get_CZ(1, 4)
     #box = s.get_CNOT(2, 3)
+
 
     #cvs = box.render(height=2.)
     cvs = box.render()
