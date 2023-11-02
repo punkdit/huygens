@@ -29,7 +29,7 @@ huygens.config(text="pdflatex", latex_header=r"""
 \usepackage{amssymb}
 \usepackage{extarrows}
 \usepackage{mathtools}
-\newcommand{\tensor}{\otimes}
+\arraycolsep=3.0pt\def\arraystretch{0.6}
 """)
 
 from huygens.sat import Const, System, Listener
@@ -135,6 +135,7 @@ class Box(object):
             boxs = [self, other]
         return VBox(other.nleft+self.nleft, other.nright+self.nright, boxs)
     __lshift__ = __add__
+    __matmul__ = __add__
 
     def on_constrain(self, layout):
         x0 = layout.get_var("x0")
@@ -371,6 +372,12 @@ class Red(Spider):
 class Green(Spider):
     pip_colour = green
 
+class Black(Spider):
+    pip_colour = black
+
+class White(Spider):
+    pip_colour = white
+
 class Hadamard(Spider):
     pip_radius = 0.1
     p = path.rect(-pip_radius, -pip_radius, 2*pip_radius, 2*pip_radius)
@@ -538,6 +545,10 @@ class Circuit(object):
     def get_SWAP(self, idx=0, jdx=1):
         f = list(range(self.n))
         f[idx], f[jdx] = f[jdx], f[idx]
+        return Permutation(f)
+
+    def get_identity(self):
+        f = list(range(self.n))
         return Permutation(f)
 
     def get_gate(self, idx, box):
