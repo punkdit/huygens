@@ -63,16 +63,16 @@ class Layout(Listener):
         else:
             assert 0, repr(name)
 
-    def get_var(self, name, *args, **kw):
+    def get_var(self, name, weight=0.01, *args, **kw):
         assert type(name) is str
         system = self.system
-        var = system.listen_var(self, name, *args, **kw)
+        var = system.listen_var(self, name, weight=weight, *args, **kw)
         setattr(self, name, var)
         return var
 
-    def get_array(self, name, n, *args, **kw):
+    def get_array(self, name, n, weight=0.01, *args, **kw):
         system = self.system
-        vs = [system.listen_var(self, (name, i), *args, **kw) for i in range(n)]
+        vs = [system.listen_var(self, (name, i), weight=weight, *args, **kw) for i in range(n)]
         #self.arrays[name] = vs
         setattr(self, name, vs)
         return vs
@@ -95,8 +95,10 @@ class Box(object):
     DEBUG = False
 
     st_stroke = st_Thick
-    min_width = 1.0
-    min_height = 1.0
+    #min_width = 1.0
+    #min_height = 1.0
+    min_width = None
+    min_height = None
     def __init__(self, nleft=1, nright=1, **kw):
         self.nleft = nleft
         self.nright = nright
@@ -137,6 +139,12 @@ class Box(object):
     __lshift__ = __add__
     __matmul__ = __add__
 
+    def get_hunits(self):
+        return 1
+
+    def get_vunits(self):
+        return 1
+
     def on_constrain(self, layout):
         x0 = layout.get_var("x0")
         y0 = layout.get_var("y0")
@@ -148,9 +156,9 @@ class Box(object):
         add(width >= 0.)
         add(height >= 0.)
         if self.min_width is not None:
-            add(width >= self.min_width)
+            add(width >= self.min_width, 1.0)
         if self.min_height is not None:
-            add(height >= self.min_height)
+            add(height >= self.min_height, 1.0)
         for i in range(self.nleft):
             #add(y0 <= lys[i])
             #add(lys[i] <= y0+height)
@@ -176,7 +184,7 @@ class Box(object):
         self.on_constrain(layout)
         return layout
 
-    def render(self, x0=0., y0=0., width=None, height=None, size=None, border=0.1):
+    def render(self, x0=0., y0=0., width=None, height=None, size=None, scale=1.0, border=0.1, fill=None):
         system = System()
         layout = self.constrain(system)
         system.add(layout.x0 == x0)
@@ -188,9 +196,19 @@ class Box(object):
         if size is not None:
             system.add(layout.width == size)
             system.add(layout.height == size)
+        elif scale is not None:
+            width = scale * (self.get_hunits()**0.5)
+            height = scale * (self.get_vunits()**0.5)
+            system.add(layout.width == width)
+            system.add(layout.height == height)
+
         system.solve(simplify=False) # TODO: simplify=True
         cvs = Canvas()
         layout.render(cvs)
+        if fill is not None:
+            bg = Canvas()
+            bg.fill(path.rect(layout.x0, layout.y0, layout.width, layout.height), [fill])
+            cvs = Canvas([bg, cvs])
         if border is not None:
             bb = cvs.get_bound_box()
             p = path.rect(bb.llx-border, bb.lly-border, 
@@ -207,7 +225,7 @@ class Box(object):
 class Compound(Box):
     def __init__(self, nleft, nright, boxs=[], **kw):
         Box.__init__(self, nleft, nright, **kw)
-        # assoc ??
+        # _assoc ??
         #for box in boxs:
         #    if not isinstance(box, self.__class__):
         #        break
@@ -227,6 +245,12 @@ class Compound(Box):
 
 
 class HBox(Compound):
+    def get_hunits(self):
+        return len(self)
+
+    def get_vunits(self):
+        return max(box.get_vunits() for box in self)
+
     def on_constrain(self, layout):
         system = layout.system
         Compound.on_constrain(self, layout)
@@ -242,6 +266,8 @@ class HBox(Compound):
             add(lay.y0 == y0)
             add(lay.height == height)
             x += lay.width
+            if lays:
+                add(lay.width == lays[-1].width, 1.0)  # bottom-up layout
             lays.append(lay)
         add(x0+width == x)
         for i in range(n-1):
@@ -272,6 +298,12 @@ class VBox(Compound):
     """
     Arrange box's vertically, up the page.
     """
+    def get_hunits(self):
+        return max(box.get_hunits() for box in self)
+
+    def get_vunits(self):
+        return len(self)
+
     def on_constrain(self, layout):
         system = layout.system
         Compound.on_constrain(self, layout)
@@ -287,6 +319,8 @@ class VBox(Compound):
             add(lay.x0 == x0)
             add(lay.width == width)
             y += lay.height
+            if lays:
+                add(lay.height == lays[-1].height, 1.0)  # bottom-up layout
             lays.append(lay)
         add(y0+height == y)
         i = j = 0
@@ -525,6 +559,8 @@ class Circuit(object):
     p = path.circle(0, 0, radius)
     rcvs = Canvas().fill(p, [RED]).stroke(p)
     gcvs = Canvas().fill(p, [GREEN]).stroke(p)
+    bcvs = Canvas().fill(p, [black]).stroke(p)
+    wcvs = Canvas().fill(p, [white]).stroke(p)
     p = path.rect(-radius, -radius, 2*radius, 2*radius)
     ycvs = Canvas().fill(p, [YELLOW]).stroke(p)
 
@@ -653,9 +689,9 @@ class Circuit(object):
             op = eval(expr, {"self":self})
         return op
 
-    def render_expr(self, expr):
+    def render_expr(self, expr, *args, **kw):
         op = self.get_expr(expr)
-        cvs = op.render()
+        cvs = op.render(*args, **kw)
         return cvs
 
 
