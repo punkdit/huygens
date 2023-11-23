@@ -189,20 +189,24 @@ class Box(object):
         layout = self.constrain(system)
         system.add(layout.x0 == x0)
         system.add(layout.y0 == y0)
+
         if width is not None:
             system.add(layout.width == width)
-        if height is not None:
-            system.add(layout.height == height)
-        if size is not None:
+        elif size is not None:
             system.add(layout.width == size)
-            system.add(layout.height == size)
         elif scale is not None:
             width = scale * (self.get_hunits()**0.5)
-            height = scale * (self.get_vunits()**0.5)
             system.add(layout.width == width)
+
+        if height is not None:
+            system.add(layout.height == height)
+        elif size is not None:
+            system.add(layout.height == size)
+        elif scale is not None:
+            height = scale * (self.get_vunits()**0.5)
             system.add(layout.height == height)
 
-        system.solve(simplify=False) # TODO: simplify=True
+        system.solve(simplify=False, verbose=False) # TODO: simplify=True
         cvs = Canvas()
         layout.render(cvs)
         if fill is not None:
@@ -690,6 +694,7 @@ class Circuit(object):
         return op
 
     def render_expr(self, expr, *args, **kw):
+        print("render_expr", expr)
         op = self.get_expr(expr)
         cvs = op.render(*args, **kw)
         return cvs
