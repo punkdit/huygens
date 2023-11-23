@@ -99,6 +99,8 @@ class Box(object):
     #min_height = 1.0
     min_width = None
     min_height = None
+    fill = None # top-level bg fill
+
     def __init__(self, nleft=1, nright=1, **kw):
         self.nleft = nleft
         self.nright = nright
@@ -184,7 +186,7 @@ class Box(object):
         self.on_constrain(layout)
         return layout
 
-    def render(self, x0=0., y0=0., width=None, height=None, size=None, scale=1.0, border=0.1, fill=None):
+    def render(self, x0=0., y0=0., width=None, height=None, size=None, scale=1.0, border=0.1):
         system = System()
         layout = self.constrain(system)
         system.add(layout.x0 == x0)
@@ -209,9 +211,9 @@ class Box(object):
         system.solve(simplify=False, verbose=False) # TODO: simplify=True
         cvs = Canvas()
         layout.render(cvs)
-        if fill is not None:
+        if self.fill is not None:
             bg = Canvas()
-            bg.fill(path.rect(layout.x0, layout.y0, layout.width, layout.height), [fill])
+            bg.fill(path.rect(layout.x0, layout.y0, layout.width, layout.height), [self.fill])
             cvs = Canvas([bg, cvs])
         if border is not None:
             bb = cvs.get_bound_box()

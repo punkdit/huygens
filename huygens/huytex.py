@@ -107,13 +107,13 @@ def process(line, ns):
     return line
 
 
-def get_latex(value, cmd=GRI):
+def get_latex(value, cmd=GRI, **kw):
     key = id(value)
     if key in lookup:
         return lookup[key]
     data = str(key).encode('utf-8') # ?
     stem = hashlib.sha1(data).hexdigest()
-    save(stem, value, imdir=imdir) # monkeypatch from local config
+    save(stem, value, imdir=imdir, **kw) # monkeypatch from local config
     latex = cmd%(imdir, stem,) 
     lookup[id(value)] = latex
     return latex
