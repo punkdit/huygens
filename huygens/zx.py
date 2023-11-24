@@ -231,12 +231,7 @@ class Box(object):
 class Compound(Box):
     def __init__(self, nleft, nright, boxs=[], **kw):
         Box.__init__(self, nleft, nright, **kw)
-        # _assoc ??
-        #for box in boxs:
-        #    if not isinstance(box, self.__class__):
-        #        break
-        #else:
-        #    boxs = reduce(operator.add, [box.boxs for box in boxs])
+        # _assoc ?? no not here, sometimes we don't want _assoc.
         self.boxs = list(boxs)
 
     def __getitem__(self, idx):
@@ -251,6 +246,8 @@ class Compound(Box):
 
 
 class HBox(Compound):
+    st_sep = None # draw a separating line between boxes
+
     def get_hunits(self):
         return len(self)
 
@@ -278,7 +275,7 @@ class HBox(Compound):
         add(x0+width == x)
         for i in range(n-1):
             left, right = self[i], self[i+1]
-            assert left.nright == right.nleft
+            assert left.nright == right.nleft, "%s != %s"%(left.nright, right.nleft)
             l, r = lays[i], lays[i+1]
             #print(l.box, r.box)
             for j in range(left.nright):
@@ -298,6 +295,12 @@ class HBox(Compound):
             cvs.stroke(path.rect(x0+2*r, y0+r, width-4*r, height-2*r),
                 st_THick+[orange.alpha(0.5)])
         Compound.on_render(self, layout, cvs)
+        st_sep = self.st_sep
+        if st_sep is None:
+            return # <------ return
+        for i, lay in enumerate(layout.lays[1:]):
+            p = path.line(lay.x0, lay.y0, lay.x0, lay.y0+lay.height)
+            cvs.stroke(p, st_sep)
 
 
 class VBox(Compound):
