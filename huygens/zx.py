@@ -95,6 +95,8 @@ class Box(object):
     DEBUG = False
 
     st_stroke = st_Thick
+    st_lstrokes = None
+    st_rstrokes = None
     #min_width = 1.0
     #min_height = 1.0
     min_width = None
@@ -128,7 +130,7 @@ class Box(object):
         assert isinstance(other, Box)
         #return VBox(self.nleft+other.nleft, self.nright+other.nright, [self, other])
         #return VBox(other.nleft+self.nleft, other.nright+self.nright, [other, self])
-        self, other = other, self
+        #self, other = other, self
         if isinstance(self, VBox) and isinstance(other, VBox):
             boxs = self.boxs + other.boxs
         elif isinstance(self, VBox):
@@ -303,7 +305,7 @@ class HBox(Compound):
             cvs.stroke(p, st_sep)
 
 
-class VBox(Compound):
+class VBoxUp(Compound):
     """
     Arrange box's vertically, up the page.
     """
@@ -355,6 +357,46 @@ class VBox(Compound):
         Compound.on_render(self, layout, cvs)
 
 
+class VBoxDn(VBoxUp):
+    """
+    Arrange box's vertically, down the page.
+    """
+    def on_constrain(self, layout):
+        system = layout.system
+        Compound.on_constrain(self, layout)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0 # my origin at upper left corner
+        y = y0
+        n = len(self)
+        lays = []
+        add = system.add
+        for i in range(n):
+            lay = self[i].constrain(layout.system)
+            add(lay.y0 == y)
+            add(lay.x0 == x0)
+            add(lay.width == width)
+            y += lay.height
+            if lays:
+                add(lay.height == lays[-1].height, 1.0)  # bottom-up layout
+            lays.append(lay)
+        add(y0+height == y)
+        i = j = 0
+        for lay in lays:
+            for v in lay.lys:
+                add(v == layout.lys[i])
+                i += 1
+            for v in lay.rys:
+                add(v == layout.rys[j])
+                j += 1
+        assert i==self.nleft, "i=%d, nleft=%d"%(i, self.nleft)
+        assert j==self.nright, "j=%d, nright=%d"%(j, self.nright)
+        layout.lays = lays
+        return layout
+
+
+VBox = VBoxUp
+
+
 class Spider(Box):
     def __init__(self, nleft=1, nright=1, **kw):
         Box.__init__(self, nleft, nright, **kw)
@@ -387,8 +429,10 @@ class Spider(Box):
                 conv(x0, xc), y, 
                 conv(x0, xc), conv(y, yc),
                 xc, yc)
-            cvs.stroke(p, self.st_stroke)
-            #cvs.stroke(path.line(x0, layout.lys[i], x, y))
+            st = self.st_stroke
+            if self.st_lstrokes is not None:
+                st = st + self.st_lstrokes[i]
+            cvs.stroke(p, st)
         x1 = x0+width
         for i in range(self.nright):
             y = layout.rys[i]
@@ -397,11 +441,13 @@ class Spider(Box):
                 conv(x1, xc), y, 
                 conv(x1, xc), conv(y, yc),
                 xc, yc)
-            #cvs.stroke(path.line(x0+width, layout.rys[i], x, y))
-            cvs.stroke(p, self.st_stroke)
+            st = self.st_stroke
+            if self.st_rstrokes is not None:
+                st = st + self.st_rstrokes[i]
+            cvs.stroke(p, st)
         if self.pip_cvs is not None:
             cvs.insert(xc, yc, self.pip_cvs)
-        else:
+        elif self.pip_colour is not None:
             p = path.circle(xc, yc, self.pip_radius)
             cvs.fill(p, [self.pip_colour])
             cvs.stroke(p)
@@ -709,6 +755,7 @@ class Circuit(object):
 def test():
     box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * (Red(4, 1) + Red(0,0))
     box = box + Hadamard(1, 1)
+    cvs = box.render()
 
     box = Red(1,2) * Relation([[1,0],[1,1]]) * Green(2,1)
 
@@ -741,7 +788,7 @@ def test():
 
 
     #cvs = box.render(height=2.)
-    cvs = box.render()
+    #cvs = box.render()
     cvs.writePDFfile("test.pdf")
 
 

@@ -27,8 +27,8 @@ lookup = {}
 
 match_py = "%py "
 match_PY = "%PY "
-GRI = r"\raisebox{-0.4\height}{\includegraphics{%s/%s.pdf}}"
-GRD = r"{\begin{center}\includegraphics{%s/%s.pdf}\end{center}}"
+GRI = r"\raisebox{-0.4\height}{\includegraphics{%s/%s.pdf}}%%"
+GRD = r"{\begin{center}\includegraphics{%s/%s.pdf}\end{center}}%%"
 
 suspend = False
 def process(line, ns):
@@ -100,9 +100,9 @@ def process(line, ns):
                 raise
         stems.add(stem)
 
-    latex = cmd%(imdir, stem,) 
+    latex = cmd%(imdir, stem,)  + "\n"
     lookup[id(value)] = latex
-    line = pre + latex + "\n"
+    line = pre + latex
 
     return line
 
@@ -114,7 +114,7 @@ def get_latex(value, cmd=GRI, **kw):
     data = str(key).encode('utf-8') # ?
     stem = hashlib.sha1(data).hexdigest()
     save(stem, value, imdir=imdir, **kw) # monkeypatch from local config
-    latex = cmd%(imdir, stem,) 
+    latex = cmd%(imdir, stem,) + "\n"
     lookup[id(value)] = latex
     return latex
 
