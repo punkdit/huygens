@@ -64,6 +64,7 @@ class Layout(Listener):
             assert 0, repr(name)
 
     def get_var(self, name, weight=0.01, *args, **kw):
+        # weight: relative importance w.r.t. minimize
         assert type(name) is str
         system = self.system
         var = system.listen_var(self, name, weight=weight, *args, **kw)
@@ -71,6 +72,7 @@ class Layout(Listener):
         return var
 
     def get_array(self, name, n, weight=0.01, *args, **kw):
+        # weight: relative importance w.r.t. minimize
         system = self.system
         vs = [system.listen_var(self, (name, i), weight=weight, *args, **kw) for i in range(n)]
         #self.arrays[name] = vs
@@ -150,12 +152,22 @@ class Box(object):
         return 1
 
     def on_constrain(self, layout):
+        # lower left coord is (x0,y0)
         x0 = layout.get_var("x0")
         y0 = layout.get_var("y0")
         width = layout.get_var("width")
         height = layout.get_var("height")
+        # y positions of left and right ports (legs)
         lys = layout.get_array("lys", self.nleft)
         rys = layout.get_array("rys", self.nright)
+        # tangents for the left and right ports
+        # XXX
+        # This is still not perfect, 
+        # we really need two coordinates for a tangent.
+        # Problems arise when glueing two Spiders with different widths.
+        # XXX
+        ldys = layout.get_array("ldys", self.nleft, weight=0.)
+        rdys = layout.get_array("rdys", self.nright, weight=0.)
         add = layout.add
         add(width >= 0.)
         add(height >= 0.)
@@ -167,10 +179,12 @@ class Box(object):
             #add(y0 <= lys[i])
             #add(lys[i] <= y0+height)
             add(lys[i] == y0 + ((i+0.5)/self.nleft) * height, 10.0)
+            add(ldys[i] == 0., 0.1)
         for i in range(self.nright):
             #add(y0 <= rys[i])
             #add(rys[i] <= y0+height)
             add(rys[i] == y0 + ((i+0.5)/self.nright) * height, 10.0)
+            add(rdys[i] == 0., 0.1)
 
     def on_render(self, layout, cvs):
         width, height = layout.width, layout.height
@@ -189,26 +203,32 @@ class Box(object):
         return layout
 
     def render(self, x0=0., y0=0., width=None, height=None, size=None, scale=1.0, border=0.1):
+        # this is the top-level render call
         system = System()
+        add = system.add
         layout = self.constrain(system)
-        system.add(layout.x0 == x0)
-        system.add(layout.y0 == y0)
+        add(layout.x0 == x0)
+        add(layout.y0 == y0)
+
+        # require external ports perpendicular to the left and right edges
+        for v in layout.ldys + layout.rdys:
+            add(v==0, 1.)
 
         if width is not None:
-            system.add(layout.width == width)
+            add(layout.width == width)
         elif size is not None:
-            system.add(layout.width == size)
+            add(layout.width == size)
         elif scale is not None:
             width = scale * (self.get_hunits()**0.5)
-            system.add(layout.width == width)
+            add(layout.width == width)
 
         if height is not None:
-            system.add(layout.height == height)
+            add(layout.height == height)
         elif size is not None:
-            system.add(layout.height == size)
+            add(layout.height == size)
         elif scale is not None:
             height = scale * (self.get_vunits()**0.5)
-            system.add(layout.height == height)
+            add(layout.height == height)
 
         system.solve(simplify=False, verbose=False) # TODO: simplify=True
         cvs = Canvas()
@@ -282,10 +302,16 @@ class HBox(Compound):
             #print(l.box, r.box)
             for j in range(left.nright):
                 add(l.rys[j] == r.lys[j])
+                add(l.rdys[j] == -r.ldys[j])
         layout.lays = lays
+        # the ports on child Box's must be consistent with the ports on self
         for (l,r) in zip(layout.lys, lays[0].lys):
             add(l == r)
+        for (l,r) in zip(layout.ldys, lays[0].ldys):
+            add(l == r)
         for (l,r) in zip(layout.rys, lays[-1].rys):
+            add(l == r)
+        for (l,r) in zip(layout.rdys, lays[-1].rdys):
             add(l == r)
         return layout
 
@@ -305,7 +331,7 @@ class HBox(Compound):
             cvs.stroke(p, st_sep)
 
 
-class VBoxUp(Compound):
+class VBox(Compound):
     """
     Arrange box's vertically, up the page.
     """
@@ -334,13 +360,17 @@ class VBoxUp(Compound):
                 add(lay.height == lays[-1].height, 1.0)  # bottom-up layout
             lays.append(lay)
         add(y0+height == y)
+
+        # the ports on child Box's must match the ports on self
         i = j = 0
         for lay in lays:
-            for v in lay.lys:
+            for v,dv in zip(lay.lys,lay.ldys):
                 add(v == layout.lys[i])
+                add(dv == layout.ldys[i])
                 i += 1
-            for v in lay.rys:
+            for v,dv in zip(lay.rys,lay.rdys):
                 add(v == layout.rys[j])
+                add(dv == layout.rdys[j])
                 j += 1
         assert i==self.nleft, "i=%d, nleft=%d"%(i, self.nleft)
         assert j==self.nright, "j=%d, nright=%d"%(j, self.nright)
@@ -357,50 +387,22 @@ class VBoxUp(Compound):
         Compound.on_render(self, layout, cvs)
 
 
-class VBoxDn(VBoxUp):
-    """
-    Arrange box's vertically, down the page.
-    """
-    def on_constrain(self, layout):
-        system = layout.system
-        Compound.on_constrain(self, layout)
-        width, height = layout.width, layout.height
-        x0, y0 = layout.x0, layout.y0 # my origin at upper left corner
-        y = y0
-        n = len(self)
-        lays = []
-        add = system.add
-        for i in range(n):
-            lay = self[i].constrain(layout.system)
-            add(lay.y0 == y)
-            add(lay.x0 == x0)
-            add(lay.width == width)
-            y += lay.height
-            if lays:
-                add(lay.height == lays[-1].height, 1.0)  # bottom-up layout
-            lays.append(lay)
-        add(y0+height == y)
-        i = j = 0
-        for lay in lays:
-            for v in lay.lys:
-                add(v == layout.lys[i])
-                i += 1
-            for v in lay.rys:
-                add(v == layout.rys[j])
-                j += 1
-        assert i==self.nleft, "i=%d, nleft=%d"%(i, self.nleft)
-        assert j==self.nright, "j=%d, nright=%d"%(j, self.nright)
-        layout.lays = lays
-        return layout
-
-
-VBox = VBoxUp
-
 
 class Spider(Box):
     def __init__(self, nleft=1, nright=1, **kw):
         Box.__init__(self, nleft, nright, **kw)
         self.__dict__.update(kw)
+
+    def on_constrain(self, layout):
+        Box.on_constrain(self, layout)
+        add = layout.add
+        yc = layout.y0 + 0.5*layout.height
+        for i in range(self.nleft):
+            y, dy = layout.lys[i], layout.ldys[i]
+            add(y + dy == 0.5*(y + yc), 1.0)
+        for i in range(self.nright):
+            y, dy = layout.rys[i], layout.rdys[i]
+            add(y + dy == 0.5*(y + yc), 1.0)
 
     label = None
     pip_cvs = None
@@ -424,9 +426,10 @@ class Spider(Box):
             yc = y0 + 0.5*height
         for i in range(self.nleft):
             y = layout.lys[i]
+            dy = layout.ldys[i]
             p = path.curve(
                 x0, y, 
-                conv(x0, xc), y, 
+                conv(x0, xc), y+dy, 
                 conv(x0, xc), conv(y, yc),
                 xc, yc)
             st = self.st_stroke
@@ -436,9 +439,10 @@ class Spider(Box):
         x1 = x0+width
         for i in range(self.nright):
             y = layout.rys[i]
+            dy = layout.rdys[i]
             p = path.curve(
                 x1, y, 
-                conv(x1, xc), y, 
+                conv(x1, xc), y+dy, 
                 conv(x1, xc), conv(y, yc),
                 xc, yc)
             st = self.st_stroke
@@ -491,9 +495,13 @@ class Relation(Box):
 
     def on_constrain(self, layout):
         Box.on_constrain(self, layout)
+        if not self.rigid:
+            return
         rys = layout.rys
         lys = layout.lys
-        if self.rigid and len(rys) == len(lys):
+        for v in layout.ldys + layout.rdys:
+            layout.add(v==0)
+        if len(rys) == len(lys):
             for (l,r) in zip(lys, rys):
                 layout.add(l==r)
                 
@@ -505,21 +513,24 @@ class Relation(Box):
         x0, y0 = layout.x0, layout.y0
         x1 = x0+width
         lys, rys = layout.lys, layout.rys
+        ldys, rdys = layout.ldys, layout.rdys
         A = self.A
         # index goes top down...
         lys = list(reversed(lys))
         rys = list(reversed(rys))
+        ldys = list(reversed(ldys))
+        rdys = list(reversed(rdys))
         for i in range(self.nleft):
           for j in range(self.nright):
             if not A[i][j]:
                 continue
-            p = path.line(
-                x0, lys[i], 
-                x1, rys[j])
+            #p = path.line(
+            #    x0, lys[i], 
+            #    x1, rys[j])
             p = path.curve(
                 x0, lys[i], 
-                conv(x0,x1), lys[i],
-                conv(x0,x1), rys[j],
+                conv(x0,x1), lys[i]+ldys[i],
+                conv(x0,x1), rys[j]+rdys[i],
                 x1, rys[j])
             cvs.stroke(p, self.st_stroke)
         lpip_cvs = self.lpip_cvs
@@ -753,9 +764,15 @@ class Circuit(object):
 
 
 def test():
+    box = Red(2, 2) * Red(2, 2) + Red(2,2)*Red(2,2)
+    box = (Red(2,2)+Red(2,2))*(Red(2,2)+Red(2,2))
     box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * (Red(4, 1) + Red(0,0))
-    box = box + Hadamard(1, 1)
-    cvs = box.render()
+    #box = ((Red(2, 1) * Red(1, 2)) + Red(2, 2)) * Red(4, 1)
+    #box = (Red(1, 2) + Red(2, 2)) * Red(4, 1)
+    #box = (Red(1, 2) + Red(2, 2)) * (Red(3, 1) + Red(1,1)) * Red(2,1)
+    #box = box + Hadamard(1, 1)
+    cvs = box.render(size=2)
+    cvs.writePDFfile("test.pdf")
 
     box = Red(1,2) * Relation([[1,0],[1,1]]) * Green(2,1)
 
@@ -789,7 +806,7 @@ def test():
 
     #cvs = box.render(height=2.)
     #cvs = box.render()
-    cvs.writePDFfile("test.pdf")
+    #cvs.writePDFfile("test.pdf")
 
 
 if __name__ == "__main__":
