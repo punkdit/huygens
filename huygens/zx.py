@@ -104,6 +104,8 @@ class Box(object):
     min_width = None
     min_height = None
     fill = None # top-level bg fill
+    size = None # top-level size constraint
+    rotate = 0 # top-level rotate
 
     def __init__(self, nleft=1, nright=1, **kw):
         self.nleft = nleft
@@ -179,12 +181,12 @@ class Box(object):
             #add(y0 <= lys[i])
             #add(lys[i] <= y0+height)
             add(lys[i] == y0 + ((i+0.5)/self.nleft) * height, 10.0)
-            add(ldys[i] == 0., 0.1)
+            add(ldys[i] == 0., 0.1) # this cuts down on extra wiggle
         for i in range(self.nright):
             #add(y0 <= rys[i])
             #add(rys[i] <= y0+height)
             add(rys[i] == y0 + ((i+0.5)/self.nright) * height, 10.0)
-            add(rdys[i] == 0., 0.1)
+            add(rdys[i] == 0., 0.1) # this cuts down on extra wiggle
 
     def on_render(self, layout, cvs):
         width, height = layout.width, layout.height
@@ -214,6 +216,10 @@ class Box(object):
         for v in layout.ldys + layout.rdys:
             add(v==0, 1.)
 
+        # top-level size constraint
+        if size is None:
+            size = self.size
+
         if width is not None:
             add(layout.width == width)
         elif size is not None:
@@ -242,6 +248,8 @@ class Box(object):
             p = path.rect(bb.llx-border, bb.lly-border, 
                 bb.width+2*border, bb.height+2*border)
             cvs.stroke(p, [white])
+        if self.rotate:
+            cvs = Canvas([Rotate(self.rotate), cvs])
         return cvs
 
     def _repr_svg_(self):
@@ -399,10 +407,10 @@ class Spider(Box):
         yc = layout.y0 + 0.5*layout.height
         for i in range(self.nleft):
             y, dy = layout.lys[i], layout.ldys[i]
-            add(y + dy == 0.5*(y + yc), 1.0)
+            add(y + dy == conv(y, yc, 0.7), 1.0)
         for i in range(self.nright):
             y, dy = layout.rys[i], layout.rdys[i]
-            add(y + dy == 0.5*(y + yc), 1.0)
+            add(y + dy == conv(y, yc, 0.7), 1.0)
 
     label = None
     pip_cvs = None
@@ -480,11 +488,15 @@ class Hadamard(Spider):
 class Relation(Box):
 
     rigid = True
-    def __init__(self, A, lpip_cvs=None, rpip_cvs=None, **kw):
+    def __init__(self, A, lpip_cvs=None, rpip_cvs=None, st_strokes=None, **kw):
         A = numpy.array(A)
         m, n = A.shape
         Box.__init__(self, m, n, **kw)
         self.A = A
+        if st_strokes is not None:
+            st_strokes = numpy.array(st_strokes, dtype=object)
+            assert st_strokes.shape == A.shape
+        self.st_strokes = st_strokes
         self.lpip_cvs = lpip_cvs
         self.rpip_cvs = rpip_cvs
 
@@ -515,6 +527,7 @@ class Relation(Box):
         lys, rys = layout.lys, layout.rys
         ldys, rdys = layout.ldys, layout.rdys
         A = self.A
+        st_strokes = self.st_strokes
         # index goes top down...
         lys = list(reversed(lys))
         rys = list(reversed(rys))
@@ -522,7 +535,7 @@ class Relation(Box):
         rdys = list(reversed(rdys))
         for i in range(self.nleft):
           for j in range(self.nright):
-            if not A[i][j]:
+            if not A[i,j]:
                 continue
             #p = path.line(
             #    x0, lys[i], 
@@ -532,7 +545,10 @@ class Relation(Box):
                 conv(x0,x1), lys[i]+ldys[i],
                 conv(x0,x1), rys[j]+rdys[i],
                 x1, rys[j])
-            cvs.stroke(p, self.st_stroke)
+            st = self.st_stroke
+            if st_strokes is not None:
+                st = st + st_strokes[i,j]
+            cvs.stroke(p, st)
         lpip_cvs = self.lpip_cvs
         rpip_cvs = self.rpip_cvs
         if lpip_cvs is not None:
