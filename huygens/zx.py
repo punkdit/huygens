@@ -687,6 +687,16 @@ class Circuit(object):
         box = Spider(1, 1, pip_cvs=cvs)
         return self.get_gate(idx, box)
 
+    def get_X(self, idx=None):
+        cvs = self.get_phase(2, self.rcvs)
+        box = Spider(1, 1, pip_cvs=cvs)
+        return self.get_gate(idx, box)
+
+    def get_Z(self, idx=None):
+        cvs = self.get_phase(2, self.gcvs)
+        box = Spider(1, 1, pip_cvs=cvs)
+        return self.get_gate(idx, box)
+
     #def get_CZ(self, idx=0, jdx=1):
 
     def get_pair(self, idx, jdx, lbox, rbox):
