@@ -115,6 +115,7 @@ class Bound(Base):
     @property
     def northeast(self):
         return self.urx, self.ury
+    ur = northeast
 
     @property
     def northwest(self):
@@ -127,6 +128,7 @@ class Bound(Base):
     @property
     def southwest(self):
         return self.llx, self.lly
+    ll = southwest
 
     @property
     def width(self):
