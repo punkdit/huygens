@@ -174,9 +174,10 @@ class Box(object):
         add(width >= 0.)
         add(height >= 0.)
         if self.min_width is not None:
-            add(width >= self.min_width, 1.0)
+            add(width >= self.min_width)
+            print(self.__class__.__name__, "width >=", self.min_width)
         if self.min_height is not None:
-            add(height >= self.min_height, 1.0)
+            add(height >= self.min_height)
         for i in range(self.nleft):
             #add(y0 <= lys[i])
             #add(lys[i] <= y0+height)
@@ -485,6 +486,23 @@ class Hadamard(Spider):
     pip_cvs = Canvas().fill(p, [yellow]).stroke(p)
 
 
+class Rect(Box):
+    def __init__(self, m, n, label=None, **kw):
+        Box.__init__(self, m, n, **kw)
+        self.label = label
+
+    def on_render(self, layout, cvs):
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0, layout.y0
+        p = path.rect(x0, y0, width, height)
+        cvs.fill(p, [white])
+        cvs.stroke(p)
+        label = self.label
+        if label is not None:
+            x, y = x0+0.5*width, y0+0.5*height
+            cvs.text(x, y, label, st_center)
+
+
 class Relation(Box):
 
     rigid = True
@@ -660,23 +678,23 @@ class Circuit(object):
         assert len(args) == self.n
         return Permutation(args)
 
-    def get_SWAP(self, idx=0, jdx=1):
+    def get_SWAP(self, idx=0, jdx=1, **kw):
         f = list(range(self.n))
         f[idx], f[jdx] = f[jdx], f[idx]
-        return Permutation(f)
+        return Permutation(f, **kw)
 
-    def get_identity(self):
+    def get_identity(self, **kw):
         f = list(range(self.n))
-        return Permutation(f)
+        return Permutation(f, **kw)
 
-    def get_gate(self, idx, box):
+    def get_gate(self, idx, box, **kw):
         n = self.n
         if idx is None:
             boxs = [box]*n
         else:
             boxs = [Identity() if i!=idx else box for i in range(n)]
         boxs = reversed(list(boxs))
-        return VBox(n, n, boxs)
+        return VBox(n, n, boxs, **kw)
 
     def get_H(self, idx=None):
         box = Spider(1, 1, pip_cvs=self.ycvs)
@@ -834,10 +852,38 @@ def test():
     #cvs = box.render()
     #cvs.writePDFfile("test.pdf")
 
+def test_rect():
+    r0 = 0.6
+    r1 = 1.7
+    c = Circuit(4)
+    H = Spider(1, 1, pip_cvs=c.ycvs)
+    boxs = [H, H, Identity(), Identity()]
+    HH = VBox(4, 4, boxs, min_width=r0)
+    SWAP = c.get_SWAP(2, 3, min_width=r0)
+    I4 = c.get_identity()
+    E = Rect(4, 4, "$[[4,2,2]]$", min_width=r1)
+    rhs = I4 * E * SWAP * HH
+
+    H4 = VBox(4, 4, [H]*4, min_width=r0)
+    lhs = H4 * E * I4
+
+    lhs = lhs.render(width=3.4)
+    rhs = rhs.render(width=3.4)
+    lbb = lhs.get_bound_box()
+    rbb = rhs.get_bound_box()
+    cvs = Canvas()
+    x, y = lbb.east
+    cvs.insert(-x-0.5, -y, lhs)
+    x, y = rbb.west
+    cvs.insert(-x+0.5, -y, rhs)
+    cvs.text(0, 0, "$=$", st_center)
+
+    cvs.writePDFfile("test.pdf")
+
 
 if __name__ == "__main__":
 
-    test()
+    test_rect()
     print("OK\n\n")
 
 
