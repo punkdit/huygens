@@ -205,7 +205,7 @@ class Box(object):
         self.on_constrain(layout)
         return layout
 
-    def render(self, x0=0., y0=0., width=None, height=None, size=None, scale=1.0, border=0.1):
+    def render(self, x0=0., y0=0., width=None, height=None, size=None, scale=1.0, border=0.1, soft_width=None):
         # this is the top-level render call
         system = System()
         add = system.add
@@ -221,6 +221,9 @@ class Box(object):
         if size is None:
             size = self.size
 
+        if soft_width is not None:
+            add(layout.width == soft_width, 1.0)
+            
         if width is not None:
             add(layout.width == width)
         elif size is not None:
