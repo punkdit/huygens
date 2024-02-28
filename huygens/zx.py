@@ -205,7 +205,8 @@ class Box(object):
         self.on_constrain(layout)
         return layout
 
-    def render(self, x0=0., y0=0., width=None, height=None, size=None, scale=1.0, border=0.1, soft_width=None):
+    def render(self, x0=0., y0=0., width=None, height=None, 
+            size=None, scale=1.0, border=0.1, soft_width=None):
         # this is the top-level render call
         system = System()
         add = system.add
@@ -254,6 +255,7 @@ class Box(object):
             cvs.stroke(p, [white])
         if self.rotate:
             cvs = Canvas([Rotate(self.rotate), cvs])
+        cvs.layout = layout # brilliant or hack ?
         return cvs
 
     def _repr_svg_(self):
