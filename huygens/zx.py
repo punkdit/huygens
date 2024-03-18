@@ -705,8 +705,8 @@ class Circuit(object):
         box = Spider(1, 1, pip_cvs=self.ycvs)
         return self.get_gate(idx, box)
 
-    def get_S(self, idx=None):
-        cvs = self.get_phase(1, self.gcvs)
+    def get_S(self, idx=None, phase=1):
+        cvs = self.get_phase(phase, self.gcvs)
         box = Spider(1, 1, pip_cvs=cvs)
         return self.get_gate(idx, box)
 
@@ -764,6 +764,7 @@ class Circuit(object):
 
     def get_CNOT(self, idx=0, jdx=1):
         return CNOT(self.n, idx, jdx)
+    get_CX = get_CNOT
 
     def ugly_get_CNOT(self, idx=0, jdx=1):
         assert idx != jdx
@@ -792,6 +793,11 @@ class Circuit(object):
         box = self.get_pair(idx, jdx, src, tgt)
         return box
 
+    def get_CY(self, idx=0, jdx=1):
+        g = self.get_CX(idx, jdx)
+        S = self.get_S
+        return S(jdx, 1) * g * S(jdx, 3)
+
     def get_expr(self, expr):
         if expr == ():
             op = self.get_identity()
@@ -805,7 +811,7 @@ class Circuit(object):
         return op
 
     def render_expr(self, expr, *args, **kw):
-        print("render_expr", expr)
+        #print("render_expr", expr)
         op = self.get_expr(expr)
         cvs = op.render(*args, **kw)
         return cvs
