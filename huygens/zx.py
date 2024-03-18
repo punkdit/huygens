@@ -793,6 +793,11 @@ class Circuit(object):
         box = self.get_pair(idx, jdx, src, tgt)
         return box
 
+    def get_Y(self, idx=0):
+        g = self.get_X(idx)
+        S = self.get_S
+        return S(idx, 1) * g * S(idx, 3)
+
     def get_CY(self, idx=0, jdx=1):
         g = self.get_CX(idx, jdx)
         S = self.get_S
