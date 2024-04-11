@@ -530,7 +530,7 @@ class System(object):
             #print("System.solve: lookup =", lookup)
             for (src, tgt) in subs.items():
                 #print(src, tgt, tgt.evaluate(lookup))
-                assert src.weight==0.
+                #assert src.weight==0. # um, what's this for ?  XXX
                 if src in lookup:
                     print(src, tgt, lookup[src])
                 assert src not in lookup

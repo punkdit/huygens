@@ -206,7 +206,7 @@ class Box(object):
         return layout
 
     def render(self, x0=0., y0=0., width=None, height=None, 
-            size=None, scale=1.0, border=0.1, soft_width=None):
+            size=None, scale=1.0, border=0.1, soft_width=None, simplify=False):
         # this is the top-level render call
         system = System()
         add = system.add
@@ -241,7 +241,7 @@ class Box(object):
             height = scale * (self.get_vunits()**0.5)
             add(layout.height == height)
 
-        system.solve(simplify=False, verbose=False) # TODO: simplify=True
+        system.solve(simplify=simplify, verbose=False)
         cvs = Canvas()
         layout.render(cvs)
         if self.fill is not None:
