@@ -206,7 +206,9 @@ class Box(object):
         return layout
 
     def render(self, x0=0., y0=0., width=None, height=None, 
-            size=None, scale=1.0, border=0.1, soft_width=None, simplify=False):
+            size=None, scale=1.0, border=0.1, soft_width=None, simplify=False,
+            rhs_labels=[],
+        ):
         # this is the top-level render call
         system = System()
         add = system.add
@@ -244,6 +246,10 @@ class Box(object):
         system.solve(simplify=simplify, verbose=False)
         cvs = Canvas()
         layout.render(cvs)
+        for i,label in enumerate(rhs_labels):
+            x = layout.x0+layout.width
+            y = layout.y0+layout.height - (i+0.5)*layout.height/len(rhs_labels)
+            cvs.text(x+0.1, y, str(label), st_west)
         if self.fill is not None:
             bg = Canvas()
             bg.fill(path.rect(layout.x0, layout.y0, layout.width, layout.height), [self.fill])
@@ -262,6 +268,10 @@ class Box(object):
         cvs = self.render()
         svg = cvs._repr_svg_()
         return svg
+
+    def is_identity(self):
+        return False 
+
 
 
 class Compound(Box):
@@ -512,7 +522,7 @@ class Relation(Box):
 
     rigid = True
     def __init__(self, A, lpip_cvs=None, rpip_cvs=None, st_strokes=None, **kw):
-        A = numpy.array(A)
+        A = numpy.array(A, dtype=int)
         m, n = A.shape
         Box.__init__(self, m, n, **kw)
         self.A = A
@@ -527,6 +537,11 @@ class Relation(Box):
     def t(self):
         A = self.A.transpose()
         return Relation(A, self.rpip_cvs, self.lpip_cvs)
+
+    def is_identity(self):
+        A = self.A
+        I = numpy.identity(len(A), dtype=int)
+        return numpy.alltrue(A==I)
 
     def on_constrain(self, layout):
         Box.on_constrain(self, layout)
@@ -802,6 +817,21 @@ class Circuit(object):
         g = self.get_CX(idx, jdx)
         S = self.get_S
         return S(jdx, 1) * g * S(jdx, 3)
+
+    def get_expr_flat(self, expr):
+        ops = [Circuit(1).get_identity()]*self.n
+        #ops = [self.get_expr(e) for e in expr]
+        #ops = []
+        for e in expr:
+            box = self.get_expr(e)
+            assert isinstance(box, VBox), "fix fix"
+            for i,op in enumerate(box):
+                if not op.is_identity():
+                    break
+            else:
+                assert 0
+            ops[i] = op
+        return VBox(self.n, self.n, ops)
 
     def get_expr(self, expr):
         if expr == ():
