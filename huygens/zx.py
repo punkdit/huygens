@@ -106,6 +106,7 @@ class Box(object):
     fill = None # top-level bg fill
     size = None # top-level size constraint
     rotate = 0 # top-level rotate
+    weight = 1. # for our constraints
 
     def __init__(self, nleft=1, nright=1, **kw):
         self.nleft = nleft
@@ -181,12 +182,12 @@ class Box(object):
         for i in range(self.nleft):
             #add(y0 <= lys[i])
             #add(lys[i] <= y0+height)
-            add(lys[i] == y0 + ((i+0.5)/self.nleft) * height, 10.0)
+            add(lys[i] == y0 + ((i+0.5)/self.nleft) * height, self.weight) # weight was == 10
             add(ldys[i] == 0., 0.1) # this cuts down on extra wiggle
         for i in range(self.nright):
             #add(y0 <= rys[i])
             #add(rys[i] <= y0+height)
-            add(rys[i] == y0 + ((i+0.5)/self.nright) * height, 10.0)
+            add(rys[i] == y0 + ((i+0.5)/self.nright) * height, self.weight) # weight was == 10
             add(rdys[i] == 0., 0.1) # this cuts down on extra wiggle
 
     def on_render(self, layout, cvs):
@@ -423,10 +424,10 @@ class Spider(Box):
         yc = layout.y0 + 0.5*layout.height
         for i in range(self.nleft):
             y, dy = layout.lys[i], layout.ldys[i]
-            add(y + dy == conv(y, yc, 0.7), 1.0)
+            add(y + dy == conv(y, yc, 0.7), self.weight)
         for i in range(self.nright):
             y, dy = layout.rys[i], layout.rdys[i]
-            add(y + dy == conv(y, yc, 0.7), 1.0)
+            add(y + dy == conv(y, yc, 0.7), self.weight)
 
     label = None
     pip_cvs = None
