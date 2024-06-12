@@ -374,7 +374,7 @@ class LineTo(PathItem):
 
     def get_at(self, curpos, startpos, t):
         assert curpos is not None, "no current point"
-        assert 0.<=t<=1.
+        assert -EPSILON<=t<=1.+EPSILON, "t=%s"%t
         #print("LineTo.get_at", t, curpos, self)
         x0, y0 = curpos
         x1, y1 = self.x, self.y
@@ -382,7 +382,7 @@ class LineTo(PathItem):
 
     def diff_at(self, curpos, startpos, t):
         assert curpos is not None, "no current point"
-        assert 0.<=t<=1.
+        assert -EPSILON<=t<=1.+EPSILON, "t=%s"%t
         #print("LineTo.get_at", t, curpos, self)
         x0, y0 = curpos
         x1, y1 = self.x, self.y
@@ -1627,10 +1627,17 @@ class Polygon(Item):
             #cxt.transform(cairo.Matrix(x1-x0, y0-y1, x0-x2, y2-y0, x0, -y0))
             #cxt.scale(rs, rs)
 
-            cxt.transform(cairo.Matrix(rs*(x1-x0), rs*(y0-y1), rs*(x0-x2), rs*(y2-y0), x0, -y0))
-            cxt.transform(self.texm)
-
-            texture.process_cairo(cxt)
+            a, b, c, d = rs*(x1-x0), rs*(y0-y1), rs*(x0-x2), rs*(y2-y0)
+            u = a*d - b*c
+            if abs(u) > EPSILON:
+                m = cairo.Matrix(a, b, c, d, x0, -y0)
+    
+                try: # try/except probably not needed here...
+                    cxt.transform(m)
+                    cxt.transform(self.texm)
+                    texture.process_cairo(cxt)
+                except cairo.Error as e:
+                    print("cairo.Error", e)
 
         cxt.restore() # <------- restore
 
