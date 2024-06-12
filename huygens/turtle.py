@@ -265,23 +265,28 @@ class Turtle(object):
     def stroke(self, *args, **kw):
         kw["name"] = "stroke"
         self._render(*args, **kw)
+        return self
 
     def fill(self, *args, **kw):
         kw["name"] = "fill"
         self._render(*args, **kw)
+        return self
 
     def clip(self, *args, **kw):
         kw["name"] = "clip"
         self._render(*args, **kw)
+        return self
 
     def stroke_preserve(self, *args, **kw):
         kw["name"] = "stroke"
         kw["preserve"] = True
         self._render(*args, **kw)
+        return self
 
     def fill_preserve(self, *args, **kw):
         kw["name"] = "fill"
         kw["preserve"] = True
         self._render(*args, **kw)
+        return self
 
 
