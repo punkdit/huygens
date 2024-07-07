@@ -1177,6 +1177,18 @@ class View(object):
         x, y, z = self.trafo_camera(v)
         return -z
 
+    def cull_near(self, z0=-1):
+        # near gitems get in the way of the render, cull these
+        gitems = self.gitems
+        i = 0
+        while i < len(gitems):
+            gitem = gitems[i]
+            z = self.get_depth(gitem)
+            if z > z0:
+                gitems.pop(i)
+            else:
+                i += 1
+
     def render(self, *args, less_than=None, **kw):
         cvs = self.prepare_canvas(*args, **kw)
 
