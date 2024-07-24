@@ -54,6 +54,10 @@ class Turtle(object):
             attrs = self.default_attrs
         self.attrs = attrs
 
+    def startat(self):
+        angle = 360*self.theta/(2*pi)
+        return Turtle(self.x, self.y, angle, self.cvs, self.attrs)
+
     def copy(self):
         import copy
         t = copy.deepcopy(self)
