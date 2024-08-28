@@ -511,7 +511,10 @@ class GItem(object):
         if epsilon is not None and len(verts)>1:
             # try to cover up the seams. 
             # does not look good with alpha blending
-            verts = [p + epsilon*(p-center).normalized() for p in verts]
+            try:
+                verts = [p + epsilon*(p-center).normalized() for p in verts]
+            except AssertionError:
+                print("huygens.pov.GItem.__init__: AssertionError")
         self.verts = verts
         self.center = center
         self.address = address
