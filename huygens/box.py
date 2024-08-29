@@ -385,6 +385,20 @@ class FillBox(StrokeBox):
         y = system[self.y]
         cvs.fill(path.rect(x, y, self.width, self.height), [RGBA(*self.rgba)])
 
+class WeakFillBox(Box):
+    def __init__(self, st):
+        Box.__init__(self)
+        self.st = st
+
+    def on_render(self, cvs, system):
+        Box.on_render(self, cvs, system)
+        x = system[self.llx]
+        y = system[self.lly]
+        width = system[self.width]
+        height = system[self.height]
+        #print(x, y, width, height)
+        cvs.fill(path.rect(x, y, width, height), self.st)
+
 
 class TextBox(Box):
     def __init__(self, text, weight=99.0):
