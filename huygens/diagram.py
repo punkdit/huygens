@@ -554,7 +554,7 @@ class Spider(Multi):
         for b in trace["bot"]:
             row = []
             for a in trace["top"]:
-                p = (a+b).backwards() # bottom up
+                p = (a>>b).backwards() # bottom up
                 row.append(p)
             M.append(row)
         return M

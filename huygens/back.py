@@ -709,11 +709,13 @@ class Path(Compound):
     # XXX should reqire PathItem elements ?
 
     def __add__(self, other):
+        "disjoint sum"
         assert isinstance(other, Path), repr(other)
         lhs, rhs = self.items, other.items
         return Path(lhs + rhs)
 
-    def __lshift__(self, other):
+    def __rshift__(self, other):
+        "connected sum"
         assert isinstance(other, Path), repr(other)
         lhs, rhs = self.items, other.items
         if rhs and isinstance(rhs[0], MoveTo):
