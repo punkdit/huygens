@@ -711,6 +711,11 @@ class Path(Compound):
     def __add__(self, other):
         assert isinstance(other, Path), repr(other)
         lhs, rhs = self.items, other.items
+        return Path(lhs + rhs)
+
+    def __lshift__(self, other):
+        assert isinstance(other, Path), repr(other)
+        lhs, rhs = self.items, other.items
         if rhs and isinstance(rhs[0], MoveTo):
             rhs = rhs[1:]
         return Path(lhs + rhs)
