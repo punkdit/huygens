@@ -710,7 +710,10 @@ class Path(Compound):
 
     def __add__(self, other):
         assert isinstance(other, Path), repr(other)
-        return Path(self.items + other.items)
+        lhs, rhs = self.items, other.items
+        if rhs and isinstance(rhs[0], MoveTo):
+            rhs = rhs[1:]
+        return Path(lhs + rhs)
 
     def __iadd__(self, other):
         assert isinstance(other, Path), repr(other)
@@ -741,6 +744,33 @@ class Path(Compound):
             idx -= 2
         p = Path(items)
         return p
+
+    def backwards(self):
+        if len(self)==0:
+            return self
+        items = []
+        for item in self:
+            if isinstance(item, MoveTo):
+                items.insert(0, item)
+            elif isinstance(item, CurveTo):
+                jtem = items.pop(0)
+                assert isinstance(jtem, MoveTo), type(jtem)
+                x3, y3 = jtem.x, jtem.y
+                x2, y2 = item.x0, item.y0
+                x1, y1 = item.x1, item.y1
+                x0, y0 = item.x2, item.y2
+                items.insert(0, CurveTo(x1, y1, x2, y2, x3, y3))
+                items.insert(0, MoveTo(x0, y0))
+            elif isinstance(item, LineTo):
+                jtem = items.pop(0)
+                assert isinstance(jtem, MoveTo), type(jtem)
+                x1, y1 = jtem.x, jtem.y
+                x0, y0 = item.x, item.y
+                items.insert(0, LineTo(x1, y0))
+                items.insert(0, MoveTo(x0, y0))
+            else:
+                assert 0, "toto: %s"%(item.__class__,)
+        return Path(items)
 
     def get_length(self):
         curpos = None

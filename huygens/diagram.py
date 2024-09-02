@@ -526,6 +526,7 @@ class Spider(Multi):
         trace["top"] = []
         trace["bot"] = []
 
+        # We stroke top down:
         y3 = y_top
         for x3, attrs in zip(x_top, top_attrs):
             x2, y2 = x3, conv(y3, y0, 0.3)
@@ -534,6 +535,7 @@ class Spider(Multi):
             trace["top"].append(p)
             cvs.stroke(p, attrs)
 
+        # We stroke top down:
         y3 = y_bot
         for x3, attrs in zip(x_bot, bot_attrs):
             x2, y2 = x3, conv(y3, y0, 0.3)
@@ -545,6 +547,17 @@ class Spider(Multi):
         #cvs.fill(path.circle(x0, y0, 0.04))
         if self.pip is not None:
             self.pip.render(cvs, x0, y0)
+
+    def get_paths(self):
+        trace = self.trace
+        M = []
+        for b in trace["bot"]:
+            row = []
+            for a in trace["top"]:
+                p = (a+b).backwards() # bottom up
+                row.append(p)
+            M.append(row)
+        return M
 
 
 class TBone(Spider):
@@ -599,9 +612,9 @@ class Relation(Multi):
         self.topbot = list(topbot)
         self.toptop = list(toptop)
         self.botbot = list(botbot)
-        self.attrs = attrs # applies to all strings
-        self.top_attrs = list(top_attrs) # applies to top strings
-        self.bot_attrs = list(bot_attrs) # applies to bot strings
+        self.attrs = attrs # _applies to all strings
+        self.top_attrs = list(top_attrs) # _applies to top strings
+        self.bot_attrs = list(bot_attrs) # _applies to bot strings
         Atom.__init__(self, n_top=n_top, n_bot=n_bot,
             min_width=min_width, min_height=min_height)
 

@@ -226,13 +226,14 @@ class Box(Magic):
         system.solve()
         return system
 
-    def render(self, cvs=None, x=0, y=0):
+    def render(self, cvs=None, x=0, y=0, refresh=True):
         if cvs is None:
             cvs = canvas.canvas()
         #assert (x,y) == (0, 0) # put the anchor here, not used ???
         self.layout(cvs, x, y)
         self.on_render(cvs, self.system)
-        self.system.refresh()
+        if refresh:
+            self.system.refresh() # delattr's
         return cvs
 
     def __add__(self, other):
@@ -662,6 +663,7 @@ class VBox(CompoundBox):
                 system.add(box.right <= self.right)
         system.add(self.y - self.bot == y)
 
+        #print("VBox", self.x, id(self))
         # try to make all our boxes the same width
         #for box in boxs:
         #    w = (1./len(boxs))*self.height
