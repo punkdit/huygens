@@ -47,7 +47,7 @@ class Cell0(object):
         assert isinstance(other, Cell0)
         return str(self) == str(other)
 
-FIXME = Cell0("n", [0.9*white])
+FIXME = Cell0("n", [0.5*white])
 
 class Cell1(object):
     def __init__(self, tgt, src, name="X", st=st_black):
@@ -69,6 +69,7 @@ class Cell1(object):
         return str(self) == str(other)
 
     def __lshift__(self, other):
+        assert self.src == other.tgt
         lhs = self.cells if isinstance(self, HCell1) else [self]
         rhs = other.cells if isinstance(other, HCell1) else [other]
         return HCell1(lhs+rhs)
@@ -80,6 +81,11 @@ class Cell1(object):
         if self.st is not None:
             return [self][idx]
         return [][idx]
+
+    @property
+    def i(self):
+        Ai = Spider(self, self, self.name+"i", st_pip=None, weight=10.)
+        return Ai
 
 
 class HCell1(Cell1):
@@ -202,10 +208,11 @@ class Lattice(object):
         right = other.inf
 
         assert self.src == other.tgt
+        cell0 = self.src
 
         for p in left:
           for q in right:
-            pairs[p,q] = FIXME
+            pairs[p,q] = cell0
         
         return Lattice(self.tgt, other.src, o_ports, i_ports, pairs, self.paths+other.paths)
 
@@ -236,7 +243,6 @@ class Lattice(object):
             #print("\t\tpaths:", len(s_paths))
         #print("compose:", len(compose))
         #print(len(top.pairs), len(bot.pairs))
-        pairs = []
         for p in bot.paths:
             if bot.o_lookup.get(p) is not None:
                 continue
@@ -251,28 +257,31 @@ class Lattice(object):
             if odx is not None:
                 o_ports[odx].append(p)
             s_paths.add(p)
+        pairs = {}
         for (a,b) in top.pairs:
+            cell0 = top.pairs[a,b]
             for c in bot.paths:
                 if (a,c) in compose and (b,c) in compose:
-                    pairs.append( (compose[a,c], compose[b,c]) )
+                    pairs[ (compose[a,c], compose[b,c]) ] = cell0
                 elif (a,c) in compose and b in s_paths:
-                    pairs.append( (compose[a,c], b) )
+                    pairs[ (compose[a,c], b) ] = cell0
                 elif (b,c) in compose and a in s_paths:
-                    pairs.append( (a, compose[b,c]) )
+                    pairs[ (a, compose[b,c]) ] = cell0
         for (b,c) in bot.pairs:
+            cell0 = bot.pairs[b,c]
             for a in top.paths:
                 if (a,b) in compose and (a,c) in compose:
-                    pairs.append( (compose[a,b], compose[a,c]) )
+                    pairs[ (compose[a,b], compose[a,c]) ] = cell0
                 elif (a,b) in compose and c in s_paths:
-                    pairs.append( (compose[a,b], c) )
+                    pairs[ (compose[a,b], c) ] = cell0
                 elif (a,c) in compose and b in s_paths:
-                    pairs.append( (b, compose[a,c]) )
+                    pairs[ (b, compose[a,c]) ] = cell0
         for (a,b) in top.pairs:
           for (c,d) in bot.pairs:
             if (a,c) in compose and (b,d) in compose:
-                pairs.append( (compose[a,c], compose[b,d]) )
-        #print("pairs:", len(pairs))
-        pairs = {k:FIXME for k in pairs}
+                cell0 = top.pairs[a,b]
+                assert bot.pairs[c,d] == cell0, "umm...???"
+                pairs[ (compose[a,c], compose[b,d]) ] = cell0
         return Lattice(top.tgt, top.src, o_ports, i_ports, pairs, s_paths)
 
 
@@ -290,30 +299,44 @@ class Visitor(object):
         lookup = self.lookup
         cell = dia.cell # an unfortunate series of tubes
         assert isinstance(cell, Cell2)
-        tgt = cell.src.tgt
-        src = cell.src.src
         if isinstance(dia, diagram.Spider):
-            o_paths = [p.backwards() for p in dia.trace["top"]]
-            i_paths = [p.backwards() for p in dia.trace["bot"]]
+            o_legs = [p.backwards() for p in dia.trace["top"]]
+            i_legs = [p.backwards() for p in dia.trace["bot"]]
             i_ports = []
             o_ports = []
-            if o_paths and i_paths:
-                uniq = {(i_p,o_p):(i_p>>o_p) for o_p in o_paths for i_p in i_paths}
-                i_ports = [[uniq[i_p,o_p] for o_p in o_paths] for i_p in i_paths]
-                o_ports = [[uniq[i_p,o_p] for i_p in i_paths] for o_p in o_paths]
-                pairs = reduce(operator.add, [twos(port) for port in i_ports])
-                pairs += reduce(operator.add, [twos(port) for port in o_ports])
-            elif o_paths:
-                o_ports = [[p] for p in o_paths]
-                pairs = twos(o_paths)
-            elif i_paths:
-                i_ports = [[p] for p in i_paths]
-                pairs = twos(i_paths)
+            pairs = {}
+            if o_legs and i_legs:
+                uniq = {(i_p,o_p):(i_p>>o_p) for o_p in o_legs for i_p in i_legs}
+                i_ports = [[uniq[i_p,o_p] for o_p in o_legs] for i_p in i_legs]
+                o_ports = [[uniq[i_p,o_p] for i_p in i_legs] for o_p in o_legs]
+                #pairs = reduce(operator.add, [twos(port) for port in i_ports])
+                #pairs += reduce(operator.add, [twos(port) for port in o_ports])
+                for idx in range(len(i_legs)):
+                  for odx in range(len(o_legs)):
+                    if idx+1 < len(i_legs):
+                        cell0 = cell.src[idx].src
+                        pairs[uniq[i_legs[idx],o_legs[odx]], uniq[i_legs[idx+1],o_legs[odx]]] = cell0
+                    if odx+1 < len(o_legs):
+                        cell0 = cell.tgt[odx].src
+                        pairs[uniq[i_legs[idx],o_legs[odx]], uniq[i_legs[idx],o_legs[odx+1]]] = cell0
+            elif o_legs:
+                o_ports = [[p] for p in o_legs]
+                #pairs = twos(o_legs)
+                #pairs = dict((k,FIXME) for k in pairs)
+                for odx in range(len(o_legs)-1):
+                    cell0 = cell.tgt[odx].src
+                    pairs[o_legs[odx], o_legs[odx+1]] = cell0
+            elif i_legs:
+                i_ports = [[p] for p in i_legs]
+                for idx in range(len(i_legs)-1):
+                    cell0 = cell.src[idx].src
+                    pairs[i_legs[idx], i_legs[idx+1]] = cell0
+                #pairs = twos(i_legs)
+                #pairs = dict((k,FIXME) for k in pairs)
             else:
-                assert 0, "empty spider: %s?"%dia
+                pairs = {} # ?
             #print("Visitor.__call__:", len(o_ports), len(i_ports))
-            pairs = dict((k,FIXME) for k in pairs)
-            M = Lattice(tgt, src, o_ports, i_ports, pairs)
+            M = Lattice(cell.src.tgt, cell.src.src, o_ports, i_ports, pairs)
 
         elif isinstance(dia, diagram.VDia):
             M = reduce(operator.mul, [lookup[child] for child in dia])
@@ -334,60 +357,19 @@ class Visitor(object):
         cvs = dia.render(refresh=False)
         dia.visit(self.on_visit)
 
-        llx, lly = dia.llx, dia.lly
-        urx, ury = dia.urx, dia.ury
         cvs.stroke(path.rect(dia.llx, dia.lly, dia.width, dia.height), [grey])
 
         M = lookup[dia]
         #M.dump()
-        sup, inf = M.sup, M.inf
 
-        if len(M.o_ports) == 0 or len(M.i_ports) == 0:
-            # TODO
-            print("Visitor.process: TODO")
-            return cvs
-
-        s_paths = set(reduce(operator.add, M.o_ports)).intersection(
-            reduce(operator.add, M.i_ports))
-        paths = list(s_paths)
-        assert len(paths)
-        p0 = p1 = paths[0]
-        follow = []
-        while 1:
-            nf = len(follow)
-            for pair in M.pairs:
-                if pair[0]==p1 and pair[1] in s_paths:
-                    p1 = pair[1]
-                    follow.append(pair)
-                if pair[1]==p0 and pair[0] in s_paths:
-                    p0 = pair[0]
-                    follow.append(pair)
-            if nf == len(follow):
-                break
-
-        assert len(follow) or p0==p1
-
-        tgt = cell.src.tgt
-        src = cell.src.src
-        bg = Canvas()
-
-        # left fill
-        x0, y0 = p0.getat(0)
-        x1, y1 = p0.getat(1)
-        left = mkpath([(x0,y0),(llx,lly),(llx,ury),(x1,y1)]) >> p0.backwards()
-        bg.fill(left, tgt.st)
-
-        for (p,q) in follow:
-            cell = M.pairs[p,q]
-            #p = pair[0] >> pair[1].backwards()
-            p = p >> mkpath([p.getat(1), q.getat(1)]) >> q.backwards() >> mkpath([q.getat(0), p.getat(0)])
-            bg.fill(p, cell.st)
-
-        # right fill
-        x0, y0 = p1.getat(0)
-        x1, y1 = p1.getat(1)
-        right = p1 >> mkpath([(x1,y1),(urx,ury),(urx,lly),(x0,y0)])
-        bg.fill(right, src.st)
+        if len(M.o_ports) and len(M.i_ports):
+            bg = self.process_connected()
+        elif len(M.o_ports):
+            bg = self.process_o_ports()
+        elif len(M.i_ports):
+            bg = self.process_i_ports()
+        else:
+            bg = self.process_bubble()
 
         cvs = Canvas([bg, cvs])
         
@@ -413,11 +395,110 @@ class Visitor(object):
 
         return cvs
 
+    def find_paths(self, s_paths):
+        M = self.lookup[self.dia]
+        paths = list(s_paths)
+        assert len(paths)
+        p0 = p1 = paths[0]
+        follow = []
+        while 1:
+            nf = len(follow)
+            for pair in M.pairs:
+                if pair[0]==p1 and pair[1] in s_paths:
+                    p1 = pair[1]
+                    follow.append(pair)
+                if pair[1]==p0 and pair[0] in s_paths:
+                    p0 = pair[0]
+                    follow.append(pair)
+            if nf == len(follow):
+                break
+        assert len(follow) or p0==p1
+        return p0, p1, follow
+
+    def process_o_ports(self):
+        cell = self.cell
+        dia = self.dia
+        lookup = self.lookup
+        M = lookup[dia]
+
+        s_paths = reduce(operator.add, M.o_ports)
+        p0, p1, follow = self.find_paths(s_paths)
+
+        bg = Canvas()
+        for (p,q) in follow:
+            cell0 = M.pairs[p,q]
+            bg.fill(p >> q.backwards(), cell0.st)
+            #bg.stroke(p, cell0.st+st_THICK)
+            bg.stroke(p, [red]+st_arrow)
+            bg.stroke(q, [red]+st_arrow)
+
+        print(len(follow), p0==p1)
+        print(follow)
+
+        return bg
+
+    def process_i_ports(self):
+        cell = self.cell
+        dia = self.dia
+        lookup = self.lookup
+        M = lookup[dia]
+
+        s_paths = reduce(operator.add, M.o_ports)
+        p0, p1, follow = self.find_paths(s_paths)
+
+        bg = Canvas()
+        return bg
+
+    def process_bubble(self):
+        cell = self.cell
+        dia = self.dia
+        lookup = self.lookup
+        M = lookup[dia]
+
+        bg = Canvas()
+        return bg
+
+    def process_connected(self):
+        cell = self.cell
+        dia = self.dia
+        lookup = self.lookup
+        M = lookup[dia]
+
+        s_paths = set(reduce(operator.add, M.o_ports)).intersection(reduce(operator.add, M.i_ports))
+        p0, p1, follow = self.find_paths(s_paths)
+
+        tgt = cell.src.tgt
+        src = cell.src.src
+        bg = Canvas()
+
+        llx, lly = dia.llx, dia.lly
+        urx, ury = dia.urx, dia.ury
+
+        # left fill
+        x0, y0 = p0.getat(0)
+        x1, y1 = p0.getat(1)
+        left = mkpath([(x0,y0),(llx,lly),(llx,ury),(x1,y1)]) >> p0.backwards()
+        bg.fill(left, tgt.st)
+
+        for (p,q) in follow:
+            cell = M.pairs[p,q]
+            #p = pair[0] >> pair[1].backwards()
+            p = p >> mkpath([p.getat(1), q.getat(1)]) >> q.backwards() >> mkpath([q.getat(0), p.getat(0)])
+            bg.fill(p, cell.st)
+
+        # right fill
+        x0, y0 = p1.getat(0)
+        x1, y1 = p1.getat(1)
+        right = p1 >> mkpath([(x1,y1),(urx,ury),(urx,lly),(x0,y0)])
+        bg.fill(right, src.st)
+        return bg
 
 class Cell2(object):
     def __init__(self, tgt, src, name):
         assert isinstance(tgt, Cell1)
         assert isinstance(src, Cell1)
+        assert tgt.src == src.src, "%s != %s"%(tgt.src, src.src)
+        assert tgt.tgt == src.tgt, "%s != %s"%(tgt.tgt, src.tgt)
         self.tgt = tgt
         self.src = src
         self.name = name
@@ -551,54 +632,66 @@ def save(name, value=None):
 
 def test():
     n = Cell0("n", [blue+0.5*white])
-    m = Cell0("n", [red+0.5*white])
+    m = Cell0("m", [red+0.5*white])
     
     i = Cell1(n, n, "i", None)
     j = Cell1(m, m, "j", None)
 
     A  = Cell1(n, n, "A", st_black+st_thick)
-    AB = Cell1(n, m, "AB", st_black+st_thick)
+    C = Cell1(n, m, "C", st_black+st_thick)
     B  = Cell1(m, m, "B", st_black+st_thick)
-    BA = Cell1(m, n, "BA", st_black+st_thick)
+    D = Cell1(m, n, "D", st_black+st_thick)
     
-    unit = Spider(A, i)
-    counit = Spider(i, A)
-    mul = Spider(A, A << A, "mul")
-    #nul = Spider(A, A << A, st_pip=st_white)
-    comul = Spider(A << A, A, "comul")
+    A_ = Spider(A, i)
+    _A = Spider(i, A)
+    A_AA = Spider(A, A << A, "A_AA")
+    #wA_AA = Spider(A, A << A, st_pip=st_white)
+    AA_A = Spider(A << A, A, "AA_A")
 
-    Ai = Spider(A, A, st_pip=None, weight=10.)
-    Bi = Spider(B, B, st_pip=None, weight=10.)
+
+    B_ = Spider(B, j)
+    BB_ = Spider(B<<B, j)
+    _B = Spider(j, B)
+    B_BB = Spider(B, B << B, "B_BB")
+    BB_B = Spider(B << B, B, "BB_B")
+
+    CD_A = Spider(C<<D, A, "CD_A")
+    A_CD = Spider(A, C<<D, "A_CD")
+    DC_B = Spider(D<<C, B, "DC_B")
+    AC_C = Spider(A<<C, C, "AC_C")
+
+    CD_ = Spider(C<<D, i, "CD_")
+    _CD = Spider(i, C<<D, "CD_")
+    DC_ = Spider(D<<C, j, "DC_")
+
+    #Ai = Spider(A, A, st_pip=None, weight=10.)
+    #Bi = Spider(B, B, st_pip=None, weight=10.)
     
     space = Space(0.5)
     sspace = Space(1.0)
 
-    #op = ((comul*mul*comul) << (counit*mul)) * (comul << X)
-
-    #op = (comul << mul)
-
-    gap = unit*counit
-    bone = counit*unit
-
     cvs = Canvas()
     x = 0.
     for op in [
-        mul << comul,
-        mul * comul,
-        comul * mul * comul,
-        ((mul*comul) << Ai) * comul,
-        (mul << Ai) * (Ai << comul),
-        counit * unit,
-        mul * (Ai << gap),
-        mul * (mul << (unit * counit)),
+        CD_,
+        _CD * CD_,
+        A_CD * CD_A,
+        #(D.i << C.i) * DC_B,
+        #(A_AA << C.i) * (A.i << AC_C)*AC_C,
+        #A_AA << AA_A,
+        #A_AA * AA_A,
+        #(AC_C << C.i), #*AC_C,
+#        AA_A * A_AA * AA_A,
+#        ((A_AA*AA_A) << A.i) * AA_A,
+#        (A_AA << A.i) * (A.i << AA_A),
+#        #_A * A_, # TODO
+#        A_AA * (A.i << (A_ * _A)),
+#        A_AA * (A_AA << (A_ * _A)),
     ]:
         fg = op.construct()
         bb = fg.get_bound_box()
         cvs.insert(x-bb.llx, -bb.lly, fg)
         x += bb.width + 0.3
-
-    #bubble = counit * mul * comul * unit
-    #op = bubble << bubble
 
     save("spider-test", cvs)
 
