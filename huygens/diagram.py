@@ -2,6 +2,8 @@
 
 """
 string diagram's
+
+see also: bicategory.py
 """
 
 from math import pi
