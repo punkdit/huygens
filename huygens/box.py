@@ -77,10 +77,6 @@ class Box(Magic):
         return self.y - self.bot
 
     @property
-    def ll(self):
-        return self.llx, self.lly
-
-    @property
     def urx(self):
         return self.x + self.right
 
@@ -89,8 +85,20 @@ class Box(Magic):
         return self.y + self.top
 
     @property
+    def ll(self):
+        return self.llx, self.lly
+
+    @property
+    def ul(self):
+        return self.llx, self.ury
+
+    @property
     def ur(self):
         return self.urx, self.ury
+
+    @property
+    def lr(self):
+        return self.urx, self.lly
 
     @property
     def midx(self):

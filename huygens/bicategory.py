@@ -425,15 +425,24 @@ class Visitor(object):
         p0, p1, follow = self.find_paths(s_paths)
 
         bg = Canvas()
+
+        #bg.stroke(p0, [red]+st_arrow)
+        #bg.stroke(p1, [red]+st_arrow)
+
+        assert M.src == M.tgt
+        cell0 = M.src
+        bg.fill(
+            (mkpath([dia.ll, dia.ul, p0.getat(1)])>>p0.backwards()>>p1
+             >>mkpath([p1.getat(1), dia.ur, dia.lr, dia.ll])), cell0.st)
+
         for (p,q) in follow:
             cell0 = M.pairs[p,q]
-            bg.fill(p >> q.backwards(), cell0.st)
+            #bg.fill(p >> q.backwards(), cell0.st)
             #bg.stroke(p, cell0.st+st_THICK)
-            bg.stroke(p, [red]+st_arrow)
-            bg.stroke(q, [red]+st_arrow)
+            bg.fill(p >> mkpath([p.getat(1), q.getat(1)]) >> q.backwards(), cell0.st)
 
-        print(len(follow), p0==p1)
-        print(follow)
+        #print(len(follow), p0==p1)
+        #print(follow)
 
         return bg
 
@@ -443,10 +452,26 @@ class Visitor(object):
         lookup = self.lookup
         M = lookup[dia]
 
-        s_paths = reduce(operator.add, M.o_ports)
+        s_paths = reduce(operator.add, M.i_ports)
         p0, p1, follow = self.find_paths(s_paths)
 
         bg = Canvas()
+
+        #bg.stroke(p0, [red]+st_arrow)
+        #bg.stroke(p1, [red]+st_arrow)
+
+        assert M.src == M.tgt
+        cell0 = M.src
+        bg.fill(
+            (p0.backwards()
+             >> mkpath([p0.getat(0), dia.ll, dia.ul, dia.ur, dia.lr, p1.getat(0)])
+             >> p1),
+            cell0.st)
+
+        for (p,q) in follow:
+            cell0 = M.pairs[p,q]
+            bg.fill(p.backwards() >> mkpath([p.getat(0), q.getat(0)]) >> q, cell0.st)
+
         return bg
 
     def process_bubble(self):
@@ -455,7 +480,21 @@ class Visitor(object):
         lookup = self.lookup
         M = lookup[dia]
 
+        p0, p1, follow = self.find_paths(M.s_paths)
+
         bg = Canvas()
+
+        bg.stroke(p0, [red]+st_arrow)
+        bg.stroke(p1, [red]+st_arrow)
+
+        assert M.src == M.tgt
+        cell0 = M.src
+        bg.fill(path.rect(dia.llx, dia.lly, dia.width, dia.height), cell0.st)
+
+        for (p,q) in follow:
+            cell0 = M.pairs[p,q]
+            bg.fill(p.backwards() >> q, cell0.st)
+
         return bg
 
     def process_connected(self):
@@ -673,9 +712,10 @@ def test():
     cvs = Canvas()
     x = 0.
     for op in [
-        CD_,
+        CD_A*A_CD*CD_A*A_,
+        _CD,
         _CD * CD_,
-        A_CD * CD_A,
+        _A * A_CD * CD_A * A_,
         #(D.i << C.i) * DC_B,
         #(A_AA << C.i) * (A.i << AC_C)*AC_C,
         #A_AA << AA_A,
