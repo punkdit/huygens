@@ -250,7 +250,7 @@ class Box(Magic):
 
     def visit(self, callback, instance=None, **kw):
         if instance is None or isinstance(self, instance):
-            callback(self)
+            callback(self, **kw)
 
     def search(self, **kw):
         boxs = []

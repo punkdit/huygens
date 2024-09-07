@@ -315,53 +315,10 @@ class Visitor(object):
     def on_visit(self, dia, **kw):
         #print("Visitor.__call__", type(dia))
         lookup = self.lookup
-        cell = dia.cell # an unfortunate series of tubes
+        cell = dia.cell # yes it's an unfortunate series of tubes
         assert isinstance(cell, Cell2)
-        if isinstance(dia, diagram.Spider):
-            o_legs = [p.backwards() for p in dia.trace["top"]]
-            i_legs = [p.backwards() for p in dia.trace["bot"]]
-            i_ports = []
-            o_ports = []
-            pairs = {}
-            if o_legs and i_legs:
-                uniq = {(i_p,o_p):(i_p>>o_p) for o_p in o_legs for i_p in i_legs}
-                i_ports = [[uniq[i_p,o_p] for o_p in o_legs] for i_p in i_legs]
-                o_ports = [[uniq[i_p,o_p] for i_p in i_legs] for o_p in o_legs]
-                #pairs = reduce(operator.add, [twos(port) for port in i_ports])
-                #pairs += reduce(operator.add, [twos(port) for port in o_ports])
-                for idx in range(len(i_legs)):
-                  for odx in range(len(o_legs)):
-                    if idx+1 < len(i_legs):
-                        cell0 = cell.src[idx].src
-                        pairs[uniq[i_legs[idx],o_legs[odx]], uniq[i_legs[idx+1],o_legs[odx]]] = cell0
-                    if odx+1 < len(o_legs):
-                        cell0 = cell.tgt[odx].src
-                        pairs[uniq[i_legs[idx],o_legs[odx]], uniq[i_legs[idx],o_legs[odx+1]]] = cell0
-            elif o_legs:
-                o_ports = [[p] for p in o_legs]
-                #pairs = twos(o_legs)
-                #pairs = dict((k,FIXME) for k in pairs)
-                for odx in range(len(o_legs)-1):
-                    cell0 = cell.tgt[odx].src
-                    pairs[o_legs[odx], o_legs[odx+1]] = cell0
-            elif i_legs:
-                i_ports = [[p] for p in i_legs]
-                for idx in range(len(i_legs)-1):
-                    cell0 = cell.src[idx].src
-                    pairs[i_legs[idx], i_legs[idx+1]] = cell0
-                #pairs = twos(i_legs)
-                #pairs = dict((k,FIXME) for k in pairs)
-            else:
-                pairs = {} # ?
-            #print("Visitor.__call__:", len(o_ports), len(i_ports))
-            M = Lattice(cell.src.tgt, cell.src.src, o_ports, i_ports, pairs)
-
-        elif isinstance(dia, diagram.VDia):
-            M = reduce(operator.mul, [lookup[child] for child in dia])
-        elif isinstance(dia, diagram.HDia):
-            M = reduce(operator.add, [lookup[child] for child in dia])
-        else:
-            assert 0, type(dia)
+        #print("on_visit", list(kw.keys()))
+        M = cell.build_lattice(lookup, dia, **kw)
         lookup[dia] = M
 
     def process(self):
@@ -373,9 +330,9 @@ class Visitor(object):
             dia = box.OBox([bg, dia])
             dia.strict = True
         cvs = dia.render(refresh=False)
-        dia.visit(self.on_visit)
+        dia.visit(self.on_visit, cvs=cvs)
 
-        cvs.stroke(path.rect(dia.llx, dia.lly, dia.width, dia.height), [grey])
+        #cvs.stroke(path.rect(dia.llx, dia.lly, dia.width, dia.height), [grey])
 
         M = lookup[dia]
         #M.dump()
@@ -550,6 +507,7 @@ class Visitor(object):
         bg.fill(right, src.st)
         return bg
 
+
 class Cell2(object):
     def __init__(self, tgt, src, name):
         assert isinstance(tgt, Cell1)
@@ -629,6 +587,11 @@ class HCell2(Compound2):
         dia.cell = self
         return dia
 
+    def build_lattice(self, lookup, dia, cvs):
+        M = reduce(operator.add, [lookup[child] for child in dia])
+        return M
+
+
 class VCell2(Compound2):
     def on_construct(self):
         dias = [a.on_construct() for a in self.cells]
@@ -636,6 +599,35 @@ class VCell2(Compound2):
         dia.name = self.name
         dia.cell = self
         return dia
+
+    def build_lattice(self, lookup, dia, cvs):
+        M = reduce(operator.mul, [lookup[child] for child in dia])
+        return M
+
+
+class Border(Cell2):
+    def __init__(self, child, st=st_thick):
+        if isinstance(child, Cell0):
+            child = child.i
+        if isinstance(child, Cell1):
+            child = child.i
+        assert isinstance(child, Cell2)
+        name = "[%s]"%(child.name,)
+        Cell2.__init__(self, child.tgt, child.src, name)
+        self.child = child
+        self.st = st
+
+    def on_construct(self):
+        child = self.child
+        dia = child.on_construct()
+        #item = box.MarginBox(dia, 0.1)
+        dia.cell = self
+        return dia
+
+    def build_lattice(self, lookup, dia, cvs):
+        cvs.stroke(path.rect(*dia.ll, dia.width, dia.height), self.st)
+        M = self.child.build_lattice(lookup, dia, cvs)
+        return M
 
 
 class Spider(Cell2):
@@ -658,27 +650,67 @@ class Spider(Cell2):
         dia.cell = self
         return dia
 
+    def build_lattice(cell, lookup, dia, cvs):
+        o_legs = [p.backwards() for p in dia.trace["top"]]
+        i_legs = [p.backwards() for p in dia.trace["bot"]]
+        i_ports = []
+        o_ports = []
+        pairs = {}
+        if o_legs and i_legs:
+            uniq = {(i_p,o_p):(i_p>>o_p) for o_p in o_legs for i_p in i_legs}
+            i_ports = [[uniq[i_p,o_p] for o_p in o_legs] for i_p in i_legs]
+            o_ports = [[uniq[i_p,o_p] for i_p in i_legs] for o_p in o_legs]
+            #pairs = reduce(operator.add, [twos(port) for port in i_ports])
+            #pairs += reduce(operator.add, [twos(port) for port in o_ports])
+            for idx in range(len(i_legs)):
+              for odx in range(len(o_legs)):
+                if idx+1 < len(i_legs):
+                    cell0 = cell.src[idx].src
+                    pairs[uniq[i_legs[idx],o_legs[odx]], uniq[i_legs[idx+1],o_legs[odx]]] = cell0
+                if odx+1 < len(o_legs):
+                    cell0 = cell.tgt[odx].src
+                    pairs[uniq[i_legs[idx],o_legs[odx]], uniq[i_legs[idx],o_legs[odx+1]]] = cell0
+        elif o_legs:
+            o_ports = [[p] for p in o_legs]
+            #pairs = twos(o_legs)
+            #pairs = dict((k,FIXME) for k in pairs)
+            for odx in range(len(o_legs)-1):
+                cell0 = cell.tgt[odx].src
+                pairs[o_legs[odx], o_legs[odx+1]] = cell0
+        elif i_legs:
+            i_ports = [[p] for p in i_legs]
+            for idx in range(len(i_legs)-1):
+                cell0 = cell.src[idx].src
+                pairs[i_legs[idx], i_legs[idx+1]] = cell0
+            #pairs = twos(i_legs)
+            #pairs = dict((k,FIXME) for k in pairs)
+        else:
+            pairs = {} # ?
+        #print("Visitor.__call__:", len(o_ports), len(i_ports))
+        M = Lattice(cell.src.tgt, cell.src.src, o_ports, i_ports, pairs)
+        return M
 
-class Swap(Cell2):
-    def __init__(self, X, Y):
-        Cell2.__init__(self, tgt, src, name)
-        self.cells = [X, Y]
-    def on_construct(self):
-        X, Y = self.cells
-        dia = diagram.Relation(2, 2, topbot=[(1,0), (0,1)], bot_attrs=[X.st, Y.st])
-        dia.name = self.name
-        dia.cell = self
-        return dia
 
-class Space(Cell2):
-    def __init__(self, width=1.):
-        Cell2.__init__(self, tgt, src, name)
-        self.width = width
-    def on_construct(self):
-        dia = diagram.Spider(0, 0, min_width=self.width)
-        dia.name = self.name
-        dia.cell = self
-        return dia
+#class Swap(Cell2):
+#    def __init__(self, X, Y):
+#        Cell2.__init__(self, tgt, src, name)
+#        self.cells = [X, Y]
+#    def on_construct(self):
+#        X, Y = self.cells
+#        dia = diagram.Relation(2, 2, topbot=[(1,0), (0,1)], bot_attrs=[X.st, Y.st])
+#        dia.name = self.name
+#        dia.cell = self
+#        return dia
+
+#class Space(Cell2):
+#    def __init__(self, width=1.):
+#        Cell2.__init__(self, tgt, src, name)
+#        self.width = width
+#    def on_construct(self):
+#        dia = diagram.Spider(0, 0, min_width=self.width)
+#        dia.name = self.name
+#        dia.cell = self
+#        return dia
 
 
 def save(name, value=None):
@@ -734,16 +766,18 @@ def test():
     #Ai = Spider(A, A, st_pip=None, weight=10.)
     #Bi = Spider(B, B, st_pip=None, weight=10.)
     
-    space = Space(0.5)
-    sspace = Space(1.0)
+    #space = Space(0.5)
+    #sspace = Space(1.0)
+
+    b = lambda x : Border(x, st_thick+[red])
 
     cvs = Canvas()
     x = 0.
     for op in [
-        CD_A*A_CD*CD_A*A_,
+        CD_A*A_CD*b(CD_A*A_),
         _CD,
         _CD * CD_,
-        _A * A_CD * CD_A * A_,
+        _A * b(A_CD * CD_A) * A_,
         #(D.i << C.i) * DC_B,
         #(A_AA << C.i) * (A.i << AC_C)*AC_C,
         #A_AA << AA_A,
