@@ -46,6 +46,10 @@ class Cell0(object):
     def __eq__(self, other):
         assert isinstance(other, Cell0)
         return str(self) == str(other)
+    @property
+    def i(self):
+        assert 0, "here!"
+        return Cell1(self, self, self.name+".i", None)
 
 FIXME = Cell0("n", [0.5*white])
 
@@ -68,11 +72,20 @@ class Cell1(object):
         assert isinstance(other, Cell1)
         return str(self) == str(other)
 
+    def __mul__(self, other):
+        return self.i * other
+
     def __lshift__(self, other):
+        if isinstance(other, Cell2):
+            return self.i << other
+        if isinstance(other, Cell0):
+            other = other.i
+        assert isinstance(other, Cell1), other
         assert self.src == other.tgt
         lhs = self.cells if isinstance(self, HCell1) else [self]
         rhs = other.cells if isinstance(other, HCell1) else [other]
-        return HCell1(lhs+rhs)
+        cells = [cell for cell in lhs + rhs if cell.st is not None] # fix for identities
+        return HCell1(cells)
 
     def __len__(self):
         return int(self.st is not None)
@@ -84,7 +97,7 @@ class Cell1(object):
 
     @property
     def i(self):
-        Ai = Spider(self, self, self.name+"i", st_pip=None, weight=10.)
+        Ai = Spider(self, self, self.name+".i", st_pip=None, weight=10.)
         return Ai
 
 
@@ -101,6 +114,11 @@ class HCell1(Cell1):
 
     def __getitem__(self, idx):
         return self.cells[idx]
+
+    @property
+    def i(self):
+        cell = reduce(operator.lshift, [cell.i for cell in self.cells])
+        return cell
 
 
 class Lattice(object):
@@ -140,7 +158,7 @@ class Lattice(object):
             for s,t in list(pairs):
                 if s==r and (l,t) in pairs:
                     del pairs[l,t]
-        assert s_paths
+        #assert s_paths
         paths = list(s_paths)
         self.shape = (no, ni)
         self.paths = paths
@@ -558,6 +576,11 @@ class Cell2(object):
         pass
 
     def __lshift__(self, other):
+        if isinstance(other, Cell0):
+            other = other.i
+        if isinstance(other, Cell1):
+            other = other.i
+        assert isinstance(other, Cell2), other
         tgt = self.tgt << other.tgt
         src = self.src << other.src
         lhs = self.cells if isinstance(self, HCell2) else [self]
@@ -566,7 +589,12 @@ class Cell2(object):
         return HCell2(tgt, src, name, lhs+rhs)
 
     def __mul__(self, other):
-        assert self.src == other.tgt
+        if isinstance(other, Cell0):
+            other = other.i
+        if isinstance(other, Cell1):
+            other = other.i
+        assert isinstance(other, Cell2)
+        assert self.src == other.tgt, "(%s) * (%s)"%(self.src, other.tgt)
         lhs = self.cells if isinstance(self, VCell2) else [self]
         rhs = other.cells if isinstance(other, VCell2) else [other]
         name = "*".join(cell.name for cell in lhs+rhs)
@@ -633,7 +661,7 @@ class Spider(Cell2):
 
 class Swap(Cell2):
     def __init__(self, X, Y):
-        #Cell2.__init__(self, tgt, src, name)
+        Cell2.__init__(self, tgt, src, name)
         self.cells = [X, Y]
     def on_construct(self):
         X, Y = self.cells
@@ -644,7 +672,7 @@ class Swap(Cell2):
 
 class Space(Cell2):
     def __init__(self, width=1.):
-        #Cell2.__init__(self, tgt, src, name)
+        Cell2.__init__(self, tgt, src, name)
         self.width = width
     def on_construct(self):
         dia = diagram.Spider(0, 0, min_width=self.width)

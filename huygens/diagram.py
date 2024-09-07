@@ -467,7 +467,7 @@ class Spider(Multi):
             pip = Box.promote(pip, pip_align)
         self.clamp = kw.get("clamp", 0.3)
         self.pip = pip
-        self.trace = {}
+        self.trace = {"top":[], "bot":[]}
 
 #    def on_layout(self, cvs, system):
 #        Multi.on_layout(self, cvs, system)
