@@ -51,8 +51,6 @@ class Cell0(object):
         assert 0, "here!"
         return Cell1(self, self, self.name+".i", None)
 
-FIXME = Cell0("n", [0.5*white])
-
 class Cell1(object):
     def __init__(self, tgt, src, name="X", st=st_black):
         assert isinstance(tgt, Cell0)
@@ -85,7 +83,7 @@ class Cell1(object):
         lhs = self.cells if isinstance(self, HCell1) else [self]
         rhs = other.cells if isinstance(other, HCell1) else [other]
         cells = [cell for cell in lhs + rhs if cell.st is not None] # fix for identities
-        return HCell1(cells)
+        return HCell1(cells) if cells else self
 
     def __len__(self):
         return int(self.st is not None)
@@ -103,6 +101,7 @@ class Cell1(object):
 
 class HCell1(Cell1):
     def __init__(self, cells):
+        assert cells
         tgt = cells[0].tgt
         src = cells[-1].src
         name = "<<".join(cell.name for cell in cells)
@@ -675,8 +674,6 @@ class Spider(Cell2):
                     pairs[uniq[i_legs[idx],o_legs[odx]], uniq[i_legs[idx],o_legs[odx+1]]] = cell0
         elif o_legs:
             o_ports = [[p] for p in o_legs]
-            #pairs = twos(o_legs)
-            #pairs = dict((k,FIXME) for k in pairs)
             for odx in range(len(o_legs)-1):
                 cell0 = cell.tgt[odx].src
                 pairs[o_legs[odx], o_legs[odx+1]] = cell0
@@ -685,8 +682,6 @@ class Spider(Cell2):
             for idx in range(len(i_legs)-1):
                 cell0 = cell.src[idx].src
                 pairs[i_legs[idx], i_legs[idx+1]] = cell0
-            #pairs = twos(i_legs)
-            #pairs = dict((k,FIXME) for k in pairs)
         else:
             pairs = {} # ?
         #print("Visitor.__call__:", len(o_ports), len(i_ports))
