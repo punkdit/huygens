@@ -606,7 +606,7 @@ class VCell2(Compound2):
 
 
 class Border(Cell2):
-    def __init__(self, child, st=st_thick):
+    def __init__(self, child, st=st_thick, margin=0.1):
         if isinstance(child, Cell0):
             child = child.i
         if isinstance(child, Cell1):
@@ -616,6 +616,7 @@ class Border(Cell2):
         Cell2.__init__(self, child.tgt, child.src, name)
         self.child = child
         self.st = st
+        self.r = margin
 
     def on_construct(self):
         child = self.child
@@ -625,7 +626,9 @@ class Border(Cell2):
         return dia
 
     def build_lattice(self, lookup, dia, cvs):
-        cvs.stroke(path.rect(*dia.ll, dia.width, dia.height), self.st)
+        x, y = dia.ll
+        r = self.r
+        cvs.stroke(path.rect(x+r, y+r, dia.width-2*r, dia.height-2*r), self.st)
         M = self.child.build_lattice(lookup, dia, cvs)
         return M
 
