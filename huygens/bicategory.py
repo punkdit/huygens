@@ -48,7 +48,6 @@ class Cell0(object):
         return str(self) == str(other)
     @property
     def i(self):
-        assert 0, "here!"
         return Cell1(self, self, self.name+".i", None)
 
 class Cell1(object):
@@ -305,7 +304,7 @@ class Lattice(object):
 twos = lambda items : [(items[i], items[i+1]) for i in range(len(items)-1)]
 
 
-class Visitor(object):
+class MonoidalVisitor(object):
     def __init__(self, cell, dia):
         self.cell = cell
         self.dia = dia
@@ -324,10 +323,57 @@ class Visitor(object):
         cell = self.cell
         dia = self.dia
         lookup = self.lookup
+
         if 0:
             bg = box.WeakFillBox([0.9*white])
             dia = box.OBox([bg, dia])
             dia.strict = True
+
+        cvs = dia.render(refresh=False)
+        dia.visit(self.on_visit, cvs=cvs)
+
+
+class Visitor(object):
+    def __init__(self, cell, dia):
+        self.cell = cell
+        self.dia = dia
+        self.lookup = {}
+        self.is_monoidal = True
+        self.cell0 = None
+
+    def on_visit(self, dia, **kw):
+        #print("Visitor.__call__", type(dia))
+        lookup = self.lookup
+        cell2 = dia.cell # yes it's an unfortunate series of tubes
+        assert isinstance(cell2, Cell2)
+        #print("on_visit", list(kw.keys()))
+        M = cell2.build_lattice(lookup, dia, **kw)
+        lookup[dia] = M
+
+        if not self.is_monoidal:
+            return
+
+        cell0 = self.cell0
+        if cell0 is None:
+            cell0 = cell2.src.src
+        for cell1 in list(cell2.src)+list(cell2.tgt):
+            if cell1.src != cell0:
+                self.is_monoidal = False
+            if cell1.tgt != cell0:
+                self.is_monoidal = False
+        self.cell0 = cell0
+
+    def process(self):
+        cell = self.cell
+        dia = self.dia
+        lookup = self.lookup
+
+        #if self.is_monoidal:
+        #    assert self.cell0 is not None
+        #    bg = box.WeakFillBox(self.cell0.st)
+        #    dia = box.OBox([bg, dia])
+        #    dia.strict = True
+
         cvs = dia.render(refresh=False)
         dia.visit(self.on_visit, cvs=cvs)
 
@@ -335,9 +381,27 @@ class Visitor(object):
 
         M = lookup[dia]
         #M.dump()
+        o_ports = set(reduce(operator.add, M.o_ports, []))
+        i_ports = set(reduce(operator.add, M.i_ports, []))
 
-        if len(M.o_ports) and len(M.i_ports):
-            bg = self.process_connected()
+        if self.is_monoidal:
+            assert self.cell0 is not None
+            print("is_monoidal")
+            bg = Canvas()
+            bg.fill(path.rect(dia.llx, dia.lly, dia.width, dia.height), self.cell0.st)
+
+        elif o_ports and i_ports:
+            print("bicategory.Visitor.process: FIX ME")
+            if o_ports.intersection(i_ports):
+                # FIX FIX FIX XXX
+                bg = self.process_connected()
+            else:
+                # HACK THIS ARRGGGH
+                assert M.src == M.tgt
+                cell0 = M.src
+                bg = Canvas()
+                bg.fill(path.rect(dia.llx, dia.lly, dia.width, dia.height), cell0.st)
+
         elif len(M.o_ports):
             bg = self.process_o_ports()
         elif len(M.i_ports):
@@ -454,17 +518,19 @@ class Visitor(object):
         lookup = self.lookup
         M = lookup[dia]
 
-        p0, p1, follow = self.find_paths(M.s_paths)
-
         bg = Canvas()
 
-        bg.stroke(p0, [red]+st_arrow)
-        bg.stroke(p1, [red]+st_arrow)
+        #bg.stroke(p0, [red]+st_arrow)
+        #bg.stroke(p1, [red]+st_arrow)
 
         assert M.src == M.tgt
         cell0 = M.src
         bg.fill(path.rect(dia.llx, dia.lly, dia.width, dia.height), cell0.st)
 
+        if not M.s_paths:
+            return bg # <-------- return
+
+        p0, p1, follow = self.find_paths(M.s_paths)
         for (p,q) in follow:
             cell0 = M.pairs[p,q]
             bg.fill(p.backwards() >> q, cell0.st)
@@ -476,8 +542,10 @@ class Visitor(object):
         dia = self.dia
         lookup = self.lookup
         M = lookup[dia]
+        #M.dump()
 
-        s_paths = set(reduce(operator.add, M.o_ports)).intersection(reduce(operator.add, M.i_ports))
+        #s_paths = set(reduce(operator.add, M.o_ports)).intersection(reduce(operator.add, M.i_ports))
+        s_paths = set(reduce(operator.add, M.o_ports)).union(reduce(operator.add, M.i_ports))
         p0, p1, follow = self.find_paths(s_paths)
 
         tgt = cell.src.tgt
@@ -633,10 +701,12 @@ class Border(Cell2):
 
 
 class Spider(Cell2):
-    def __init__(self, tgt, src, name="?", st_pip=st_black, pip_radius=0.07, **kw):
+    def __init__(self, tgt, src, name="?", st_pip=st_black, pip_radius=0.07, pip_cvs=None, **kw):
         Cell2.__init__(self, tgt, src, name)
         p = path.circle(0, 0, pip_radius)
-        if st_pip is not None:
+        if pip_cvs is not None:
+            self.pip = CVSBox(pip_cvs)
+        elif st_pip is not None:
             self.pip = CVSBox(Canvas().fill(p, st_pip).stroke(p, st_black))
         else:
             self.pip = None
@@ -727,7 +797,7 @@ def save(name, value=None):
     #value.writeSVGfile(name+".svg")
 
 
-def test():
+def test_bubbles():
     n = Cell0("n", [blue+0.5*white])
     m = Cell0("m", [red+0.5*white])
     
@@ -793,9 +863,56 @@ def test():
         cvs.insert(x-bb.llx, -bb.lly, fg)
         x += bb.width + 0.3
 
+    save("bubbles-test", cvs)
+
+
+def test():
+
+
+    lightgrey = 0.9*white
+    n = Cell0("n", [lightgrey])
+    I = Cell1(n, n, "I", None)
+    
+    #A = Cell1(n, n, "A", st_black+st_thick+st_arrow)
+    #B = Cell1(n, n, "B", st_black+st_thick+st_arrow)
+    
+    X = Cell1(n, n, "X", st_black+st_thick)
+    
+    XX = X<<X
+    XXX = X<<X<<X
+    XXXX = X<<X<<X<<X
+    
+    assert I << X == X, I<<X
+    
+    up = Canvas().stroke(path.line(0,-0.1,0,0.1), st_arrow)
+    dn = Canvas().stroke(path.line(0,0.1,0,-0.1), st_arrow)
+    Xup = Spider(X, X, pip_cvs=up)
+    Xdn = Spider(X, X, pip_cvs=dn)
+    cap = Spider(I, XX, st_pip=None)
+    cup = Spider(XX, I, st_pip=None)
+    
+    X_XX = mul = Spider(X, XX)
+    XX_X = comul = Spider(XX, X)
+    #Comul = Spider(XX, X, weight=10.)
+    X_ = unit = Spider(X, I)
+    _X = counit = Spider(I, X)
+
+
+    cvs = Canvas()
+    x = 0.
+    for op in [
+        (cap<<Xup)*(Xup<<cup),
+        (cap) * (X << cap << X) * (cup << cup),
+        mul * (unit << X),
+    ]:
+        fg = op.construct()
+        bb = fg.get_bound_box()
+        cvs.insert(x-bb.llx, -bb.lly, fg)
+        x += bb.width + 0.3
+
+
+
     save("spider-test", cvs)
-
-
 
 if __name__ == "__main__":
     test()

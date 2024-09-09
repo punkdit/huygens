@@ -466,6 +466,7 @@ class Spider(Multi):
             pip_align = kw.get("pip_align")
             pip = Box.promote(pip, pip_align)
         self.clamp = kw.get("clamp", 0.3)
+        self.cone = kw.get("cone", 0.7)
         self.pip = pip
         self.trace = {"top":[], "bot":[]}
 
@@ -523,6 +524,7 @@ class Spider(Multi):
 
         top_attrs = self.top_attrs
         bot_attrs = self.bot_attrs
+        cone = self.cone
 
         trace = self.trace
         trace["top"] = []
@@ -531,8 +533,8 @@ class Spider(Multi):
         # We stroke top down:
         y3 = y_top
         for x3, attrs in zip(x_top, top_attrs):
-            x2, y2 = x3, conv(y3, y0, 0.3)
-            x1, y1 = conv(x0, x3, 0.7), conv(y3, y0, 0.7)
+            x2, y2 = x3, conv(y3, y0, 1-cone)
+            x1, y1 = conv(x0, x3, cone), conv(y3, y0, cone)
             p = path.curve(x3, y3, x2, y2, x1, y1, x0, y0)
             trace["top"].append(p)
             cvs.stroke(p, attrs)
@@ -540,8 +542,8 @@ class Spider(Multi):
         # We stroke top down:
         y3 = y_bot
         for x3, attrs in zip(x_bot, bot_attrs):
-            x2, y2 = x3, conv(y3, y0, 0.3)
-            x1, y1 = conv(x0, x3, 0.7), conv(y3, y0, 0.7)
+            x2, y2 = x3, conv(y3, y0, 1-cone)
+            x1, y1 = conv(x0, x3, cone), conv(y3, y0, cone)
             p = path.curve(x0, y0, x1, y1, x2, y2, x3, y3)
             trace["bot"].append(p)
             cvs.stroke(p, attrs)
