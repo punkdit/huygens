@@ -83,6 +83,7 @@ class Cell1(object):
         rhs = other.cells if isinstance(other, HCell1) else [other]
         cells = [cell for cell in lhs + rhs if cell.st is not None] # fix for identities
         return HCell1(cells) if cells else self
+    __matmul__ = __lshift__
 
     def __len__(self):
         return int(self.st is not None)
@@ -410,6 +411,7 @@ class Visitor(object):
             bg = self.process_bubble()
 
         cvs = Canvas([bg, cvs])
+        cvs.dia = dia # more tubes
         
         #cvs.stroke(p0, [red]+st_arrow)
         #cvs.stroke(p1, [blue]+st_arrow)
@@ -612,6 +614,7 @@ class Cell2(object):
         rhs = other.cells if isinstance(other, HCell2) else [other]
         name = "<<".join(cell.name for cell in lhs+rhs)
         return HCell2(tgt, src, name, lhs+rhs)
+    __matmul__ = __lshift__
 
     def __mul__(self, other):
         if isinstance(other, Cell0):

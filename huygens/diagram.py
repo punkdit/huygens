@@ -231,6 +231,18 @@ class HDia(StrictHBox, Dia):
         vunits = max([dia.get_vunits() for dia in self.boxs])
         return vunits
 
+    def get_top(self):
+        top = []
+        for dia in self.boxs:
+            top += dia.get_top()
+        return top
+
+    def get_bot(self):
+        bot = []
+        for dia in self.boxs:
+            bot += dia.get_bot()
+        return bot
+
 
 class VDia(StrictVBox, Dia):
     "top down arrangement of dias"
@@ -302,6 +314,12 @@ class VDia(StrictVBox, Dia):
     def get_vunits(self):
         vunits = sum([dia.get_vunits() for dia in self.boxs])
         return vunits
+
+    def get_top(self):
+        return self.boxs[0].get_top()
+
+    def get_bot(self):
+        return self.boxs[-1].get_bot()
 
 
 
@@ -469,6 +487,14 @@ class Spider(Multi):
         self.cone = kw.get("cone", 0.7)
         self.pip = pip
         self.trace = {"top":[], "bot":[]}
+
+    def get_top(self):
+        top = self.trace["top"]
+        return [c.getat(0) for c in top]
+
+    def get_bot(self):
+        bot = self.trace["bot"]
+        return [c.getat(1) for c in bot]
 
 #    def on_layout(self, cvs, system):
 #        Multi.on_layout(self, cvs, system)
