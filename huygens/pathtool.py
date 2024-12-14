@@ -24,7 +24,7 @@ from huygens.tool import rnd, conv, smooth, bump, clamp
 #lblue = color.rgb(0.2, 0.2, 0.7, 0.7)
 
 
-EPSILON = 1e-8
+#EPSILON = 1e-8
 
 
 def smoothrect(x0, y0, w, h, r):
@@ -364,7 +364,6 @@ def intersect1(pa, pb, ta0=0., ta1=1., tb0=0., tb1=1., N=10, threshold=1.0, tole
         #debug.fill(path.circle(x0, y0, 0.1), [green])
         #debug.fill(path.circle(x1, y1, 0.1), [green])
         if value < tolerance:
-            #return 0.5*(x0+x1), 0.5*(y0+y1) # <-------- return
             ra, rb = conv(ta0, ta1, i/(N-1)),conv(tb0, tb1, j/(N-1))  
             return ra, rb
     
