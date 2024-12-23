@@ -20,6 +20,7 @@ EPSILON = 1e-6
 
 
 def mulclose(gen, max_size=1000):
+    # Must be deterministic if gen is a list!
     found = list(gen)
     done = False
     while not done:
