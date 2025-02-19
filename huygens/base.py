@@ -303,6 +303,9 @@ class Context(object):
     def stroke(self):
         self.pos = None
 
+    def clip(self): # is this right??
+        self.pos = None
+
     def get_font_options(self):
         return self # me again!
 
