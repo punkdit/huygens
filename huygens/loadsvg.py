@@ -76,6 +76,27 @@ def loadsvg(name, dpi=72., keep_colors=True):
 
 
 
+def loadtex(filename, width=1.):
+    # XXX does not work very well... XXX
+    from huygens.front import Canvas, Translate, Scale
+    tex = loadsvg(filename)
+    bb = tex.get_bound_box()
+    llx, lly, urx, ury = bb
+
+    conv = lambda a,b:(a+b)/2
+    x0, y0 = conv(llx, urx), conv(lly, ury)
+    w, h = urx-llx, ury-lly
+
+    X0, Y0 = 0., 0.
+    cvs = Canvas()
+    cvs.append(Translate(X0-x0, Y0-y0))
+    cvs.append(Scale(width/w, width/w, x0, y0))
+    cvs.append(tex)
+    return cvs
+
+
+
+
 if __name__ == "__main__":
 
     name = argv.next()
