@@ -49,6 +49,7 @@ st_east = [text.halign.boxright, text.valign.middle]
 st_west = [text.halign.boxleft, text.valign.middle]
 st_hcenter = [text.halign.boxcenter]
 st_center = [text.halign.boxcenter, text.valign.middle]
+st_hcenter = [text.halign.boxcenter]
 
 st_footnote = [text.size.footnote] # does not work...??
 st_small = [text.size.small] # does not work...??
