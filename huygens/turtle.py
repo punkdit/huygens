@@ -117,6 +117,10 @@ class Turtle(object):
         return self
 
     def goto(self, x=None, y=None, angle=None):
+        if x is not None and y is None:
+            y = self.y
+        elif y is not None and x is None:
+            x = self.x
         if x is not None and y is not None:
             self.lookat(x, y)
             self.ps.append((x, y))
@@ -125,6 +129,7 @@ class Turtle(object):
         if angle is not None:
             self.theta = (angle/360.)*2*pi
         return self
+    moveto = goto
 
     def reverse(self, d):
         self.fwd(-d)
