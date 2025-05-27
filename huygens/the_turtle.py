@@ -126,7 +126,7 @@ class Turtle:
         dtheta = (angle/360.)*2*pi
         theta = self.theta
         self.theta += dtheta
-        if abs(r)<EPSILON:
+        if abs(r)<EPSILON or abs(dtheta)<EPSILON:
             return self
         ar = abs(r)
         x0, y0 = self.x, self.y
@@ -137,10 +137,12 @@ class Turtle:
         #self.cvs.fill(path.circle(xc, yc, 0.1), [color.rgb.grey])
         x1 = xc + r*sin(t1-pi/2)
         y1 = yc + r*cos(t1-pi/2)
-        x01 = x0 + 0.2*ar*sin(t0)
-        y01 = y0 + 0.2*ar*cos(t0)
-        x10 = x1 - 0.2*ar*sin(t1)
-        y10 = y1 - 0.2*ar*cos(t1)
+        u = abs(angle) / 180
+        #u = 0.2
+        x01 = x0 + u*ar*sin(t0)
+        y01 = y0 + u*ar*cos(t0)
+        x10 = x1 - u*ar*sin(t1)
+        y10 = y1 - u*ar*cos(t1)
         #p = arc_to_bezier(x0, y0, r, theta, theta+dtheta)
         #p = path.line(x, y, x1, y1)
         #p = path.curve(x0, y0, x01, y01, x10, y10, x1, y1)
@@ -229,8 +231,6 @@ class Turtle:
         meth(size, angle)
         return self
 
-
-
     def _render(self, attrs=None, closepath=False, cvs=None, name="stroke", preserve=False):
         if attrs is None:
             attrs = self.attrs
@@ -315,6 +315,9 @@ def test():
     cvs.fill(path.circle(t.x, t.y, 0.1), [color.rgb.blue])
     t.stroke()
 
+    for (x,y) in [(-0.5, -1.), (-1.5,-1)]:
+        cvs.stroke(path.circle(x, y, 0.5), [color.rgb.red.alpha(0.5)])
+
     t = Turtle(2, -1, 0, cvs)
     t.left(180, 0.5)
     t.right(180, 0.5)
@@ -334,6 +337,15 @@ def test():
     t = cvs.turtle(x, 2).left(30, 1).feather_arrow().stroke()
     x += 1
     t = cvs.turtle(x, 2).left(30, 1).bar_arrow().stroke()
+
+    x = -2
+    y = -2
+    angle = 30
+    for i in range(5):
+        cvs.turtle(x, y).left(angle, 1).stroke()
+        cvs.turtle(x, y-1).left(angle, 3).stroke()
+        angle -= 5
+        x += 0.5
 
     cvs.writePDFfile("turtle_test.pdf")
     
