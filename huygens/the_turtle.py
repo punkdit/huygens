@@ -5,7 +5,7 @@ replacement for huygens.turtle
 
 """
 
-from math import pi, cos, sin
+from math import pi, cos, sin, atan
 
 from huygens.front import path, style, Canvas, color
 from huygens.back import arc_to_bezier, EPSILON
@@ -100,7 +100,8 @@ class Turtle:
             x = self.x
         if x is not None and y is not None:
             self.lookat(x, y)
-            self.ps.append((x, y))
+            #self.ps.append((x, y))
+            self.current.append(path.lineto(x, y))
             self.x = x
             self.y = y
         if angle is not None:
@@ -236,6 +237,8 @@ class Turtle:
         if cvs is None:
             cvs = self.cvs
         assert cvs is not None
+        if closepath:
+            self.current.append(path.closepath())
         if self.pen:
             self.paths.append(self.current)
         for items in self.paths:
