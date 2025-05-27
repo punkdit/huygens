@@ -334,6 +334,10 @@ class Canvas(Compound):
         self.append(im)
         return self # yes...
 
+    def turtle(self, x=0, y=0, angle=0, attrs=None):
+        from huygens.the_turtle import Turtle
+        return Turtle(x, y, angle, self, attrs)
+
     def _write_cairo(self, method, name=None, trim=0):
 
         if 0:
