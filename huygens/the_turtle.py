@@ -153,6 +153,81 @@ class Turtle:
         self.right(-angle, -r)
         return self
 
+    def flat_arrow(self, size=0.15, angle=30.):
+        self.penup()
+        self.right(angle)
+        self.back(size)
+        self.pendown()
+        self.fwd(size)
+        self.left(2*angle)
+        self.back(size)
+        self.penup()
+        self.fwd(size)
+        self.right(angle)
+        self.pendown()
+        return self
+        
+    def dart_arrow(self, size=0.15, angle=30.):
+        assert 0<angle<90, "bad angle %s"%angle
+        b = size / (2*cos(2*pi*angle/360.))
+        self.save()
+        #self.penup()
+        #self.fwd(0.1*b) # Clear the end of the line we are pointing on.
+        #self.pendown()  # We don't seem to need this if we stroke it.
+        self.right(angle)
+        self.back(size)
+        self.right(angle)
+        self.fwd(b)
+        self.left(180-2*angle)
+        self.back(b)
+        self.right(angle)
+        self.fwd(size)
+        self.restore()
+        return self
+        
+    def curve_arrow(self, size=0.15, angle=30.):
+        a = 0.8*angle
+        b = 0.9*a
+        self.save()
+        self.pendown()
+        self.left(180)
+        self.right(b)
+        self.right(2*a, size)
+        self.penup()
+        self.restore()
+
+        self.save()
+        self.pendown()
+        self.left(180)
+        self.left(b)
+        self.left(2*a, size)
+        self.penup()
+        self.restore()
+        return self
+
+    def bar_arrow(self, size=0.15, *arg, **kw):
+        return self.flat_arrow(0.6*size, 90)
+
+    def feather_arrow(self, size=0.15, angle=30.):
+        # not perfect... but works in some circumstances
+        self.curve_arrow(size, angle)
+        self.reverse(0.5*size)
+        self.curve_arrow(size, angle)
+        return self
+
+    def hook_arrow(self, size=0.15, *arg, **kw):
+        self.save()
+        self.right(180., -0.5*size)
+        self.reverse(0.1*size)
+        self.restore()
+        return self
+
+    def arrow(self, size=0.1, angle=30., astyle="flat"):
+        meth = getattr(self, astyle+"_arrow", None)
+        assert meth is not None, "astyle %r not found"%astyle
+        meth(size, angle)
+        return self
+
 
 
     def _render(self, attrs=None, closepath=False, cvs=None, name="stroke", preserve=False):
@@ -246,6 +321,16 @@ def test():
     
     t.fill([color.rgb.grey.alpha(0.5)])
 
+    x = -2
+    t = cvs.turtle(x, 2).fwd(1).flat_arrow().stroke()
+    x += 1
+    t = cvs.turtle(x, 2).left(30, 1).curve_arrow().stroke()
+    x += 1
+    t = cvs.turtle(x, 2).left(30, 1).stroke().dart_arrow().stroke_preserve().fill()
+    x += 1
+    t = cvs.turtle(x, 2).left(30, 1).feather_arrow().stroke()
+    x += 1
+    t = cvs.turtle(x, 2).left(30, 1).bar_arrow().stroke()
 
     cvs.writePDFfile("turtle_test.pdf")
     
