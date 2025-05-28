@@ -66,7 +66,7 @@ class ArrowDeco(Deco): # PathDeco ?
 #        return ArrowDeco(astyle, t, size, angle, round, reverse)
 
     def on_decorate(self, pre, path, post):
-        from huygens.turtle import Turtle
+        from huygens.the_turtle import Turtle
         assert isinstance(path, Path), "don't know how to decorate %s"%(path,)
         t = self.t
         if self.reverse:

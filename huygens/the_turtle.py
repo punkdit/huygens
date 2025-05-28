@@ -231,6 +231,19 @@ class Turtle:
         meth(size, angle)
         return self
 
+    def mkpath(self, closepath=False):
+        current = list(self.current or [])
+        if closepath:
+            current.append(path.closepath())
+        paths = list(self.paths)
+        if self.pen:
+            paths += current
+        paths = [path.path(items) for items in paths]
+        p = paths[0]
+        for p1 in paths[1:]:
+            p = p+p1
+        return p
+
     def _render(self, attrs=None, closepath=False, cvs=None, name="stroke", preserve=False):
         if attrs is None:
             attrs = self.attrs

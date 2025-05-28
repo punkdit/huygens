@@ -44,6 +44,7 @@ class Turtle(object):
 
     def __init__(self, x=0.0, y=0.0, angle=0.0, cvs=None, attrs=None):
         "angle: clockwise degrees starting from angle=0.0 is up"
+        print("Turtle is deprecated: use the_turtle")
         self.x = x
         self.y = y
         self.theta = (angle/360.)*2*pi
