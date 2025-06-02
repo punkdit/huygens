@@ -182,6 +182,9 @@ class Mat(object):
         A = -self.A
         return Mat(A)
 
+    def __pos__(self):
+        return self
+
     def __mul__(self, other):
         other = Mat.promote(other)
         assert self.shape[1] == other.shape[0], (self.shape, other.shape)
