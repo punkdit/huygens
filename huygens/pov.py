@@ -1126,10 +1126,10 @@ class View(object):
         gitem = GMesh(verts, normals, *args, **kw)
         self.add_gitem(gitem)
 
-    def add_ball(self, point, radius, *args, **kw):
-        point = self.trafo_view(point)
-        gitem = Ball(point, radius, *args, **kw)
-        self.add_gitem(gitem)
+    #def add_ball(self, point, radius, *args, **kw):
+    #    point = self.trafo_view(point)
+    #    gitem = Ball(point, radius, *args, **kw)
+    #    self.add_gitem(gitem)
 
     def add_light(self, position, color):
         position = Mat.promote(position)
