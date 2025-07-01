@@ -66,6 +66,10 @@ class Turtle:
     def getpos(self):
         return self.x, self.y
 
+    @property
+    def pos(self):
+        return self.x, self.y
+
     def lookat(self, x, y):
         dx = x-self.x
         dy = y-self.y
