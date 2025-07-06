@@ -993,6 +993,14 @@ class RGBA(Deco):
         return rgb
     __radd__ = __add__
 
+    def __sub__(x, self): # XXX ???
+        (r, g, b, a) = self.cl
+        if isinstance(x, RGBA):
+            rgb = RGBA(x[0]-r, x[1]-g, x[2]-b, a)
+        else:
+            rgb = RGBA(x-r, x-g, x-b, a)
+        return rgb
+
     def get_hex(self):
         s = ""
         for c in self.cl[:3]:
