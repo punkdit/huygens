@@ -5,8 +5,6 @@ copied from arrowtheory repo
 newer version: huygens.the_turtle
 """
 
-print("WARNING: this is the old turtle, use huygens.the_turtle ")
-
 
 import sys
 
