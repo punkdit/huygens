@@ -273,8 +273,10 @@ class Atom(object):
         self.name = name
         #self.__dict__.update(kw)
         for (k,v) in kw.items():
-            assert hasattr(self, k), "attribute %r not found on %s" % (
-                k, self.__class__.__name__)
+            # Note:
+            # Commented because we'd like to hang arbitrary attribute's off of Cell's:
+            #assert hasattr(self, k), "attribute %r not found on %s" % (
+            #    k, self.__class__.__name__)
             setattr(self, k, v)
         #print("%s: Atom.__init__"%self.__class__.__name__, list(kw.keys()))
 
