@@ -18,10 +18,10 @@ assert not huygens.EXPERIMENTAL
 
 from huygens.front import color
 from huygens.sat import System, Listener, Variable
-from huygens.back import Compound, Deco, Path, Transform, Scale
+from huygens.back import Compound, Deco, Path, Transform, Scale, Translate
 from huygens.front import path, style, canvas, color, Canvas
 from huygens.back import Visitor
-from huygens.namespace import st_normal, st_thin, st_thick, st_Thick, st_THick, st_THIck
+from huygens.namespace import st_normal, st_thin, st_thick, st_Thick, st_THick, st_THIck, st_dotted
 from huygens.argv import argv
 
 if argv.noerr:
@@ -934,11 +934,15 @@ class _Cell1(Cell1, Render):
         for (left,right) in zip(lhs, rhs):
           if len(left)!=len(right):
               for l in left:
-                  print("\tleft:", l)
+                  print("\tleft  (top):", l, l.__class__.__name__)
               for r in right:
-                  print("\tright:", r)
+                  print("\tright (bot):", r, r.__class__.__name__)
+              if len(left)>len(right):
+                  msg = ("try inserting identity Cell1's in the right (bot)?")
+              else:
+                  msg = ("try inserting identity Cell1's in the left (top)?")
               tgt.fail_match(src, 
-                  "tgt path len %d != src path len %d"%(len(left), len(right)))
+                  "tgt path len %d != src path len %d:\n%s"%(len(left), len(right), msg))
           li = ri = 0
           while li<len(left) and ri<len(right):
             l, r = left[li], right[ri]
@@ -2698,6 +2702,65 @@ def test_weld():
     cvs.writePDFfile("test_weld.pdf")
 
 
+def test_compose():
+    one = Cell0.ident
+    C = Cell0("C", fill=grey)
+    C.mul = Cell1(C, C@C)
+    C.unit = Cell1(C, one)
+    
+    src = C.mul << (C @ C.mul)
+    tgt = C.mul << (C.mul @ C)
+    C.associator = Cell2(tgt, src)
+    C.iassociator = Cell2(src, tgt)
+    C.runitor = Cell2(C.i, C.mul<<(C@C.unit))
+    C.lunitor = Cell2(C.i, C.mul<<(C.unit@C))
+    C.irunitor = Cell2(C.mul<<(C@C.unit), C.i)
+    C.ilunitor = Cell2(C.mul<<(C.unit@C), C.i)
+    C.swap = Cell1(C@C, C@C, st_stroke=st_dotted)
+    C.sym = Cell2(C.mul, C.mul<<C.swap)
+    C.isym = Cell2(C.mul<<C.swap, C.mul)
+
+    top = C.mul << (C.i @ C.isym) << (C.swap @ C)
+    mid = C.iassociator << (C.swap @ C)
+    bot = C.mul << (C.isym @ (C.i<<C.i)) # with an extra C.i here it works
+    cell = top*mid # works
+    cell = cell*bot # fail's without extra C.i above
+
+    item = cell.layout(width=2.0)
+    #jtem = bot.layout(width=2.0)
+
+    cvs = Canvas([
+        item.render_cvs(pos="northeast"),
+        #Translate(0,-4),
+        #jtem.render_cvs(pos="northeast")
+    ])
+    
+
+    cvs.writePDFfile("test_compose")
+
+    """ left is top, right is bot ?
+	left: C _Cell0
+	    left: (C<---C@C) _Cell1
+	left: C _Cell0
+	left: C _Cell0
+	    left: (C<---C) _Cell1
+	left: C _Cell0
+	left: C _Cell0
+	    left: (C<---C) _Cell1
+	left: C _Cell0
+
+	right: C _Cell0
+	    right: (C<---C@C) _Cell1
+	right: C _Cell0
+	right: C _Cell0
+	    right: (C<---C) _Cell1
+	right: C _Cell0
+fail_match: tgt path len 9 != src path len 6
+	 ((C<---C@C)<<((C<---C@C)@(C<---C))<<((C@C<---C@C)@(C<---C)))
+	 ((C<---C@C)<<(((C<---C@C)<<(C@C<---C@C))@(C<---C)))
+    """
+
+
 
 
 if __name__ == "__main__":
@@ -2708,6 +2771,7 @@ if __name__ == "__main__":
 #    more_test()
     test_render()
 #    test_weld()
+    test_compose()
 
     print("OK\n")
 
