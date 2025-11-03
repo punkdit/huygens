@@ -519,7 +519,6 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
         if self.on_constrain is not None:
             self.on_constrain(self, system)
 
-    #ragged = False
     system = None
     def constrain(self, 
             x=0, y=0, z=0, 
@@ -550,7 +549,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
         self.visit(constrain)
 
         # fix ragged left (=tgt) & right (=src) edges
-        #print("Render.constrain", self.__class__)
+        #print("Render.constrain", self.__class__, "self.ragged=%s"%self.ragged)
         for chains in [
             self.all_chains_src(),
             self.all_chains_tgt(),
@@ -560,12 +559,12 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             #print("\t", chain)
             pip = None
             for cell in chain:
-                #print("\t\t", cell.__class__)
                 if pip is None:
                     pip = (cell.pip_x, cell.pip_y)
                 elif not self.ragged:
-                    system.add(cell.pip_x == pip[0])
+                    #print("\t\tself.ragged=%s"%self.ragged, cell.__class__)
                     system.add(cell.pip_y == pip[1])
+                    system.add(cell.pip_x == pip[0])
         return system
 
     did_layout = None
@@ -2113,6 +2112,7 @@ class DCell2(Compound, Cell2):
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
+        kw["ragged"] = self.ragged
         cells = list(reversed(self.cells)) if d_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell2(cells, **kw)
@@ -2211,6 +2211,7 @@ class HCell2(Compound, Cell2):
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
+        kw["ragged"] = self.ragged
         cells = list(reversed(self.cells)) if h_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _HCell2(cells, **kw)
@@ -2325,6 +2326,7 @@ class VCell2(Compound, Cell2):
         #kw["color"] = self.color
         #kw["stroke"] = self.stroke
         kw["on_constrain"] = self.on_constrain
+        kw["ragged"] = self.ragged
         cells = list(reversed(self.cells)) if v_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _VCell2(cells, **kw)
@@ -2789,6 +2791,9 @@ fail_match: tgt path len 9 != src path len 6
 def test_ragged_right():
     warnings.filterwarnings('ignore')
 
+    pip_radius = Cell1.pip_radius # save
+    Cell1.pip_radius = 0.0
+
     one = Cell0.ident
     C = Cell0("C", fill=grey)
     C.mul = Cell1(C, C@C)
@@ -2804,6 +2809,12 @@ def test_ragged_right():
     tgt = C.mul << (C.mul @ C)
     C.associator = Cell2(tgt, src, ragged=True)
     C.iassociator = Cell2(src, tgt, ragged=True)
+
+    C.swap = Cell1(C@C, C@C, st_stroke=st_dotted)
+    C.sym = Cell2(C.mul, C.mul<<C.swap)
+    C.isym = Cell2(C.mul<<C.swap, C.mul)
+
+
     
     top = C.mul << ((C.i<<C.i) @ C.iassociator)
     mid = C.iassociator << (C @ C.mul @ C)
@@ -2813,13 +2824,22 @@ def test_ragged_right():
     cell = C.lunitor
     cell = C.associator
 
+    tgt = (C@C.unit)
+    src = C.swap << (C.unit@C)
+    top = Cell2(tgt, src, pip_color=None)
+    cell = C.runitor * (C.mul<<top) * (C.isym << (C.unit @ C))
+    cell.ragged = True
+    cell
 
     item = cell.layout()
+    #print("layout:", item.__class__)
+    #print("layout: ragged=", item.ragged)
     cvs = item.render_cvs(pos="northeast")
 
     cvs.writePDFfile("test_ragged_right")
     
 
+    Cell1.pip_radius = pip_radius # restore
 
 
 if __name__ == "__main__":
