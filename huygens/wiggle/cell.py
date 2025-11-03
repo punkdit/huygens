@@ -519,6 +519,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
         if self.on_constrain is not None:
             self.on_constrain(self, system)
 
+    #ragged = False
     system = None
     def constrain(self, 
             x=0, y=0, z=0, 
@@ -542,6 +543,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             system.add(self.depth == size*depth)
         elif hasattr(self, "d_units"):
             system.add(self.depth == 0.5*size*self.d_units)
+
         def constrain(cell, **kw):
             #print("constrain", cell.__class__, cell, cell.on_constrain)
             cell.post_constrain(system)
@@ -549,11 +551,11 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
 
         # fix ragged left (=tgt) & right (=src) edges
         #print("Render.constrain", self.__class__)
-        #print("all_chains_src:")
         for chains in [
             self.all_chains_src(),
             self.all_chains_tgt(),
         ]:
+          #print("chains:")
           for chain in chains:
             #print("\t", chain)
             pip = None
@@ -561,7 +563,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
                 #print("\t\t", cell.__class__)
                 if pip is None:
                     pip = (cell.pip_x, cell.pip_y)
-                else:
+                elif not self.ragged:
                     system.add(cell.pip_x == pip[0])
                     system.add(cell.pip_y == pip[1])
         return system
@@ -1452,6 +1454,7 @@ class Cell2(Atom):
     pip_cvs = None
     cone = 0.6 # closer to 1. is more cone-like
     on_constrain = None
+    ragged = False # clean up left/right edges if ragged==False
 
     def __init__(self, tgt, src, name=None, **kw):
         assert isinstance(tgt, Cell1), tgt.__class__.__name__
@@ -1476,6 +1479,7 @@ class Cell2(Atom):
         kw["pip_radius"] = self.pip_radius
         kw["pip_cvs"] = self.pip_cvs
         kw["cone"] = self.cone
+        kw["ragged"] = self.ragged
         kw["on_constrain"] = self.on_constrain
         src, tgt = self.src, self.tgt
         if v_rev:
@@ -2790,16 +2794,24 @@ def test_ragged_right():
     C.mul = Cell1(C, C@C)
     C.mmul = Cell1(C, C@C@C)
     C.unit = Cell1(C, one)
+
+    C.runitor = Cell2(C.i, C.mul<<(C@C.unit), ragged=True)
+    C.lunitor = Cell2(C.i, C.mul<<(C.unit@C), ragged=True)
+    C.irunitor = Cell2(C.mul<<(C@C.unit), C.i, ragged=True)
+    C.ilunitor = Cell2(C.mul<<(C.unit@C), C.i, ragged=True)
     
     src = C.mul << (C @ C.mul)
     tgt = C.mul << (C.mul @ C)
-    C.associator = Cell2(tgt, src)
-    C.iassociator = Cell2(src, tgt)
+    C.associator = Cell2(tgt, src, ragged=True)
+    C.iassociator = Cell2(src, tgt, ragged=True)
     
     top = C.mul << ((C.i<<C.i) @ C.iassociator)
     mid = C.iassociator << (C @ C.mul @ C)
     bot = C.mul << (C.iassociator @ (C.i<<C.i))
-    cell = top*mid*bot
+    #cell = top*mid*bot
+
+    cell = C.lunitor
+    cell = C.associator
 
 
     item = cell.layout()
