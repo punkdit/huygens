@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """
 render 2-morphisms in a monoidal bicategory using sheet/string diagrams.
@@ -11,6 +11,8 @@ from functools import reduce
 from math import pi, sin, cos
 from time import sleep
 import warnings
+
+
 
 import huygens
 assert not huygens.EXPERIMENTAL
@@ -544,6 +546,24 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
             #print("constrain", cell.__class__, cell, cell.on_constrain)
             cell.post_constrain(system)
         self.visit(constrain)
+
+        # fix ragged left (=tgt) & right (=src) edges
+        #print("Render.constrain", self.__class__)
+        #print("all_chains_src:")
+        for chains in [
+            self.all_chains_src(),
+            self.all_chains_tgt(),
+        ]:
+          for chain in chains:
+            #print("\t", chain)
+            pip = None
+            for cell in chain:
+                #print("\t\t", cell.__class__)
+                if pip is None:
+                    pip = (cell.pip_x, cell.pip_y)
+                else:
+                    system.add(cell.pip_x == pip[0])
+                    system.add(cell.pip_y == pip[1])
         return system
 
     did_layout = None
@@ -1587,12 +1607,14 @@ class _Cell2(Cell2, Render):
         add(self.pip_y == pip_y, self.weight)
 
     def all_chains_src(self):
+        # right edges
         a_items = list(self.src.all_src())
         b_items = list(self.tgt.all_src())
         assert len(a_items) == len(b_items)
         return [(a,b) for (a,b) in zip(a_items, b_items)]
 
     def all_chains_tgt(self):
+        # left edges
         a_items = list(self.src.all_tgt())
         b_items = list(self.tgt.all_tgt())
         assert len(a_items) == len(b_items)
@@ -2735,7 +2757,6 @@ def test_compose():
         #jtem.render_cvs(pos="northeast")
     ])
     
-
     cvs.writePDFfile("test_compose")
 
     """ left is top, right is bot ?
@@ -2761,6 +2782,32 @@ fail_match: tgt path len 9 != src path len 6
     """
 
 
+def test_ragged_right():
+    warnings.filterwarnings('ignore')
+
+    one = Cell0.ident
+    C = Cell0("C", fill=grey)
+    C.mul = Cell1(C, C@C)
+    C.mmul = Cell1(C, C@C@C)
+    C.unit = Cell1(C, one)
+    
+    src = C.mul << (C @ C.mul)
+    tgt = C.mul << (C.mul @ C)
+    C.associator = Cell2(tgt, src)
+    C.iassociator = Cell2(src, tgt)
+    
+    top = C.mul << ((C.i<<C.i) @ C.iassociator)
+    mid = C.iassociator << (C @ C.mul @ C)
+    bot = C.mul << (C.iassociator @ (C.i<<C.i))
+    cell = top*mid*bot
+
+
+    item = cell.layout()
+    cvs = item.render_cvs(pos="northeast")
+
+    cvs.writePDFfile("test_ragged_right")
+    
+
 
 
 if __name__ == "__main__":
@@ -2769,9 +2816,11 @@ if __name__ == "__main__":
 #    test()
 #    test_match()
 #    more_test()
-    test_render()
+#    test_render()
 #    test_weld()
-    test_compose()
+#    test_compose()
+
+    test_ragged_right()
 
     print("OK\n")
 
