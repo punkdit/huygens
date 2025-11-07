@@ -913,6 +913,135 @@ class Cell1(Atom):
         return cell
 
 
+def fail_match(tgt, src, message=""):
+    print("fail_match:", message)
+    print("\t", tgt)
+    print("\t", src)
+    assert 0
+
+
+def strict_match(tgt, src):
+    assert isinstance(tgt, Cell1)
+    assert isinstance(src, Cell1)
+
+    if tgt.name == src.name:
+        tgt = tgt.search(cls=_Cell1)
+        src = src.search(cls=_Cell1)
+        assert len(src) == len(tgt)
+        for (t,s) in zip(tgt, src):
+            yield (t,s)
+        return # <---------- return
+
+    lhs = [[cell for cell in path if not cell.skip] for path in tgt.get_paths()]
+    rhs = [[cell for cell in path if not cell.skip] for path in src.get_paths()]
+    if len(lhs) != len(rhs):
+        fail_match(tgt, src, "%s tgt paths != %s src paths"%(len(lhs), len(rhs)))
+
+    send = {}
+    found = set() # XXX just use send
+    for (left,right) in zip(lhs, rhs):
+        if len(left)!=len(right):
+            for l in left:
+                print("\tleft  (top):", l, l.stroke, l.__class__.__name__)
+            for r in right:
+                print("\tright (bot):", r, l.stroke, r.__class__.__name__)
+            if len(left)>len(right):
+                msg = ("try inserting identity Cell1's in the right (bot)?")
+            else:
+                msg = ("try inserting identity Cell1's in the left (top)?")
+            #print("warning: wiggle.match path length mismatch")
+            fail_match(tgt, src, 
+                "tgt path len %d != src path len %d:\n%s"%(len(left), len(right), msg))
+
+        li = ri = 0
+        while li<len(left) and ri<len(right):
+            l, r = left[li], right[ri]
+            #print("match", l, r)
+            if l in send:
+                if send[l] != r:
+                    print("send[%s]=%s != %s"%(l,send[l],r))
+                    fail_match(tgt, src)
+            #print("match:", l, r)
+            send[l] = r
+
+            if type(l) != type(r): # type is _Cell0 or _Cell1
+                fail_match(tgt, src)
+            if l.name != r.name:
+                fail_match(tgt, src)
+            if isinstance(l, Cell1):
+                if (l,r) not in found:
+                    #print("match: yield", l, r)
+                    yield (l,r)
+                    found.add((l,r))
+            li += 1
+            ri += 1
+
+
+def weak_match(tgt, src):
+    assert isinstance(tgt, Cell1)
+    assert isinstance(src, Cell1)
+
+    if tgt.name == src.name:
+        tgt = tgt.search(cls=_Cell1)
+        src = src.search(cls=_Cell1)
+        assert len(src) == len(tgt)
+        for (t,s) in zip(tgt, src):
+            yield (t,s)
+        return # <---------- return
+
+    lhs = [[cell for cell in path if not cell.skip] for path in tgt.get_paths()]
+    rhs = [[cell for cell in path if not cell.skip] for path in src.get_paths()]
+    if len(lhs) != len(rhs):
+        fail_match(tgt, src, "%s tgt paths != %s src paths"%(len(lhs), len(rhs)))
+
+    #send = {}
+    found = set()
+    for (left,right) in zip(lhs, rhs):
+        left = [l for l in left if isinstance(l, Cell1)]
+        right = [r for r in right if isinstance(r, Cell1)]
+        if len(left)!=len(right):
+            print("warning: wiggle.match path length mismatch:")
+            if len(left)>len(right):
+                print("  try inserting identity Cell1's in the right (bot)?")
+            else:
+                print("  try inserting identity Cell1's in the left (top)?")
+            for l in left:
+                print("\tleft  (top):", l, l.stroke, l.__class__.__name__)
+            for r in right:
+                print("\tright (bot):", r, l.stroke, r.__class__.__name__)
+
+        li = ri = 0
+        while li<len(left) and ri<len(right):
+            l, r = left[li], right[ri]
+            print("match:", l, r, "?")
+
+            if type(l) != type(r): # type is _Cell0 or _Cell1
+                fail_match(tgt, src)
+
+            if l.name != r.name and r.stroke is None:
+                print("\tskip", r)
+                ri += 1
+                continue
+            elif l.name != r.name and l.stroke is None:
+                print("\tskip", l)
+                li += 1
+                continue
+            elif l.name != r.name:
+                fail_match(tgt, src)
+
+            if (l,r) not in found:
+                print("\tyield", l, r)
+                yield (l,r)
+                found.add((l,r))
+            li += 1
+            ri += 1
+    if found:
+        print()
+
+
+match = strict_match
+
+
 class _Cell1(Cell1, Render):
     def get_paths(self):
         # a path is a sequence of sub-lists of [tgt, self, src]
@@ -929,59 +1058,6 @@ class _Cell1(Cell1, Render):
             for i in tgt:
               for j in src:
                 yield [i, self, j]
-
-    def fail_match(tgt, src, message=""):
-        print("fail_match:", message)
-        print("\t", tgt)
-        print("\t", src)
-        assert 0
-    
-    def match(tgt, src):
-        assert isinstance(src, Cell1)
-        if tgt.name == src.name:
-            tgt = tgt.search(cls=_Cell1)
-            src = src.search(cls=_Cell1)
-            assert len(src) == len(tgt)
-            for (t,s) in zip(tgt, src):
-                yield (t,s)
-            return # <---------- return
-        lhs = [[cell for cell in path if not cell.skip] for path in tgt.get_paths()]
-        rhs = [[cell for cell in path if not cell.skip] for path in src.get_paths()]
-        if len(lhs) != len(rhs):
-            tgt.fail_match(src, "%s tgt paths != %s src paths"%(len(lhs), len(rhs)))
-    
-        send = {}
-        found = set() # XXX just use send
-        for (left,right) in zip(lhs, rhs):
-          if len(left)!=len(right):
-              for l in left:
-                  print("\tleft  (top):", l, l.__class__.__name__)
-              for r in right:
-                  print("\tright (bot):", r, r.__class__.__name__)
-              if len(left)>len(right):
-                  msg = ("try inserting identity Cell1's in the right (bot)?")
-              else:
-                  msg = ("try inserting identity Cell1's in the left (top)?")
-              tgt.fail_match(src, 
-                  "tgt path len %d != src path len %d:\n%s"%(len(left), len(right), msg))
-          li = ri = 0
-          while li<len(left) and ri<len(right):
-            l, r = left[li], right[ri]
-            #print("match", l, r)
-            if l in send:
-                if send[l] != r:
-                    tgt.fail_match(src)
-            send[l] = r
-            if type(l) != type(r): # type is _Cell0 or _Cell1
-                tgt.fail_match(src)
-            if l.name != r.name:
-                tgt.fail_match(src)
-            if isinstance(l, Cell1):
-                if (l,r) not in found:
-                    yield (l,r)
-                    found.add((l,r))
-            li += 1
-            ri += 1
 
     def eq_constrain(self, other, system):
         add = system.add
@@ -2313,7 +2389,7 @@ class VCell2(Compound, Cell2):
         i = 0
         while i+1 < len(cells):
             l, r = cells[i].src, cells[i+1].tgt
-            #list(l.match(r))
+            #list(match(l,r))
             #if cells[i].src.name != cells[i+1].tgt.name:
             #    msg = ("can't compose\n%s and\n%s"%(cells[i], cells[i+1]))
             #    raise TypeError(msg)
@@ -2391,7 +2467,7 @@ class _VCell2(VCell2, _Compound, _Cell2):
         while i+1 < len(cells):
             src, tgt = cells[i:i+2] # Cell2's
             src, tgt = src.tgt, tgt.src # Cell1's
-            for (t, s) in tgt.match(src):
+            for (t, s) in match(tgt, src):
                 # t, s are Cell1's
                 s.eq_constrain(t, system)
             i += 1
@@ -2842,17 +2918,74 @@ def test_ragged_right():
     Cell1.pip_radius = pip_radius # restore
 
 
+def test_weak_match():
+
+    one = Cell0.ident
+    C = Cell0("C", fill=grey)
+    C.mul = Cell1(C, C@C)
+    C.mmul = Cell1(C, C@C@C)
+    C.unit = Cell1(C, one)
+
+    C.runitor = Cell2(C.i, C.mul<<(C@C.unit), ragged=True)
+    C.lunitor = Cell2(C.i, C.mul<<(C.unit@C), ragged=True)
+    C.irunitor = Cell2(C.mul<<(C@C.unit), C.i, ragged=True)
+    C.ilunitor = Cell2(C.mul<<(C.unit@C), C.i, ragged=True)
+    
+    src = C.mul << (C.mul @ C)
+    tgt = C.mul << (C @ C.mul)
+    C.associator = Cell2(tgt, src, ragged=True) #, weight=2.0)
+    C.iassociator = Cell2(src, tgt, ragged=True) #, weight=2.0)
+
+    from huygens.namespace import RGB
+    brown = RGB(0.40, 0.00, 0.00)
+
+
+    m = Cell1(C, one, stroke=brown)
+    m.mul = Cell2(m, C.mul<<(m@m), pip_color=m.stroke)
+    m.unit = Cell2(m, C.unit, pip_color=m.stroke)
+
+    m.cup = Cell2(C.mul << (m@m), C.unit, pip_color=m.stroke)
+    m.cap = Cell2(C.unit, C.mul << (m@m), pip_color=m.stroke)
+
+    top = C.mul << (C.i@C.i) << (m.i @ m.cap)
+    mid = C.associator << (m.i@m.i@m.i)
+    bot = C.mul << (C.i@C.i) << (m.cup @ m.i)
+
+    cell = top * mid * bot
+    #cell = top * top.src.i
+
+    global match
+    prev = match
+    match = weak_match
+    if 0:
+        cvs = cell.layout().render_cvs(pos="northeast")
+    else:
+        cvs = Canvas([
+            cell.layout().render_cvs(pos="northeast"),
+            Translate(0,-4),
+            #top.layout().render_cvs(pos="northeast"),
+            #Translate(0,-2),
+            #mid.layout().render_cvs(pos="northeast"),
+        ])
+    match = prev
+
+    cvs.writePDFfile("test_weak_match")
+    
+
+
 if __name__ == "__main__":
     print("\n")
 
-#    test()
-#    test_match()
+    test()
+    test_match()
 #    more_test()
 #    test_render()
 #    test_weld()
 #    test_compose()
 
-    test_ragged_right()
+    #test_ragged_right()
+
+    test_weak_match()
 
     print("OK\n")
 

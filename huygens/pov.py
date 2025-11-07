@@ -518,7 +518,8 @@ class GItem(object):
             try:
                 verts = [p + epsilon*(p-center).normalized() for p in verts]
             except AssertionError:
-                print("huygens.pov.GItem.__init__: AssertionError")
+                print("huygens.pov.GItem.__init__: AssertionError", self.__class__)
+                raise
         self.verts = verts
         self.center = center
         self.address = address
