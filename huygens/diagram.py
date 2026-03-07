@@ -702,12 +702,13 @@ class Relation(Multi):
 
 
 class Braid(Multi):
-    def __init__(self, inverse=False, space=0.5, weight=1.0, min_width=None, min_height=None):
+    def __init__(self, inverse=False, space=0.5, weight=1.0, min_width=None, min_height=None, attrs=[]):
         min_width = get_size(min_width)
         min_height = 0.5*get_size(min_height)
         Multi.__init__(self, 2, 2, weight, min_width=min_width, min_height=min_height)
         self.inverse = inverse
         self.space = space
+        self.attrs = list(attrs)
 
     def on_layout(self, cvs, system):
         Multi.on_layout(self, cvs, system)
@@ -745,7 +746,7 @@ class Braid(Multi):
                     x0, conv(y_bot, y_mid),
                     xt, yt,
                     conv(xt, x_mid, alpha), conv(yt, y_mid, alpha))
-                cvs.stroke(p)
+                cvs.stroke(p, self.attrs)
         
                 xt, yt = conv(x0, x1, 0.75), conv(y_mid, y_top, 0.25) # control point
                 p = path.curve(
@@ -753,16 +754,16 @@ class Braid(Multi):
                     xt, yt,
                     x1, conv(y_mid, y_top),
                     x1, y_top)
-                cvs.stroke(p)
+                cvs.stroke(p, self.attrs)
 
             else:
                 p = path.curve(x0, y_bot, x0, y_mid, x1, y_mid, x1, y_top)
-                cvs.stroke(p)
+                cvs.stroke(p, self.attrs)
 
             under = not under
 
 
-def test():
+def test_box():
     from huygens import config
     config("pdftex")
 
@@ -777,9 +778,58 @@ def test():
     box = TBone(1, 2, connect=[0,0], weight=0.5)
     box = box * (VWire() @ Spider(1, 2))
     box = box * (Spider(2, 1) @ VWire())
+    box = box * Braid()
     
     cvs = canvas.canvas()
     box.render(cvs)
+    cvs.writePDFfile("output.pdf")
+
+
+def test():
+    import warnings
+    warnings.filterwarnings('ignore')
+
+    from huygens import config
+    config("pdftex")
+
+    #Box.DEBUG=True
+
+    st_dashed = [style.linestyle.dashed]
+    st_arrow = [deco.marrow()]
+    st_rarrow = [deco.marrow(reverse=True)]
+
+    from huygens.namespace import st_Thick, orange, Canvas, st_center
+    st = st_Thick
+    I = lambda **kw : VWire(attrs=st)
+    A = lambda : I(attrs=st) @ Braid(attrs=st) @ I(attrs=st)
+    B = lambda : Braid(attrs=st) @ Braid(attrs=st)
+
+    def sym(cvs):
+        bb =  cvs.get_bound_box()
+        xc, yc = bb.center
+        x0, y0 = bb.ll
+        x1, y1 = bb.ur
+        cvs.stroke(path.line(xc, y0, xc, y1), [orange] + st_dashed + st_Thick)
+        return bb
+
+    box = A() * B() * A() * B()
+    
+    lhs = Canvas()
+    box.render(lhs)
+    bb = sym(lhs)
+    xc, yc = bb.center
+
+    cvs = Canvas()
+    cvs.insert(-1.4*bb.width, -yc, lhs)
+    cvs.text(0, 0, "=", st_center)
+
+    box = B()*A()*B()*A()
+    rhs = Canvas()
+    box.render(rhs)
+    bb = sym(rhs)
+    xc, yc = bb.center
+    cvs.insert(+0.1*bb.width, -yc, rhs)
+
     cvs.writePDFfile("output.pdf")
 
 
