@@ -295,6 +295,9 @@ class Canvas(Compound):
         self.append(Clip())
         return self # yes...
 
+    def show_page(self):
+        self.append(Showpage())
+
 #    def text_extents(self, text):
 #        dx, dy, width, height, _, _ = text_extents_cairo(text)
 #        return (dx/SCALE_CM_TO_POINT, -dy/SCALE_CM_TO_POINT,  # <-- sign flip

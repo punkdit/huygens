@@ -961,6 +961,11 @@ class Clip(Deco):
         cxt.clip()
 
 
+class Showpage(Item):
+    def process_cairo(self, cxt):
+        cxt.show_page()
+
+
 class RGBA(Deco):
     def __init__(self, r, g=None, b=None, a=1.0):
         r = float(r)
