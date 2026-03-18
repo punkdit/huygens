@@ -87,6 +87,7 @@ class Layout(Listener):
         self.box.on_render(self, cvs)
 
 
+epsilon = 0.001
 
 class Box(object):
     """
@@ -108,15 +109,20 @@ class Box(object):
     rotate = 0 # top-level rotate
     weight = 1. # for our constraints
 
-    def __init__(self, nleft=1, nright=1, **kw):
+    def __init__(self, nleft=1, nright=1, target=None, **kw):
         self.nleft = nleft
         self.nright = nright
         self.shape = (nleft, nright)
+        assert target is None
         self.__dict__.update(kw)
 
     def __str__(self):
         return "%s(%s, %s)"%(self.__class__.__name__, self.nleft, self.nright)
     __repr__ = __str__
+
+    @property
+    def target(self):
+        return Circuit(self.nleft)
 
     def __mul__(self, other):
         assert isinstance(other, Box)
@@ -439,6 +445,7 @@ class Spider(Box):
         width, height = layout.width, layout.height
         x0, y0 = layout.x0, layout.y0
         xc = x0 + 0.5*width
+        x0 -= epsilon
         if self.shape == (1,1):
             yc = sum(layout.lys+layout.rys) / (self.nleft + self.nright)
         elif self.nleft == 1:
@@ -461,7 +468,7 @@ class Spider(Box):
             if self.st_lstrokes is not None:
                 st = st + self.st_lstrokes[i]
             cvs.stroke(p, st)
-        x1 = x0+width
+        x1 = x0+width+2*epsilon
         for i in range(self.nright):
             y = layout.rys[i]
             dy = layout.rdys[i]
@@ -561,8 +568,8 @@ class Relation(Box):
 #        if self.DEBUG:
 #            Box.on_render(self, layout, cvs)
         width, height = layout.width, layout.height
-        x0, y0 = layout.x0, layout.y0
-        x1 = x0+width
+        x0, y0 = layout.x0-epsilon, layout.y0
+        x1 = x0+width+2*epsilon
         lys, rys = layout.lys, layout.rys
         ldys, rdys = layout.ldys, layout.rdys
         A = self.A
@@ -614,14 +621,14 @@ def Permutation(perm, *args, **kw):
 
 
 class Element(Relation):
-    def __init__(self, n):
+    def __init__(self, n, **kw):
         A = numpy.identity(n, dtype=int)
-        Relation.__init__(self, A)
+        Relation.__init__(self, A, **kw)
 
 
 class CNOT(Element):
-    def __init__(self, n, idx, jdx):
-        Element.__init__(self, n)
+    def __init__(self, n, idx, jdx, **kw):
+        Element.__init__(self, n, **kw)
         self.idx = idx
         self.jdx = jdx
 
@@ -639,8 +646,8 @@ class CNOT(Element):
 
 
 class CZ(Element):
-    def __init__(self, n, idx, jdx):
-        Element.__init__(self, n)
+    def __init__(self, n, idx, jdx, **kw):
+        Element.__init__(self, n, **kw)
         self.idx = idx
         self.jdx = jdx
 
@@ -665,7 +672,7 @@ class CZ(Element):
             cvs.insert(x, y, Circuit.ycvs)
 
 
-class Circuit(object):
+class Circuit:
 
     RED = color.rgb(0.9, 0.2, 0.1)
     GREEN = color.rgb(0.3, 0.7, 0.2)
@@ -692,8 +699,16 @@ class Circuit(object):
         cvs = Canvas([cvs, pip_cvs])
         return cvs
 
-    def __init__(self, n):
+    def __init__(self, n=0):
         self.n = n
+
+    def __str__(self):
+        return "Circuit(%d)"%(self.n,)
+    __repr__ = __str__
+
+    def __eq__(self, other):
+        assert isinstance(other, Circuit)
+        return self.n == other.n
 
     def get_P(self, *args):
         assert len(args) == self.n
@@ -708,14 +723,18 @@ class Circuit(object):
         f = list(range(self.n))
         return Permutation(f, **kw)
 
-    def get_gate(self, idx, box, **kw):
-        n = self.n
+    def get_gate(self, idx, box, n=None, **kw):
+        if n is None:
+            n = self.n
         if idx is None:
             boxs = [box]*n
         else:
             boxs = [Identity() if i!=idx else box for i in range(n)]
-        boxs = reversed(list(boxs))
-        return VBox(n, n, boxs, **kw)
+        boxs = list(reversed(list(boxs)))
+        nleft = sum(box.nleft for box in boxs)
+        nright = sum(box.nright for box in boxs)
+        box = VBox(nleft, nright, boxs, **kw)
+        return box
 
     def get_H(self, idx=None):
         box = Spider(1, 1, pip_cvs=self.ycvs)
@@ -734,6 +753,22 @@ class Circuit(object):
     def get_Z(self, idx=None):
         cvs = self.get_phase(2, self.gcvs)
         box = Spider(1, 1, pip_cvs=cvs)
+        return self.get_gate(idx, box)
+
+    def get_PX(self, idx):
+        box = Spider(1, 0, pip_cvs=self.gcvs)
+        return self.get_gate(idx, box, self.n+1)
+
+    def get_PZ(self, idx):
+        box = Spider(1, 0, pip_cvs=self.rcvs)
+        return self.get_gate(idx, box, self.n+1)
+
+    def get_MX(self, idx):
+        box = Spider(0, 1, pip_cvs=self.gcvs)
+        return self.get_gate(idx, box)
+
+    def get_MZ(self, idx):
+        box = Spider(0, 1, pip_cvs=self.rcvs)
         return self.get_gate(idx, box)
 
     #def get_CZ(self, idx=0, jdx=1):
@@ -928,10 +963,48 @@ def test_rect():
     cvs.writePDFfile("test.pdf")
 
 
-if __name__ == "__main__":
+def test_syntax():
 
-    test_rect()
-    print("OK\n\n")
+    from qumba.syntax import Syntax
+
+    syntax = Syntax()
+    CX, H = syntax.CX, syntax.H
+    PX, PZ = syntax.PX, syntax.PZ
+    MX, MZ = syntax.MX, syntax.MZ
+
+    c = Circuit()
+    op = c.get_PX(0)
+    assert op.target.n == 1
+
+    n = 4
+    c = Circuit(n)
+    prog = CX(n,3)*CX(n,2)*CX(n,1)*CX(n,0)*PX(n)
+
+    op = prog*c
+
+    #op = Circuit(2).get_MZ(1)*Circuit(1).get_PX(1)*c.get_PX(0)
+    #print(op)
+
+    cvs = op.render(width=3, height=3)
+    cvs.writePDFfile("test_px.pdf")
+
+
+
+
+if __name__ == "__main__":
+    from time import time
+    start_time = time()
+    fn = argv.next() or "test"
+
+    if argv.profile:
+        import cProfile as profile
+        profile.run("%s()"%fn)
+    else:
+        fn = eval(fn)
+        fn()
+
+    print("\nfinished in %.3f seconds.\n"%(time() - start_time))
+
 
 
 
