@@ -5,6 +5,9 @@ generate ZX-calculus diagrams and circuits.
 
 ugh... this codebase is starting to get out of hand...
 
+circuit indexes increase as they down the page ,
+but VBox's go up the page... doh..
+
 """
 
 from functools import reduce
@@ -178,7 +181,7 @@ class Box(object):
         # XXX
         # This is still not perfect, 
         # we really need two coordinates for a tangent.
-        # Problems arise when glueing two Spiders with different widths.
+        # Problems arise when glueing two _Spiders with different widths.
         # XXX
         ldys = layout.get_array("ldys", self.nleft, weight=0.)
         rdys = layout.get_array("rdys", self.nright, weight=0.)
@@ -425,9 +428,15 @@ class VBox(Compound):
 
 
 class Spider(Box):
-    def __init__(self, nleft=1, nright=1, **kw):
+    def __init__(self, nleft=1, nright=1, st_lstrokes=None, st_rstrokes=None, **kw):
         Box.__init__(self, nleft, nright, **kw)
         self.__dict__.update(kw)
+        if st_lstrokes is None:
+            st_lstrokes = [self.st_stroke]*self.nleft
+        if st_rstrokes is None:
+            st_rstrokes = [self.st_stroke]*self.nright
+        self.st_lstrokes = st_lstrokes
+        self.st_rstrokes = st_rstrokes
 
     def on_constrain(self, layout):
         Box.on_constrain(self, layout)
@@ -471,7 +480,7 @@ class Spider(Box):
                 xc, yc)
             st = self.st_stroke
             if self.st_lstrokes is not None:
-                st = st + self.st_lstrokes[i]
+                st = st + self.st_lstrokes[self.nleft-i-1] # argh
             cvs.stroke(p, st)
         x1 = x0+width+2*epsilon
         for i in range(self.nright):
@@ -484,7 +493,7 @@ class Spider(Box):
                 xc, yc)
             st = self.st_stroke
             if self.st_rstrokes is not None:
-                st = st + self.st_rstrokes[i]
+                st = st + self.st_rstrokes[self.nright-i-1] # argh
             cvs.stroke(p, st)
         if self.pip_cvs is not None:
             cvs.insert(xc, yc, self.pip_cvs)
@@ -789,22 +798,17 @@ class Circuit:
         f = list(range(self.n))
         return Permutation(f, st_strokes=build_strokes(self.n, self.st_wires), **kw)
 
-    def get_gate(self, idx, box, n=None, **kw):
-        if n is None:
-            n = self.n
+    def get_gate(self, idx, box, **kw):
+        n = self.n
         assert len(self.st_wires) == self.n
         print("get_gate", idx, box, len(self.st_wires))
-        #if idx is None:
-        #    boxs = [box]*n
-        #else:
         assert idx is not None
-        #boxs = [Identity() if i!=idx else box for i in range(n)]
         assert idx <= n
         boxs = []
         for i in range(idx):
             boxs.append(Identity(st_stroke=self.st_wires[i]))
         boxs.append(box)
-        for i in range(idx+1, n):
+        for i in range(idx+box.nright, n):
             boxs.append(Identity(st_stroke=self.st_wires[i]))
 
         boxs = list(reversed(list(boxs)))
@@ -820,8 +824,12 @@ class Circuit:
                 st_wires += self.st_wires[idx+1:]
             elif box.nright==0:
                 st_wires += [box.st_stroke] + self.st_wires[idx+1:]
+            else:
+                assert isinstance(box, Spider), "umm: %s"%box
+                st_wires += box.st_lstrokes + self.st_wires[idx+box.nright:]
             target = Circuit(nleft, st_wires)
         box = VBox(nleft, nright, boxs, target=target, **kw)
+        print("box:", box)
         print("box.target:", target)
         return box
 
@@ -847,12 +855,12 @@ class Circuit:
     def get_PX(self, idx, st_stroke=None, **kw):
         st_stroke = st_stroke or Box.st_stroke
         box = Spider(1, 0, pip_cvs=self.gcvs, st_stroke=st_stroke)
-        return self.get_gate(idx, box, self.n+1)
+        return self.get_gate(idx, box)
 
     def get_PZ(self, idx, st_stroke=None, **kw):
         st_stroke = st_stroke or Box.st_stroke
         box = Spider(1, 0, pip_cvs=self.rcvs, st_stroke=st_stroke)
-        return self.get_gate(idx, box, self.n+1)
+        return self.get_gate(idx, box)
 
     def get_MX(self, idx, **kw):
         box = Spider(0, 1, pip_cvs=self.gcvs, st_stroke=self.st_wires[idx], **kw)
@@ -862,7 +870,18 @@ class Circuit:
         box = Spider(0, 1, pip_cvs=self.rcvs, st_stroke=self.st_wires[idx], **kw)
         return self.get_gate(idx, box)
 
-    #def get_CZ(self, idx=0, jdx=1):
+    def get_spider(self, idx, nleft, nright, pip_cvs, st_wires=None, **kw):
+        st_lstrokes = st_wires
+        st_rstrokes = self.st_wires[idx:idx+nright]
+        box = Spider(nleft, nright, pip_cvs=pip_cvs,
+            st_lstrokes=st_lstrokes, st_rstrokes=st_rstrokes, **kw)
+        return self.get_gate(idx, box)
+
+    def get_SX(self, idx, nleft, nright, st_wires=None, **kw):
+        return self.get_spider(idx, nleft, nright, self.rcvs, st_wires, **kw)
+
+    def get_SZ(self, idx, nleft, nright, st_wires=None, **kw):
+        return self.get_spider(idx, nleft, nright, self.gcvs, st_wires, **kw)
 
     def get_pair(self, idx, jdx, lbox, rbox):
         #if idx > jdx:
@@ -1047,6 +1066,7 @@ def test():
     #cvs = box.render()
     #cvs.writePDFfile("test.pdf")
 
+
 def test_rect():
     r0 = 0.6
     r1 = 1.7
@@ -1085,6 +1105,7 @@ def test_syntax():
     CZ = syntax.CZ
     PX, PZ = syntax.PX, syntax.PZ
     MX, MZ = syntax.MX, syntax.MZ
+    SX, SZ = syntax.SX, syntax.SZ # Spider's
 
 #    c = Circuit()
 #    op = c.get_PX(0)
@@ -1094,19 +1115,31 @@ def test_syntax():
     #c = Circuit(n)
     #prog = CX(n,3)*CX(n,2)*CX(n,1)*CX(n,0)*PX(n)
 
+    a = 0.5
+    st_grey = [grey.alpha(a)]+st_Thick
+    st_red = [red.alpha(a)]+st_Thick
+    st_green = [green.alpha(a)]+st_Thick
+    st_black = [black.alpha(a)]+st_Thick
+
     n = 5
-    st = [grey]+st_Thick
-    st_wires = [st]*n
+    st_wires = [st_grey]*n
     st_wires[0] = [red]+st_Thick
     st_wires[2] = [blue]+st_Thick
     st_wires[n-1] = [black]+st_Thick
-    st_red = [red]+st_Thick
-    st_green = [green]+st_Thick
     c = Circuit(n, st_wires=st_wires)
     prog = (
-         H(2)*MX(1)*CX(n-1,3,st_red,st_green)*CX(n-1,2)
+         MZ(2)*MX(1)*CX(n-1,3,st_red,st_green)*CX(n-1,2)
         *CX(n-1,1)*CX(n-1,0)*PX(n, st_stroke=[grey]+st_Thick))
     #prog = H(1)*MZ(2)*H(1)*MX(2)*H(0)*H(3)*X(2)*Z(1)*S(2)
+
+    c = Circuit(1, [st_red])
+    prog = H(1) * SX(0, 2, 1) 
+    prog = PZ(0)*MX(0)*SX(0, 1, 3)*SZ(1, 2, 1) * SX(0, 2, 1, [st_green,st_grey]) 
+    #prog = SX(0, 1, 2)*SZ(0, 2, 1)
+    #prog = PZ(0)*MX(0)
+    prog = MX(1)*SZ(0,3,1, [st_red,st_grey,st_grey])
+    
+    #prog = H(0)
 
     print("prog:", prog)
     op = prog*c
@@ -1115,7 +1148,33 @@ def test_syntax():
     #op = Circuit(2).get_MZ(1)*Circuit(1).get_PX(1)*c.get_PX(0)
     #print(op)
 
-    cvs = op.render(width=3, height=3)
+    cvs = Canvas()
+    x = y = 0
+
+    st = [black]+st_normal
+    for (a,b,c) in [
+        (st,st,st),
+        (st_green,st,st_green),
+        (st,st_green,st_green),
+        (st_green,st_green,st),
+        (st_red,st_red,st_red),
+    ]:
+        op = SZ(0,2,1, [a,b])*Circuit(1, [c])
+        op = op[0]
+        fg = op.render(width=1, height=1)
+        cvs.insert(x, y, fg)
+        y -= 1.1*fg.get_bound_box().height
+
+    y = 0
+    x += 1.1*fg.get_bound_box().width
+
+    for a in [st, st_red]:
+        op = MX(0)*Circuit(1,[a])
+        op = op[0]
+        fg = op.render(width=1, height=1)
+        cvs.insert(x, y, fg)
+        y -= 1.1*fg.get_bound_box().height
+
     cvs.writePDFfile("test_syntax.pdf")
 
 
