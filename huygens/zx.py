@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 """
+generate ZX-calculus diagrams and circuits.
+
+ugh... this codebase is starting to get out of hand...
 
 """
 
@@ -113,16 +116,18 @@ class Box(object):
         self.nleft = nleft
         self.nright = nright
         self.shape = (nleft, nright)
-        assert target is None
+        #if target is None:
+        #    target = Circuit(nleft)
+        self.target = target
         self.__dict__.update(kw)
 
     def __str__(self):
         return "%s(%s, %s)"%(self.__class__.__name__, self.nleft, self.nright)
     __repr__ = __str__
 
-    @property
-    def target(self):
-        return Circuit(self.nleft)
+#    @property
+#    def target(self):
+#        return Circuit(self.nleft)
 
     def __mul__(self, other):
         assert isinstance(other, Box)
@@ -135,7 +140,7 @@ class Box(object):
             boxs = [self] + other.boxs
         else:
             boxs = [self, other]
-        return HBox(self.nleft, other.nright, boxs)
+        return HBox(self.nleft, other.nright, boxs, target=boxs[0].target)
 
     def __add__(self, other):
         assert isinstance(other, Box)
@@ -213,7 +218,7 @@ class Box(object):
         return layout
 
     def render(self, x0=0., y0=0., width=None, height=None, 
-            size=None, scale=1.0, border=0.1, soft_width=None, simplify=False,
+            size=None, scale=1.0, border=0.1, soft_width=None, simplify=True,
             rhs_labels=[],
         ):
         # this is the top-level render call
@@ -621,16 +626,69 @@ def Permutation(perm, *args, **kw):
 
 
 class Element(Relation):
-    def __init__(self, n, **kw):
+    def __init__(self, n, 
+            st_lstrokes=None, st_rstrokes=None, st_gate=None, **kw):
         A = numpy.identity(n, dtype=int)
         Relation.__init__(self, A, **kw)
+        self.st_lstrokes = st_lstrokes
+        self.st_rstrokes = st_rstrokes
+        self.st_gate = st_gate
+
+    def on_render(self, layout, cvs):
+#        if self.DEBUG:
+#            Box.on_render(self, layout, cvs)
+        width, height = layout.width, layout.height
+        x0, y0 = layout.x0-epsilon, layout.y0
+        x1 = x0+width+2*epsilon
+        xc = layout.x0 + 0.5*width
+        lys, rys = layout.lys, layout.rys
+        ldys, rdys = layout.ldys, layout.rdys
+        A = self.A
+        st_strokes = self.st_strokes
+        # index goes top down...
+        lys = list(reversed(lys))
+        rys = list(reversed(rys))
+        ldys = list(reversed(ldys))
+        rdys = list(reversed(rdys))
+        assert self.nleft == self.nright
+        for i in range(self.nleft):
+            p = path.line( x0, lys[i], xc+epsilon, rys[i])
+            st = self.st_lstrokes[i]
+            cvs.stroke(p, st)
+            p = path.line( xc-epsilon, lys[i], x1, rys[i])
+            st = self.st_rstrokes[i]
+            cvs.stroke(p, st)
+        # do we need this:
+        lpip_cvs = self.lpip_cvs
+        rpip_cvs = self.rpip_cvs
+        if lpip_cvs is not None:
+            for i in range(self.nleft):
+                cvs.insert(x0, lys[i], lpip_cvs)
+        if rpip_cvs is not None:
+            for i in range(self.nleft):
+                cvs.insert(x1, rys[i], rpip_cvs)
+
+
+def build_strokes(n, st_wires):
+    st_strokes = numpy.empty((n,n), dtype=object)
+    for i in range(n):
+        st_strokes[i,i] = st_wires[i]
+    return st_strokes
 
 
 class CNOT(Element):
+    #st_lstrokes = None
+    #st_rstrokes = None
+    #st_gate = None
     def __init__(self, n, idx, jdx, **kw):
+#    def __init__(self, n, idx, jdx, 
+#            st_lstrokes=None, st_rstrokes=None, st_gate=None, **kw):
         Element.__init__(self, n, **kw)
         self.idx = idx
         self.jdx = jdx
+        #self.st_lstrokes = st_lstrokes
+        #self.st_rstrokes = st_rstrokes
+        #self.st_gate = st_gate
 
     def on_render(self, layout, cvs):
         Element.on_render(self, layout, cvs)
@@ -640,7 +698,8 @@ class CNOT(Element):
         idx, jdx = self.idx, self.jdx
         x = x0 + 0.5*width
         yi, yj = lys[idx], lys[jdx]
-        cvs.stroke(path.line(x, yi, x, yj), self.st_stroke)
+        st_stroke = self.st_gate or self.st_stroke
+        cvs.stroke(path.line(x, yi, x, yj), st_stroke)
         cvs.insert(x, yi, Circuit.gcvs)
         cvs.insert(x, yj, Circuit.rcvs)
 
@@ -699,8 +758,15 @@ class Circuit:
         cvs = Canvas([cvs, pip_cvs])
         return cvs
 
-    def __init__(self, n=0):
+    def __init__(self, n=0, st_wires=None):
         self.n = n
+        if st_wires is None:
+            st_wires = [Box.st_stroke]*n
+        self.st_wires = st_wires # argh, i am questioning my sanity... 
+        print("Circuit(%d)"%(self.n,))
+        for st in st_wires:
+            print("\t", st)
+        assert len(st_wires) == self.n
 
     def __str__(self):
         return "Circuit(%d)"%(self.n,)
@@ -721,54 +787,79 @@ class Circuit:
 
     def get_identity(self, **kw):
         f = list(range(self.n))
-        return Permutation(f, **kw)
+        return Permutation(f, st_strokes=build_strokes(self.n, self.st_wires), **kw)
 
     def get_gate(self, idx, box, n=None, **kw):
         if n is None:
             n = self.n
-        if idx is None:
-            boxs = [box]*n
-        else:
-            boxs = [Identity() if i!=idx else box for i in range(n)]
+        assert len(self.st_wires) == self.n
+        print("get_gate", idx, box, len(self.st_wires))
+        #if idx is None:
+        #    boxs = [box]*n
+        #else:
+        assert idx is not None
+        #boxs = [Identity() if i!=idx else box for i in range(n)]
+        assert idx <= n
+        boxs = []
+        for i in range(idx):
+            boxs.append(Identity(st_stroke=self.st_wires[i]))
+        boxs.append(box)
+        for i in range(idx+1, n):
+            boxs.append(Identity(st_stroke=self.st_wires[i]))
+
         boxs = list(reversed(list(boxs)))
         nleft = sum(box.nleft for box in boxs)
         nright = sum(box.nright for box in boxs)
-        box = VBox(nleft, nright, boxs, **kw)
+
+        if nleft == self.n:
+            target = self
+        else:
+            st_wires = self.st_wires[:idx]
+            assert box.nleft or box.nright
+            if box.nleft==0:
+                st_wires += self.st_wires[idx+1:]
+            elif box.nright==0:
+                st_wires += [box.st_stroke] + self.st_wires[idx+1:]
+            target = Circuit(nleft, st_wires)
+        box = VBox(nleft, nright, boxs, target=target, **kw)
+        print("box.target:", target)
         return box
 
-    def get_H(self, idx=None):
-        box = Spider(1, 1, pip_cvs=self.ycvs)
+    def get_H(self, idx, **kw):
+        box = Spider(1, 1, pip_cvs=self.ycvs, st_stroke=self.st_wires[idx])
         return self.get_gate(idx, box)
 
-    def get_S(self, idx=None, phase=1):
+    def get_S(self, idx, phase=1, **kw):
         cvs = self.get_phase(phase, self.gcvs)
-        box = Spider(1, 1, pip_cvs=cvs)
+        box = Spider(1, 1, pip_cvs=cvs, st_stroke=self.st_wires[idx])
         return self.get_gate(idx, box)
 
-    def get_X(self, idx=None):
+    def get_X(self, idx, **kw):
         cvs = self.get_phase(2, self.rcvs)
-        box = Spider(1, 1, pip_cvs=cvs)
+        box = Spider(1, 1, pip_cvs=cvs, st_stroke=self.st_wires[idx])
         return self.get_gate(idx, box)
 
-    def get_Z(self, idx=None):
+    def get_Z(self, idx, **kw):
         cvs = self.get_phase(2, self.gcvs)
-        box = Spider(1, 1, pip_cvs=cvs)
+        box = Spider(1, 1, pip_cvs=cvs, st_stroke=self.st_wires[idx])
         return self.get_gate(idx, box)
 
-    def get_PX(self, idx):
-        box = Spider(1, 0, pip_cvs=self.gcvs)
+    def get_PX(self, idx, st_stroke=None, **kw):
+        st_stroke = st_stroke or Box.st_stroke
+        box = Spider(1, 0, pip_cvs=self.gcvs, st_stroke=st_stroke)
         return self.get_gate(idx, box, self.n+1)
 
-    def get_PZ(self, idx):
-        box = Spider(1, 0, pip_cvs=self.rcvs)
+    def get_PZ(self, idx, st_stroke=None, **kw):
+        st_stroke = st_stroke or Box.st_stroke
+        box = Spider(1, 0, pip_cvs=self.rcvs, st_stroke=st_stroke)
         return self.get_gate(idx, box, self.n+1)
 
-    def get_MX(self, idx):
-        box = Spider(0, 1, pip_cvs=self.gcvs)
+    def get_MX(self, idx, **kw):
+        box = Spider(0, 1, pip_cvs=self.gcvs, st_stroke=self.st_wires[idx], **kw)
         return self.get_gate(idx, box)
 
-    def get_MZ(self, idx):
-        box = Spider(0, 1, pip_cvs=self.rcvs)
+    def get_MZ(self, idx, **kw):
+        box = Spider(0, 1, pip_cvs=self.rcvs, st_stroke=self.st_wires[idx], **kw)
         return self.get_gate(idx, box)
 
     #def get_CZ(self, idx=0, jdx=1):
@@ -813,8 +904,29 @@ class Circuit:
         #return lhs * mid * rhs
         return HBox(n, n, [lhs, mid, rhs])
 
-    def get_CNOT(self, idx=0, jdx=1):
-        return CNOT(self.n, idx, jdx)
+    def get_CNOT(self, idx=0, jdx=1, 
+            st_idx=None, st_jdx=None, st_gate=None, **kw):
+#            st_li=None, st_ri=None, 
+#            st_lj=None, st_rj=None, st_gate=None, **kw):
+        st_lstrokes = list(self.st_wires)
+#        if st_li is not None:
+#            st_lstrokes[idx] = st_li
+#        if st_lj is not None:
+#            st_lstrokes[jdx] = st_lj
+        if st_idx is not None:
+            st_lstrokes[idx] = st_idx
+        if st_jdx is not None:
+            st_lstrokes[jdx] = st_jdx
+        st_rstrokes = list(self.st_wires)
+#        if st_ri is not None:
+#            st_rstrokes[idx] = st_ri
+#        if st_rj is not None:
+#            st_rstrokes[jdx] = st_rj
+        st_gate = st_gate or Box.st_stroke
+        target = Circuit(self.n, st_lstrokes)
+        return CNOT(self.n, idx, jdx, 
+            st_lstrokes=st_lstrokes, st_rstrokes=st_rstrokes,
+            st_gate=st_gate, target=target, **kw)
     get_CX = get_CNOT
 
     def ugly_get_CNOT(self, idx=0, jdx=1):
@@ -830,8 +942,8 @@ class Circuit:
             box = self.get_pair(jdx, idx, tgt, src)
         return box
 
-    def get_CZ(self, idx=0, jdx=1):
-        return CZ(self.n, idx, jdx)
+    def get_CZ(self, idx=0, jdx=1, **kw):
+        return CZ(self.n, idx, jdx, **kw)
 
     def ugly_get_CZ(self, idx=0, jdx=1):
         assert idx != jdx
@@ -855,6 +967,7 @@ class Circuit:
         return S(jdx, 1) * g * S(jdx, 3)
 
     def get_expr_flat(self, expr):
+        assert 0 # fix me
         ops = [Circuit(1).get_identity()]*self.n
         #ops = [self.get_expr(e) for e in expr]
         #ops = []
@@ -968,25 +1081,42 @@ def test_syntax():
     from qumba.syntax import Syntax
 
     syntax = Syntax()
-    CX, H = syntax.CX, syntax.H
+    CX, H, X, Z, S = syntax.CX, syntax.H, syntax.X, syntax.Z, syntax.S
+    CZ = syntax.CZ
     PX, PZ = syntax.PX, syntax.PZ
     MX, MZ = syntax.MX, syntax.MZ
 
-    c = Circuit()
-    op = c.get_PX(0)
-    assert op.target.n == 1
+#    c = Circuit()
+#    op = c.get_PX(0)
+#    assert op.target.n == 1
 
     n = 4
-    c = Circuit(n)
-    prog = CX(n,3)*CX(n,2)*CX(n,1)*CX(n,0)*PX(n)
+    #c = Circuit(n)
+    #prog = CX(n,3)*CX(n,2)*CX(n,1)*CX(n,0)*PX(n)
 
+    n = 5
+    st = [grey]+st_Thick
+    st_wires = [st]*n
+    st_wires[0] = [red]+st_Thick
+    st_wires[2] = [blue]+st_Thick
+    st_wires[n-1] = [black]+st_Thick
+    st_red = [red]+st_Thick
+    st_green = [green]+st_Thick
+    c = Circuit(n, st_wires=st_wires)
+    prog = (
+         H(2)*MX(1)*CX(n-1,3,st_red,st_green)*CX(n-1,2)
+        *CX(n-1,1)*CX(n-1,0)*PX(n, st_stroke=[grey]+st_Thick))
+    #prog = H(1)*MZ(2)*H(1)*MX(2)*H(0)*H(3)*X(2)*Z(1)*S(2)
+
+    print("prog:", prog)
     op = prog*c
+    print("op:", op)
 
     #op = Circuit(2).get_MZ(1)*Circuit(1).get_PX(1)*c.get_PX(0)
     #print(op)
 
     cvs = op.render(width=3, height=3)
-    cvs.writePDFfile("test_px.pdf")
+    cvs.writePDFfile("test_syntax.pdf")
 
 
 
