@@ -141,6 +141,8 @@ class Box(object):
             boxs = self.boxs + [other]
         elif isinstance(other, HBox):
             boxs = [self] + other.boxs
+        elif isinstance(other, Initial): # hack this for Circuit.get_identity
+            return self # <-------------- return
         else:
             boxs = [self, other]
         return HBox(self.nleft, other.nright, boxs, target=boxs[0].target)
@@ -288,6 +290,18 @@ class Box(object):
         return False 
 
 
+class Initial(Box):
+    # hack this for Circuit.get_identity
+    def __init__(self, n):
+        Box.__init__(self, n, n)
+
+    def __add__(self, other):
+        assert 0, "wut"
+
+    def __mul__(self, other):
+        assert 0, "um"
+
+            
 
 class Compound(Box):
     def __init__(self, nleft, nright, boxs=[], **kw):
@@ -624,7 +638,7 @@ class Identity(Relation):
         A = [[1]]
         Relation.__init__(self, A, **kw)
 
-            
+
 def Permutation(perm, *args, **kw):
     n = len(perm)
     assert set(perm) == set(range(n)), "wup"
@@ -795,8 +809,11 @@ class Circuit:
         return Permutation(f, **kw)
 
     def get_identity(self, **kw):
-        f = list(range(self.n))
-        return Permutation(f, st_strokes=build_strokes(self.n, self.st_wires), **kw)
+        #print("get_identity", self.n)
+        # A "ghost" Box that disappears..
+        return Initial(self.n)
+        #f = list(range(self.n))
+        #return Permutation(f, st_strokes=build_strokes(self.n, self.st_wires), **kw)
 
     def get_gate(self, idx, box, **kw):
         n = self.n
@@ -1148,10 +1165,31 @@ def test_syntax():
     #op = Circuit(2).get_MZ(1)*Circuit(1).get_PX(1)*c.get_PX(0)
     #print(op)
 
+
+def test_pauli_web():
+    from qumba.syntax import Syntax
+
+    syntax = Syntax()
+    CX, H, X, Z, S = syntax.CX, syntax.H, syntax.X, syntax.Z, syntax.S
+    CZ = syntax.CZ
+    PX, PZ = syntax.PX, syntax.PZ
+    MX, MZ = syntax.MX, syntax.MZ
+    SX, SZ = syntax.SX, syntax.SZ # Spider's
+
+    a = 0.7
+    st_black = [black]+st_thin
+    st_red = [MultiDeco([red.alpha(a)]+st_THick, st_black)]
+    st_green = [MultiDeco([green.alpha(a)]+st_THick, st_black)]
+
+    #cvs = Canvas()
+    #cvs.stroke(path.line(0,0,1,1), st_red)
+    #cvs.stroke(path.line(1,0,0,1), st_green)
+    #cvs.writePDFfile("test_syntax.pdf")
+
     cvs = Canvas()
     x = y = 0
 
-    st = [black]+st_normal
+    st = st_black
     for (a,b,c) in [
         (st,st,st),
         (st_green,st,st_green),
@@ -1160,7 +1198,6 @@ def test_syntax():
         (st_red,st_red,st_red),
     ]:
         op = SZ(0,2,1, [a,b])*Circuit(1, [c])
-        op = op[0]
         fg = op.render(width=1, height=1)
         cvs.insert(x, y, fg)
         y -= 1.1*fg.get_bound_box().height
@@ -1170,12 +1207,30 @@ def test_syntax():
 
     for a in [st, st_red]:
         op = MX(0)*Circuit(1,[a])
-        op = op[0]
         fg = op.render(width=1, height=1)
         cvs.insert(x, y, fg)
         y -= 1.1*fg.get_bound_box().height
 
     cvs.writePDFfile("test_syntax.pdf")
+
+
+class MultiDeco(Deco):
+    def __init__(self, *st_strokes):
+        Deco.__init__(self)
+        assert len(st_strokes), "umm..?"
+        for st in st_strokes:
+            assert isinstance(st, list)
+        self.st_strokes = list(st_strokes)
+
+    def on_decorate(self, pre, item, post):
+        #print("Highlight.on_decorate")
+        cvs = Canvas()
+        for st in self.st_strokes[:-1]:
+            #print("\t", st)
+            cvs.stroke(item, st)
+        pre.append(cvs)
+        for deco in self.st_strokes[-1]:
+            deco.on_decorate(pre, item, post)
 
 
 
