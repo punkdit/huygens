@@ -29,7 +29,6 @@ from huygens.namespace import *
 del conv # !
 from huygens.argv import argv
 
-
 huygens.config(text="pdflatex", latex_header=r"""
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -120,7 +119,7 @@ class Box(object):
         self.nright = nright
         self.shape = (nleft, nright)
         #if target is None:
-        #    target = Circuit(nleft)
+        #    target = Diagram(nleft)
         self.target = target
         self.__dict__.update(kw)
 
@@ -130,7 +129,7 @@ class Box(object):
 
 #    @property
 #    def target(self):
-#        return Circuit(self.nleft)
+#        return Diagram(self.nleft)
 
     def __mul__(self, other):
         assert isinstance(other, Box)
@@ -141,7 +140,7 @@ class Box(object):
             boxs = self.boxs + [other]
         elif isinstance(other, HBox):
             boxs = [self] + other.boxs
-        elif isinstance(other, Initial): # hack this for Circuit.get_identity
+        elif isinstance(other, Initial): # hack this for Diagram.get_identity
             return self # <-------------- return
         else:
             boxs = [self, other]
@@ -291,7 +290,7 @@ class Box(object):
 
 
 class Initial(Box):
-    # hack this for Circuit.get_identity
+    # hack this for Diagram.get_identity
     def __init__(self, n):
         Box.__init__(self, n, n)
 
@@ -449,6 +448,7 @@ class Spider(Box):
             st_lstrokes = [self.st_stroke]*self.nleft
         if st_rstrokes is None:
             st_rstrokes = [self.st_stroke]*self.nright
+        self.st_stroke = [] # don't put any st here
         self.st_lstrokes = st_lstrokes
         self.st_rstrokes = st_rstrokes
 
@@ -484,6 +484,9 @@ class Spider(Box):
             yc = sum(layout.lys+layout.rys) / (self.nleft + self.nright)
         else:
             yc = y0 + 0.5*height
+        print("Spider.on_render:", self.st_stroke)
+        for st in self.st_rstrokes:
+            print("\t", st)
         for i in range(self.nleft):
             y = layout.lys[i]
             dy = layout.ldys[i]
@@ -723,8 +726,8 @@ class CNOT(Element):
         yi, yj = lys[idx], lys[jdx]
         st_stroke = self.st_gate or self.st_stroke
         cvs.stroke(path.line(x, yi, x, yj), st_stroke)
-        cvs.insert(x, yi, Circuit.gcvs)
-        cvs.insert(x, yj, Circuit.rcvs)
+        cvs.insert(x, yi, Diagram.gcvs)
+        cvs.insert(x, yj, Diagram.rcvs)
 
 
 class CZ(Element):
@@ -744,17 +747,17 @@ class CZ(Element):
         if yi > yj:
             yi, yj = yj, yi
         cvs.stroke(path.line(x, yi, x, yj), self.st_stroke)
-        cvs.insert(x, yi, Circuit.gcvs)
-        cvs.insert(x, yj, Circuit.gcvs)
+        cvs.insert(x, yi, Diagram.gcvs)
+        cvs.insert(x, yj, Diagram.gcvs)
         if (idx+jdx)%2:
             y = conv(yi, yj)
-            cvs.insert(x, y, Circuit.ycvs)
+            cvs.insert(x, y, Diagram.ycvs)
         else:
             y = conv(yi, yj) - 0.5*abs(yj-yi)/abs(idx-jdx)
-            cvs.insert(x, y, Circuit.ycvs)
+            cvs.insert(x, y, Diagram.ycvs)
 
 
-class Circuit:
+class Diagram:
 
     RED = color.rgb(0.9, 0.2, 0.1)
     GREEN = color.rgb(0.3, 0.7, 0.2)
@@ -786,17 +789,17 @@ class Circuit:
         if st_wires is None:
             st_wires = [Box.st_stroke]*n
         self.st_wires = st_wires # argh, i am questioning my sanity... 
-        print("Circuit(%d)"%(self.n,))
-        for st in st_wires:
-            print("\t", st)
+        #print("Diagram(%d)"%(self.n,))
+        #for st in st_wires:
+        #    print("\t", st)
         assert len(st_wires) == self.n
 
     def __str__(self):
-        return "Circuit(%d)"%(self.n,)
+        return "Diagram(%d)"%(self.n,)
     __repr__ = __str__
 
     def __eq__(self, other):
-        assert isinstance(other, Circuit)
+        assert isinstance(other, Diagram)
         return self.n == other.n
 
     def get_P(self, *args):
@@ -844,7 +847,7 @@ class Circuit:
             else:
                 assert isinstance(box, Spider), "umm: %s"%box
                 st_wires += box.st_lstrokes + self.st_wires[idx+box.nright:]
-            target = Circuit(nleft, st_wires)
+            target = Diagram(nleft, st_wires)
         box = VBox(nleft, nright, boxs, target=target, **kw)
         print("box:", box)
         print("box.target:", target)
@@ -853,39 +856,49 @@ class Circuit:
     def get_H(self, idx, **kw):
         box = Spider(1, 1, pip_cvs=self.ycvs, st_stroke=self.st_wires[idx])
         return self.get_gate(idx, box)
+    H = get_H
 
     def get_S(self, idx, phase=1, **kw):
         cvs = self.get_phase(phase, self.gcvs)
         box = Spider(1, 1, pip_cvs=cvs, st_stroke=self.st_wires[idx])
         return self.get_gate(idx, box)
+    S = get_S
 
     def get_X(self, idx, **kw):
         cvs = self.get_phase(2, self.rcvs)
         box = Spider(1, 1, pip_cvs=cvs, st_stroke=self.st_wires[idx])
         return self.get_gate(idx, box)
+    X = get_X
 
     def get_Z(self, idx, **kw):
         cvs = self.get_phase(2, self.gcvs)
         box = Spider(1, 1, pip_cvs=cvs, st_stroke=self.st_wires[idx])
         return self.get_gate(idx, box)
+    Z = get_Z
 
     def get_PX(self, idx, st_stroke=None, **kw):
         st_stroke = st_stroke or Box.st_stroke
         box = Spider(1, 0, pip_cvs=self.gcvs, st_stroke=st_stroke)
         return self.get_gate(idx, box)
+    PX = get_PX
 
     def get_PZ(self, idx, st_stroke=None, **kw):
         st_stroke = st_stroke or Box.st_stroke
         box = Spider(1, 0, pip_cvs=self.rcvs, st_stroke=st_stroke)
         return self.get_gate(idx, box)
+    PZ = get_PZ
 
     def get_MX(self, idx, **kw):
-        box = Spider(0, 1, pip_cvs=self.gcvs, st_stroke=self.st_wires[idx], **kw)
+        #box = Spider(0, 1, pip_cvs=self.gcvs, st_stroke=self.st_wires[idx], **kw)
+        box = Spider(0, 1, pip_cvs=self.gcvs, st_rstrokes=[self.st_wires[idx]], **kw)
         return self.get_gate(idx, box)
+    MX = get_MX
 
     def get_MZ(self, idx, **kw):
-        box = Spider(0, 1, pip_cvs=self.rcvs, st_stroke=self.st_wires[idx], **kw)
+        #box = Spider(0, 1, pip_cvs=self.rcvs, st_stroke=self.st_wires[idx], **kw)
+        box = Spider(0, 1, pip_cvs=self.rcvs, st_rstrokes=[self.st_wires[idx]], **kw)
         return self.get_gate(idx, box)
+    MZ = get_MZ
 
     def get_spider(self, idx, nleft, nright, pip_cvs, st_wires=None, **kw):
         st_lstrokes = st_wires
@@ -896,9 +909,11 @@ class Circuit:
 
     def get_SX(self, idx, nleft, nright, st_wires=None, **kw):
         return self.get_spider(idx, nleft, nright, self.rcvs, st_wires, **kw)
+    SX = get_SX
 
     def get_SZ(self, idx, nleft, nright, st_wires=None, **kw):
         return self.get_spider(idx, nleft, nright, self.gcvs, st_wires, **kw)
+    SZ = get_SZ
 
     def get_pair(self, idx, jdx, lbox, rbox):
         #if idx > jdx:
@@ -959,11 +974,12 @@ class Circuit:
 #        if st_rj is not None:
 #            st_rstrokes[jdx] = st_rj
         st_gate = st_gate or Box.st_stroke
-        target = Circuit(self.n, st_lstrokes)
+        target = Diagram(self.n, st_lstrokes)
         return CNOT(self.n, idx, jdx, 
             st_lstrokes=st_lstrokes, st_rstrokes=st_rstrokes,
             st_gate=st_gate, target=target, **kw)
     get_CX = get_CNOT
+    CX = get_CNOT
 
     def ugly_get_CNOT(self, idx=0, jdx=1):
         assert idx != jdx
@@ -980,6 +996,7 @@ class Circuit:
 
     def get_CZ(self, idx=0, jdx=1, **kw):
         return CZ(self.n, idx, jdx, **kw)
+    CZ = get_CZ
 
     def ugly_get_CZ(self, idx=0, jdx=1):
         assert idx != jdx
@@ -996,15 +1013,17 @@ class Circuit:
         g = self.get_X(idx)
         S = self.get_S
         return S(idx, 1) * g * S(idx, 3)
+    Y = get_Y
 
     def get_CY(self, idx=0, jdx=1):
         g = self.get_CX(idx, jdx)
         S = self.get_S
         return S(jdx, 1) * g * S(jdx, 3)
+    CY = get_CY
 
     def get_expr_flat(self, expr):
         assert 0 # fix me
-        ops = [Circuit(1).get_identity()]*self.n
+        ops = [Diagram(1).get_identity()]*self.n
         #ops = [self.get_expr(e) for e in expr]
         #ops = []
         for e in expr:
@@ -1038,6 +1057,26 @@ class Circuit:
 
 
 
+class MultiDeco(Deco):
+    def __init__(self, *st_strokes):
+        Deco.__init__(self)
+        assert len(st_strokes), "umm..?"
+        for st in st_strokes:
+            assert isinstance(st, list)
+        self.st_strokes = list(st_strokes)
+
+    def on_decorate(self, pre, item, post):
+        #print("Highlight.on_decorate")
+        cvs = Canvas()
+        for st in self.st_strokes[:-1]:
+            #print("\t", st)
+            cvs.stroke(item, st)
+        pre.append(cvs)
+        for deco in self.st_strokes[-1]:
+            deco.on_decorate(pre, item, post)
+
+
+
 def test():
     box = Red(2, 2) * Red(2, 2) + Red(2,2)*Red(2,2)
     box = (Red(2,2)+Red(2,2))*(Red(2,2)+Red(2,2))
@@ -1068,7 +1107,7 @@ def test():
     unit = Green(1, 0)
     #box = mul*(I<<unit)
 
-    s = Circuit(5)
+    s = Diagram(5)
     box = (s.get_H(3) * s.get_S(1) * s.get_CNOT(0, 2) * s.get_CNOT(4, 1)
         * s.get_CZ(0, 1)
         * s.get_CZ(0, 2)
@@ -1087,7 +1126,7 @@ def test():
 def test_rect():
     r0 = 0.6
     r1 = 1.7
-    c = Circuit(4)
+    c = Diagram(4)
     H = Spider(1, 1, pip_cvs=c.ycvs)
     boxs = [H, H, Identity(), Identity()]
     HH = VBox(4, 4, boxs, min_width=r0)
@@ -1124,12 +1163,12 @@ def test_syntax():
     MX, MZ = syntax.MX, syntax.MZ
     SX, SZ = syntax.SX, syntax.SZ # Spider's
 
-#    c = Circuit()
+#    c = Diagram()
 #    op = c.get_PX(0)
 #    assert op.target.n == 1
 
     n = 4
-    #c = Circuit(n)
+    #c = Diagram(n)
     #prog = CX(n,3)*CX(n,2)*CX(n,1)*CX(n,0)*PX(n)
 
     a = 0.5
@@ -1143,13 +1182,13 @@ def test_syntax():
     st_wires[0] = [red]+st_Thick
     st_wires[2] = [blue]+st_Thick
     st_wires[n-1] = [black]+st_Thick
-    c = Circuit(n, st_wires=st_wires)
+    c = Diagram(n, st_wires=st_wires)
     prog = (
          MZ(2)*MX(1)*CX(n-1,3,st_red,st_green)*CX(n-1,2)
         *CX(n-1,1)*CX(n-1,0)*PX(n, st_stroke=[grey]+st_Thick))
     #prog = H(1)*MZ(2)*H(1)*MX(2)*H(0)*H(3)*X(2)*Z(1)*S(2)
 
-    c = Circuit(1, [st_red])
+    c = Diagram(1, [st_red])
     prog = H(1) * SX(0, 2, 1) 
     prog = PZ(0)*MX(0)*SX(0, 1, 3)*SZ(1, 2, 1) * SX(0, 2, 1, [st_green,st_grey]) 
     #prog = SX(0, 1, 2)*SZ(0, 2, 1)
@@ -1162,7 +1201,7 @@ def test_syntax():
     op = prog*c
     print("op:", op)
 
-    #op = Circuit(2).get_MZ(1)*Circuit(1).get_PX(1)*c.get_PX(0)
+    #op = Diagram(2).get_MZ(1)*Diagram(1).get_PX(1)*c.get_PX(0)
     #print(op)
 
 
@@ -1197,7 +1236,7 @@ def test_pauli_web():
         (st_green,st_green,st),
         (st_red,st_red,st_red),
     ]:
-        op = SZ(0,2,1, [a,b])*Circuit(1, [c])
+        op = SZ(0,2,1, [a,b])*Diagram(1, [c])
         fg = op.render(width=1, height=1)
         cvs.insert(x, y, fg)
         y -= 1.1*fg.get_bound_box().height
@@ -1206,32 +1245,12 @@ def test_pauli_web():
     x += 1.1*fg.get_bound_box().width
 
     for a in [st, st_red]:
-        op = MX(0)*Circuit(1,[a])
+        op = MX(0)*Diagram(1,[a])
         fg = op.render(width=1, height=1)
         cvs.insert(x, y, fg)
         y -= 1.1*fg.get_bound_box().height
 
     cvs.writePDFfile("test_syntax.pdf")
-
-
-class MultiDeco(Deco):
-    def __init__(self, *st_strokes):
-        Deco.__init__(self)
-        assert len(st_strokes), "umm..?"
-        for st in st_strokes:
-            assert isinstance(st, list)
-        self.st_strokes = list(st_strokes)
-
-    def on_decorate(self, pre, item, post):
-        #print("Highlight.on_decorate")
-        cvs = Canvas()
-        for st in self.st_strokes[:-1]:
-            #print("\t", st)
-            cvs.stroke(item, st)
-        pre.append(cvs)
-        for deco in self.st_strokes[-1]:
-            deco.on_decorate(pre, item, post)
-
 
 
 
