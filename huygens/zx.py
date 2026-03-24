@@ -484,9 +484,9 @@ class Spider(Box):
             yc = sum(layout.lys+layout.rys) / (self.nleft + self.nright)
         else:
             yc = y0 + 0.5*height
-        print("Spider.on_render:", self.st_stroke)
-        for st in self.st_rstrokes:
-            print("\t", st)
+        #print("Spider.on_render:", self.st_stroke)
+        #for st in self.st_rstrokes:
+        #    print("\t", st)
         for i in range(self.nleft):
             y = layout.lys[i]
             dy = layout.ldys[i]
@@ -792,7 +792,7 @@ class Diagram:
         #print("Diagram(%d)"%(self.n,))
         #for st in st_wires:
         #    print("\t", st)
-        assert len(st_wires) == self.n
+        assert len(st_wires) == self.n, (len(st_wires), self.n)
 
     def __str__(self):
         return "Diagram(%d)"%(self.n,)
@@ -843,10 +843,12 @@ class Diagram:
             if box.nleft==0:
                 st_wires += self.st_wires[idx+1:]
             elif box.nright==0:
-                st_wires += [box.st_stroke] + self.st_wires[idx+1:]
+                st_wires += [box.st_stroke] + self.st_wires[idx:]
             else:
                 assert isinstance(box, Spider), "umm: %s"%box
                 st_wires += box.st_lstrokes + self.st_wires[idx+box.nright:]
+            #print(boxs)
+            #print(st_wires)
             target = Diagram(nleft, st_wires)
         box = VBox(nleft, nright, boxs, target=target, **kw)
         print("box:", box)
