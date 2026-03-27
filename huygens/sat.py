@@ -309,7 +309,6 @@ class Solver(object):
     DEBUG = False
 
     def __init__(self, items=[]):
-        assert len(items)
         self.items = list(items)
         vs = []
         for item in items:
@@ -374,7 +373,8 @@ class Solver(object):
         leqs = self.leqs
         eqs = self.eqs
         n = self.n
-        assert n>0
+        if n==0:
+            return {} # easy !
         weights = [self.vs[i].weight for i in range(n)]
         bounds = [(self.vs[i].vmin, self.vs[i].vmax) for i in range(n)]
         c = numpy.array(weights)
