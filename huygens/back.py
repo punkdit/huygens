@@ -1320,6 +1320,41 @@ class Rotate(Transform):
         cxt.translate(-x, y)
 
 
+class TilePattern(Deco):
+    """
+    A cairo MeshPattern built from squares or triangles.
+    """
+
+    def __init__(self, tiles):
+        self.tiles = []
+        for (pts, fills) in tiles:
+            if len(pts) < 4:
+                pts.append(pts[-1])
+            if len(fills) < 4:
+                fills.append(fills[-1])
+            assert len(pts)==4, len(pts)
+            assert len(fills)==4, len(pts)
+            pts = [(x*SCALE_CM_TO_POINT, y*SCALE_CM_TO_POINT) for (x, y) in pts]
+            self.tiles.append((pts, fills))
+
+    def process_cairo(self, cxt):
+        import cairo
+        m = cairo.MeshPattern()
+        tiles = self.tiles
+        for (pts, fills) in tiles:
+            m.begin_patch()
+            x, y = pts[0]
+            m.move_to(x, -y)
+            for (x,y) in pts[1:]:
+                m.line_to(x, -y)
+            for i in range(4):
+                m.set_corner_color_rgba(i, *fills[i])
+            m.end_patch()
+        cxt.set_source(m)
+
+
+
+
 # ----------------------------------------------------------------------------
 # 
 #

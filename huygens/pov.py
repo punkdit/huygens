@@ -588,6 +588,7 @@ class GPoly(GItem):
         
 
 class GMesh(GItem):
+    "a polygon that uses cairo MeshPattern (via back.Polymesh) to fill"
     def __init__(self, verts, normals, fill, epsilon=1e-2, address=None):
         GItem.__init__(self, verts, epsilon, address)
 
