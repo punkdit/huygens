@@ -615,6 +615,53 @@ class GMesh(GItem):
         cvs.append(p)
 
 
+class GTiled(GItem):
+    def __init__(self, bdys, tiles, fill, stroke=None, lw=None,
+            normal=None, epsilon=1e-2, debug=False, address=None):
+        verts = reduce(add, bdys)
+        GItem.__init__(self, verts, epsilon, address)
+        self.bdys = bdys
+        self.tiles = tiles
+        #print("tiles:", len(tiles), len(tiles[0]), len(tiles[0][0]))
+        self.fill = fill
+        self.stroke = stroke
+        self.lw = lw
+        self.normal = normal
+
+    def render(self, view, cvs):
+        GItem.render(self, cvs)
+        #fill, stroke = view.illuminate(self)
+        fill = self.fill
+        stroke = self.stroke
+
+        #print("GTiled.render")
+        pth = []
+        for c in self.bdys:
+            points = [view.trafo_canvas(v) for v in c]
+            pth.append(path.moveto(*points[0]))
+            for point in points[1:]:
+                pth.append(path.lineto(*point))
+            pth.append(path.closepath())
+        pth = path.path(pth)
+
+        tiles = []
+        for (verts,ns) in self.tiles:
+            #print(verts)
+            #print(ns)
+            fills = [view.illuminate(v, n, fill) for (v,n) in zip(verts, ns)]
+            verts = [view.trafo_canvas(v) for v in verts]
+            #print(fills, verts)
+            tiles.append((verts, fills))
+
+        pattern = TilePattern(tiles)
+        cvs.fill(pth, [pattern])
+        #if stroke is not None:
+        #    cvs.stroke(pth, [RGBA(*stroke)])
+        #if fill is not None:
+        #    cvs.fill(pth, [RGBA(*fill)])
+
+        
+
 class GLine(GItem):
     def __init__(self, v0, v1, lw=1., stroke=(0,0,0,1), st_stroke=[], address=None):
         assert isinstance(v0, Mat)
@@ -1126,6 +1173,15 @@ class View(object):
         verts = [self.trafo_view(v) for v in verts]
         normals = [self.trafo_view_distance(n) for n in normals]
         gitem = GMesh(verts, normals, *args, **kw)
+        self.add_gitem(gitem)
+
+    def add_tiled(self, bdys, tiles, *args, **kw):
+        bdys = [[self.trafo_view(v) for v in verts] for verts in bdys]
+        tiles = [
+        (   [self.trafo_view(v) for v in verts],
+            [self.trafo_view_distance(n) for n in ns])
+            for (verts,ns) in tiles]
+        gitem = GTiled(bdys, tiles, *args, **kw)
         self.add_gitem(gitem)
 
     #def add_ball(self, point, radius, *args, **kw):

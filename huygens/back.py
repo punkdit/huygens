@@ -1328,6 +1328,8 @@ class TilePattern(Deco):
     def __init__(self, tiles):
         self.tiles = []
         for (pts, fills) in tiles:
+            assert len(pts) <= 4
+            assert len(fills) <= 4
             if len(pts) < 4:
                 pts.append(pts[-1])
             if len(fills) < 4:
