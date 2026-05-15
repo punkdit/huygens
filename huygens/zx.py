@@ -560,6 +560,7 @@ class Rect(Box):
 class Relation(Box):
 
     rigid = True
+    cone = 0.5
     def __init__(self, A, lpip_cvs=None, rpip_cvs=None, st_strokes=None, **kw):
         A = numpy.array(A, dtype=int)
         m, n = A.shape
@@ -604,6 +605,10 @@ class Relation(Box):
         lys, rys = layout.lys, layout.rys
         ldys, rdys = layout.ldys, layout.rdys
         A = self.A
+        assert A.shape == (self.nleft, self.nright)
+        assert A.shape == (len(lys), len(rys))
+        assert A.shape == (len(ldys), len(rdys))
+        cone = self.cone
         st_strokes = self.st_strokes
         # index goes top down...
         lys = list(reversed(lys))
@@ -619,8 +624,8 @@ class Relation(Box):
             #    x1, rys[j])
             p = path.curve(
                 x0, lys[i], 
-                conv(x0,x1), lys[i]+ldys[i],
-                conv(x0,x1), rys[j]+rdys[i],
+                conv(x0, x1, cone), lys[i]+ldys[i],
+                conv(x0, x1, 1-cone), rys[j]+rdys[j],
                 x1, rys[j])
             st = self.st_stroke
             if st_strokes is not None:
@@ -632,7 +637,7 @@ class Relation(Box):
             for i in range(self.nleft):
                 cvs.insert(x0, lys[i], lpip_cvs)
         if rpip_cvs is not None:
-            for i in range(self.nleft):
+            for i in range(self.nright):
                 cvs.insert(x1, rys[i], rpip_cvs)
 
 
