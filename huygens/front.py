@@ -297,6 +297,7 @@ class Canvas(Compound):
 
     def show_page(self):
         self.append(Showpage())
+        return self
 
 #    def text_extents(self, text):
 #        dx, dy, width, height, _, _ = text_extents_cairo(text)
