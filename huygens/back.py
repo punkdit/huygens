@@ -1614,7 +1614,7 @@ def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi, relative=True):
         angle2 = angle2 - (floor((angle2-angle1)/(2*pi))-1)*2*pi
 
     if r == 0 or angle1-angle2 == 0:
-        return []
+        return Path([])
 
     subdivisions = int((angle2-angle1)/danglemax)+1
 
