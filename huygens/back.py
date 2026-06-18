@@ -408,6 +408,13 @@ class CurveTo(PathItem):
         self.x2 = x2
         self.y2 = y2
 
+    def __str__(self):
+        return "CurveTo(x0=%.4f, y0=%.4f, x1=%.4f, y1=%.4f, x2=%.4f, y2=%.4f)"%(
+            self.x0, self.y0,
+            self.x1, self.y1,
+            self.x2, self.y2)
+    __repr__ = __str__
+
     def get_length(self, curpos, startpos):
         assert curpos is not None, "no current point"
         # Totally fake the length... shameless!
@@ -1617,6 +1624,7 @@ def arc_to_bezier(x, y, r, angle1, angle2, danglemax=0.5*pi, relative=True):
         return Path([])
 
     subdivisions = int((angle2-angle1)/danglemax)+1
+    #print("arc_to_bezier: subdivisions =", subdivisions)
 
     dangle = (angle2-angle1)/subdivisions
 
