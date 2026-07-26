@@ -59,6 +59,10 @@ class Mat(object):
     def transpose(self):
         return Mat(self.A.transpose())
 
+    @property
+    def t(self):
+        return self.transpose()
+
     def __len__(self):
         return self.shape[0]
 
