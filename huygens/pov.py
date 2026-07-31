@@ -50,7 +50,8 @@ class Mat(object):
 
     def strvec(self):
         v = self.A[:, 0]
-        s = str(list(v))
+        #s = str(list(v))
+        s = "[%s]"%(', '.join("%.4f"%x for x in v))
         return "Mat(%s)"%(s,)
 
     def det(self):
