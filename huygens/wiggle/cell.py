@@ -522,6 +522,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
 
     def post_constrain(self, system):
         if self.on_constrain is not None:
+            #print("running custom on_constrain", self.__class__.__name__, self.on_constrain) # argh, sometimes .on_constrain gets clobbered XXX !!
             self.on_constrain(self, system)
 
     system = None
