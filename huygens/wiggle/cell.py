@@ -272,6 +272,7 @@ class Atom(object):
     assoc = True
 
     def __init__(self, name, **kw):
+        assert type(name) is str
         self.name = name
         #self.__dict__.update(kw)
         for (k,v) in kw.items():
@@ -455,6 +456,10 @@ def dbg_constrain(self, depth):
 
 class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
 
+    # XXX um... propagate (etc.) this attr to all other Atom class'es ?!? XXX
+    aspect = 1.4
+    # XXX
+
     @property
     def depth(self):
         return self.back + self.front
@@ -533,7 +538,7 @@ class Render(Listener): # rename as _Render, RenderAtom, or _Atom ?
         if width is not None and hasattr(self, "left"):
             system.add(self.width == size*width)
         elif width is None and hasattr(self, "w_units"):
-            system.add(self.width == 0.7*size*self.w_units)
+            system.add(self.width == self.aspect*0.5*size*self.w_units)
         if height is not None and hasattr(self, "top"):
             system.add(self.height == size*height)
         elif height is None and hasattr(self, "h_units"):
@@ -661,7 +666,7 @@ class Cell0(Atom):
         kw["pip_cvs"] = self.pip_cvs
         kw["skip"] = self.skip
         kw["on_constrain"] = self.on_constrain
-        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
+        assert self.on_constrain is None, "on_constrain not implemented for %s's"%self.__class__.__name__
         cell = _Cell0(**kw)
         cell = cb(cell)
         check_renderable(cell)
@@ -738,7 +743,7 @@ class DCell0(Compound, Cell0):
         kw["assoc"] = self.assoc
         kw["on_constrain"] = self.on_constrain
         kw["skip"] = self.skip
-        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
+        assert self.on_constrain is None, "on_constrain not implemented for %s's"%self.__class__.__name__
         cells = list(reversed(self.cells)) if d_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _DCell0(cells, **kw)
@@ -845,7 +850,7 @@ class Cell1(Atom):
         kw["_width"] = self._width
         kw["skip"] = self.skip
         kw["on_constrain"] = self.on_constrain
-        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
+        assert self.on_constrain is None, "on_constrain not implemented for %s's"%self.__class__.__name__
         cell = _Cell1(tgt, src, **kw)
         cell = cb(cell)
         check_renderable(cell)
@@ -1220,7 +1225,7 @@ class DCell1(Compound, Cell1):
         kw["skip"] = self.skip
         kw["assoc"] = self.assoc
         kw["on_constrain"] = self.on_constrain
-        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
+        assert self.on_constrain is None, "on_constrain not implemented for %s's"%self.__class__.__name__
         cells = self.cells
         if d_rev:
             cells = list(reversed(cells))
@@ -1400,7 +1405,7 @@ class HCell1(Compound, Cell1):
         kw["skip"] = self.skip
         kw["assoc"] = self.assoc
         kw["on_constrain"] = self.on_constrain
-        assert self.on_constrain is None, "on_constrain not implemented for Cell0's"
+        assert self.on_constrain is None, "on_constrain not implemented for %s's"%self.__class__.__name__
         cells = list(reversed(self.cells)) if h_rev else self.cells
         cells = [cell.translate(h_rev, v_rev, d_rev) for cell in cells]
         cell = _HCell1(cells, **kw)
